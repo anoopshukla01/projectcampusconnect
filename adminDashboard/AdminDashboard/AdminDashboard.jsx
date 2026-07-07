@@ -1,37 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '@admin/admin.shared.css';
-
-const ROLE_OVERVIEW = [
-  { role: 'Students',       total: 1248, active: 1192, pending: 56,  status: 'healthy'  },
-  { role: 'Faculty',        total: 87,   active: 84,   pending: 3,   status: 'healthy'  },
-  { role: 'Placement Cell', total: 4,    active: 4,    pending: 0,   status: 'healthy'  },
-  { role: 'Admins',         total: 2,    active: 2,    pending: 0,   status: 'healthy'  },
-];
-
-const ACTIVITY = [
-  { icon: '📋', text: 'Google shortlisted 18 students',         time: '12m ago',  cls: 'ad-act-green'  },
-  { icon: '👤', text: 'Dr. Mehra updated roster for CS301',     time: '34m ago',  cls: 'ad-act-blue'   },
-  { icon: '🚫', text: '3 students flagged — incomplete profile', time: '1h ago',   cls: 'ad-act-rose'   },
-  { icon: '📢', text: 'Holiday notice broadcast sent',          time: '2h ago',   cls: 'ad-act-violet' },
-  { icon: '🏢', text: 'Amazon drive added for Dec 18',          time: '3h ago',   cls: 'ad-act-amber'  },
-  { icon: '✅', text: 'Prof. Rao account approved',             time: '5h ago',   cls: 'ad-act-blue'   },
-];
-
-const SYSTEM_STATUS = [
-  { label: 'Student Portal',     status: 'up'   },
-  { label: 'Placement Module',   status: 'up'   },
-  { label: 'Email Notifications',status: 'up'   },
-  { label: 'PDF Export Service', status: 'warn' },
-  { label: 'SMS Alerts',         status: 'down' },
-];
-
-const STATS = [
-  { label: 'Total Students', value: '1,248', sub: '56 pending approvals', icon: 'students', color: 'blue',   badge: '+23 this month' },
-  { label: 'Faculty Members', value: '87',   sub: '3 new this semester', icon: 'faculty',  color: 'violet', badge: '+3 new'         },
-  { label: 'Placement Rate',  value: '67%',  sub: '834 placed / batch 2021', icon: 'place', color: 'teal',  badge: '↑ 5% YoY'      },
-  { label: 'Active Drives',   value: '12',   sub: '340 total applications', icon: 'drives', color: 'rose',  badge: '6 upcoming'    },
-];
 
 const IconStudents = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IconFaculty  = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>;
@@ -47,6 +16,108 @@ const statusPill = (s) => {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    totalStudents: 0,
+    pendingStudents: 0,
+    facultyMembers: 0,
+    pendingFaculty: 0,
+    placementRate: 0,
+    activeDrives: 0,
+    roleOverview: [
+      { role: 'Students',       total: 0, active: 0, pending: 0 },
+      { role: 'Faculty',        total: 0, active: 0, pending: 0 },
+      { role: 'Placement Cell', total: 0, active: 0, pending: 0 },
+      { role: 'Admins',         total: 0, active: 0, pending: 0 },
+    ],
+    activity: [],
+    systemStatus: [
+      { label: 'Student Portal',     status: 'up'   },
+      { label: 'Placement Module',   status: 'up'   },
+      { label: 'Email Notifications',status: 'up'   },
+      { label: 'PDF Export Service', status: 'up'   },
+      { label: 'SMS Alerts',         status: 'up'   },
+    ]
+  });
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // Fetch users to count roles
+        const usersRes = await fetch('/api/v1/admin/users?per_page=100', { headers });
+        const usersData = await usersRes.json();
+        
+        // Fetch placement analytics for placement rate
+        const placementRes = await fetch('/api/v1/admin/analytics/placement', { headers });
+        const placementData = await placementRes.json();
+
+        // Fetch drives
+        const drivesRes = await fetch('/api/v1/placement/drives', { headers });
+        const drivesData = await drivesRes.json();
+
+        // Fetch audit logs
+        const auditRes = await fetch('/api/v1/admin/audit-logs?per_page=6', { headers });
+        const auditData = await auditRes.json();
+
+        if (usersRes.ok) {
+          const users = usersData.users || [];
+          
+          const students = users.filter(u => u.role === 'student');
+          const faculty = users.filter(u => u.role === 'professor');
+          const tpo = users.filter(u => u.role === 'placement_cell');
+          const admins = users.filter(u => u.role === 'admin');
+
+          const pendingStudents = students.filter(u => !u.is_active).length;
+          const pendingFaculty = faculty.filter(u => !u.is_active).length;
+
+          // Placement rate from actual placement analytics
+          const totalPlacements = placementRes.ok ? (placementData.placements_this_year || 0) : 0;
+          const placementRatePct = students.length > 0 ? Math.round((totalPlacements / students.length) * 100) : 0;
+
+          // Activity logs mapping
+          const activityLogs = auditRes.ok ? (auditData.logs || []).map(log => ({
+            icon: log.action.includes('invite') ? '✉️' : log.action.includes('approve') ? '✅' : '📋',
+            text: `${log.action.replace('admin.', '').replace('.', ' ')}: ${log.detail?.email || log.target_type || ''}`,
+            time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            cls: log.action.includes('reject') ? 'ad-act-rose' : 'ad-act-blue'
+          })) : [];
+
+          setData(prev => ({
+            ...prev,
+            totalStudents: students.length,
+            pendingStudents,
+            facultyMembers: faculty.length,
+            pendingFaculty,
+            placementRate: placementRatePct,
+            activeDrives: drivesRes.ok ? (drivesData.drives || []).length : 0,
+            roleOverview: [
+              { role: 'Students',       total: students.length, active: students.filter(u => u.is_active).length, pending: pendingStudents },
+              { role: 'Faculty',        total: faculty.length, active: faculty.filter(u => u.is_active).length, pending: pendingFaculty },
+              { role: 'Placement Cell', total: tpo.length, active: tpo.filter(u => u.is_active).length, pending: 0 },
+              { role: 'Admins',         total: admins.length, active: admins.filter(u => u.is_active).length, pending: 0 },
+            ],
+            activity: activityLogs,
+          }));
+        }
+      } catch (err) {
+        console.error('Error loading admin dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const STATS = [
+    { label: 'Total Students', value: loading ? '...' : data.totalStudents, sub: `${data.pendingStudents} pending approvals`, icon: 'students', color: 'blue',   badge: 'Registered' },
+    { label: 'Faculty Members', value: loading ? '...' : data.facultyMembers,   sub: `${data.pendingFaculty} pending approvals`, icon: 'faculty',  color: 'violet', badge: 'Active'         },
+    { label: 'Placement Rate',  value: loading ? '...' : `${data.placementRate}%`,  sub: 'Accepted offers rate', icon: 'place', color: 'teal',  badge: 'Live Status'      },
+    { label: 'Active Drives',   value: loading ? '...' : data.activeDrives,   sub: 'Drives this year', icon: 'drives', color: 'rose',  badge: 'Ongoing'    },
+  ];
 
   const quickActions = [
     { label: 'Analytics',     icon: '📊', path: '/admin/analytics'    },
@@ -125,12 +196,12 @@ export default function AdminDashboard() {
                 <tr><th>Role</th><th>Total</th><th>Active</th><th>Pending</th><th>Status</th></tr>
               </thead>
               <tbody>
-                {ROLE_OVERVIEW.map(r => (
+                {data.roleOverview.map(r => (
                   <tr key={r.role}>
                     <td><strong>{r.role}</strong></td>
                     <td>{r.total}</td>
                     <td>{r.active}</td>
-                    <td>{r.pending > 0 ? <span style={{color:'#f59e0b',fontWeight:700}}>{r.pending}</span> : <span style={{color:'#4ade80'}}>—</span>}</td>
+                    <td>{r.pending > 0 ? <span style={{color:'#f59e0b',fontWeight:700}}>{r.pending}</span> : <span style={{color:'var(--clr-muted)'}}>—</span>}</td>
                     <td><span className="ad-dot ad-dot-green" /><span style={{color:'#4ade80',fontWeight:600}}>Healthy</span></td>
                   </tr>
                 ))}
@@ -147,13 +218,17 @@ export default function AdminDashboard() {
               <button className="ad-link" onClick={() => navigate('/admin/audit')}>See all →</button>
             </div>
             <ul className="ad-activity-list">
-              {ACTIVITY.map((a, i) => (
+              {data.activity.length > 0 ? data.activity.map((a, i) => (
                 <li key={i} className="ad-activity-item">
                   <span className={`ad-act-icon ${a.cls}`}>{a.icon}</span>
                   <span className="ad-activity-text">{a.text}</span>
                   <span className="ad-activity-time">{a.time}</span>
                 </li>
-              ))}
+              )) : (
+                <li style={{ color: 'var(--clr-muted)', fontSize: '0.825rem', padding: '1rem 0', textAlign: 'center' }}>
+                  No recent activity logs recorded.
+                </li>
+              )}
             </ul>
           </div>
 
@@ -162,7 +237,7 @@ export default function AdminDashboard() {
               <h2 className="ad-card-title">System Status</h2>
             </div>
             <div className="ad-status-list">
-              {SYSTEM_STATUS.map(s => (
+              {data.systemStatus.map(s => (
                 <div key={s.label} className="ad-status-row">
                   <span>{s.label}</span>
                   {statusPill(s.status)}

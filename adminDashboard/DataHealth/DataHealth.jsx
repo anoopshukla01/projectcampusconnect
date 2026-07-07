@@ -1,39 +1,101 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
-
-const ISSUES = [
-  { id:'S003', name:'Priya Kapoor',    branch:'EC', fields:['Phone number','Resume','10th marksheet'], days:8,  severity:'high'   },
-  { id:'S041', name:'Amit Verma',      branch:'ME', fields:['Resume','12th marksheet'],               days:14, severity:'high'   },
-  { id:'S077', name:'Rohit Jaiswal',   branch:'CS', fields:['Phone number'],                          days:3,  severity:'medium' },
-  { id:'S102', name:'Divya Nair',      branch:'EE', fields:['Photo','Address'],                       days:5,  severity:'medium' },
-  { id:'S119', name:'Snehal Patil',    branch:'CE', fields:['Semester marksheet'],                    days:2,  severity:'low'    },
-  { id:'S143', name:'Tarun Gupta',     branch:'CS', fields:['LinkedIn URL'],                          days:1,  severity:'low'    },
-];
-
-const CONSENT_DATA = [
-  { label:'Data sharing consent given',      pct:94, color:'#22c55e' },
-  { label:'Marketing opt-in',               pct:61, color:'#6366f1' },
-  { label:'Third-party recruiter consent',  pct:79, color:'#3b82f6' },
-  { label:'Background check authorised',    pct:88, color:'#f59e0b' },
-];
-
-const ACCESS_LOG = [
-  { entity:'Google Recruiting',  type:'company',   accessed:'Resume bank',     date:'Dec 5, 09:14', students:48 },
-  { entity:'TPO Admin',          type:'staff',     accessed:'CGPA export',     date:'Dec 4, 17:30', students:320},
-  { entity:'Dr. Rohan Mehra',    type:'professor', accessed:'Student profiles', date:'Dec 4, 11:05', students:64 },
-  { entity:'Microsoft HR',       type:'company',   accessed:'Resume bank',     date:'Dec 3, 14:20', students:36 },
-  { entity:'Admin',              type:'admin',     accessed:'Full DB export',  date:'Dec 2, 10:00', students:1248},
-];
 
 const SEV_COLOR = { high:'ad-badge-inactive', medium:'ad-badge-pending', low:'ad-badge-info' };
 
 export default function DataHealth() {
   const showToast = useToast();
+  const [data, setData] = useState({
+    completePct: 0,
+    totalStudents: 0,
+    consentedPct: 0,
+    consentedCount: 0,
+    incompleteProfiles: [],
+    accessLogs: [],
+    loading: true
+  });
   const [dismissed, setDismissed] = useState([]);
 
-  const visible = ISSUES.filter(i => !dismissed.includes(i.id));
-  const complete = Math.round(((ISSUES.length - visible.length + (1248 - ISSUES.length)) / 1248) * 100);
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // 1. Profile completeness & compliance analytics
+        const analyticRes = await fetch('/api/v1/admin/analytics/profiles', { headers });
+        const analyticData = await analyticRes.json();
+
+        // 2. Student directory for incomplete list
+        const studentsRes = await fetch('/api/v1/students?per_page=100', { headers });
+        const studentsData = await studentsRes.json();
+
+        // 3. Audit logs for data access logs
+        const auditRes = await fetch('/api/v1/admin/audit-logs?per_page=50', { headers });
+        const auditData = await auditRes.json();
+
+        if (analyticRes.ok && studentsRes.ok) {
+          const profileStats = analyticData.profile_completeness || { completed: 0, incomplete: 0, completed_pct: 0 };
+          const complianceStats = analyticData.dpdp_compliance || { consented: 0, pending: 0, consent_pct: 0 };
+          
+          const allStudents = studentsData.students || [];
+          const incompleteList = allStudents
+            .filter(s => !s.profile_complete)
+            .map(s => {
+              const fields = [];
+              if (!s.resume_url) fields.push('Resume');
+              if (!s.linkedin_url) fields.push('LinkedIn URL');
+              if (!s.hostel_address) fields.push('Address');
+              
+              if (fields.length === 0) fields.push('Bio');
+
+              const severity = fields.includes('Resume') ? 'high' : fields.length > 1 ? 'medium' : 'low';
+              
+              return {
+                id: s.roll_no || s.id.slice(0, 8).toUpperCase(),
+                name: s.full_name,
+                branch: s.branch,
+                fields,
+                days: 1,
+                severity
+              };
+            });
+
+          const accessList = auditRes.ok ? (auditData.logs || [])
+            .filter(log => log.action.includes('read') || log.action.includes('export') || log.action.includes('update'))
+            .slice(0, 5)
+            .map(log => {
+              let entity = log.actor_role === 'admin' ? 'Administrator' : log.actor_role === 'placement_cell' ? 'TPO Cell' : 'Faculty Member';
+              return {
+                entity,
+                type: log.actor_role,
+                accessed: log.action.replace('placement.', '').replace('admin.', '').replace('.', ' '),
+                students: log.action.includes('bulk') ? 120 : 1,
+                date: new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              };
+            }) : [];
+
+          setData({
+            completePct: Math.round(profileStats.completed_pct),
+            totalStudents: analyticData.total_students || 0,
+            consentedPct: Math.round(complianceStats.consent_pct),
+            consentedCount: complianceStats.consented || 0,
+            incompleteProfiles: incompleteList,
+            accessLogs: accessList,
+            loading: false
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching Data Health:', err);
+      } finally {
+        setData(prev => ({ ...prev, loading: false }));
+      }
+    }
+    loadData();
+  }, []);
+
+  const visible = data.incompleteProfiles.filter(i => !dismissed.includes(i.id));
   const totalMissing = visible.reduce((s,i) => s+i.fields.length, 0);
 
   function dismiss(id) {
@@ -41,12 +103,19 @@ export default function DataHealth() {
     showToast('Issue marked as resolved.', 'success', 1800);
   }
   function remind(id) {
-    const u = ISSUES.find(i=>i.id===id);
+    const u = data.incompleteProfiles.find(i=>i.id===id);
     showToast(`Reminder sent to ${u.name} to complete their profile.`, 'default', 2500);
   }
   function exportDPDP() {
     showToast('DPDP compliance report exported. (Demo mode)', 'success', 2500);
   }
+
+  const CONSENT_DATA = [
+    { label:'Data sharing consent given',      pct: data.consentedPct, color:'#22c55e' },
+    { label:'Marketing opt-in',               pct: 0, color:'#6366f1' },
+    { label:'Third-party recruiter consent',  pct: 0, color:'#3b82f6' },
+    { label:'Background check authorised',    pct: 0, color:'#f59e0b' },
+  ];
 
   return (
     <div className="ad-root">
@@ -60,10 +129,10 @@ export default function DataHealth() {
       {/* Overview Cards */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'1.25rem'}}>
         {[
-          { label:'Profiles Complete',  value:`${complete}%`,     color:'#4ade80', icon:'✅', sub:`${1248-visible.length} of 1248 students` },
-          { label:'Missing Fields',     value:totalMissing,        color:'#f87171', icon:'⚠️',  sub:`Across ${visible.length} students`       },
-          { label:'Pending Verify',     value:visible.filter(i=>i.severity==='high').length, color:'#fbbf24', icon:'🔍', sub:'High severity items' },
-          { label:'DPDP Compliant',     value:'94%',               color:'#818cf8', icon:'🛡️',  sub:'1,173 of 1,248 students'                 },
+          { label:'Profiles Complete',  value: data.loading ? '...' : `${data.completePct}%`,     color:'#4ade80', icon:'✅', sub:`${data.totalStudents - visible.length} of ${data.totalStudents} students` },
+          { label:'Missing Fields',     value: data.loading ? '...' : totalMissing,        color:'#f87171', icon:'⚠️',  sub:`Across ${visible.length} students`       },
+          { label:'Pending Verify',     value: data.loading ? '...' : visible.filter(i=>i.severity==='high').length, color:'#fbbf24', icon:'🔍', sub:'High severity items' },
+          { label:'DPDP Compliant',     value: data.loading ? '...' : `${data.consentedPct}%`,               color:'#818cf8', icon:'🛡️',  sub:`${data.consentedCount} of ${data.totalStudents} students`                 },
         ].map(c => (
           <div key={c.label} className="ad-card" style={{padding:'1.25rem 1.35rem'}}>
             <div style={{fontSize:'1.6rem',marginBottom:'.35rem'}}>{c.icon}</div>
@@ -117,7 +186,7 @@ export default function DataHealth() {
             <table className="ad-table">
               <thead><tr><th>Entity</th><th>Type</th><th>Data Accessed</th><th>Students</th><th>Date</th></tr></thead>
               <tbody>
-                {ACCESS_LOG.map((l,i) => (
+                {data.accessLogs.map((l,i) => (
                   <tr key={i}>
                     <td><strong>{l.entity}</strong></td>
                     <td><span className="ad-badge ad-badge-info" style={{textTransform:'capitalize'}}>{l.type}</span></td>
@@ -126,6 +195,13 @@ export default function DataHealth() {
                     <td style={{color:'var(--text-secondary)',fontSize:'.78rem'}}>{l.date}</td>
                   </tr>
                 ))}
+                {data.accessLogs.length === 0 && (
+                  <tr>
+                    <td colSpan="5" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', padding: '1.5rem 0', textAlign: 'center' }}>
+                      No data access logs recorded.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

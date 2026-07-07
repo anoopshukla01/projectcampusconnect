@@ -1,17 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
 
-const BRANCHES = [
-  { code:'CS', name:'Computer Science',    students:120, placed:78, avgPkg:18.2, topPkg:42, companies:22, pct:65, color:'#6366f1', status:'good',   hod:'Dr. Vikram Mehta',   rec:null                                         },
-  { code:'EC', name:'Electronics & Comm.', students:90,  placed:51, avgPkg:12.6, topPkg:28, companies:15, pct:57, color:'#3b82f6', status:'good',   hod:'Dr. Anjali Rao',     rec:null                                         },
-  { code:'ME', name:'Mechanical Engg.',    students:72,  placed:28, avgPkg:7.4,  topPkg:14, companies:9,  pct:39, color:'#f59e0b', status:'warn',   hod:'Dr. Suresh Kumar',   rec:'Upskilling needed: Core + Coding'           },
-  { code:'CE', name:'Civil Engg.',         students:58,  placed:18, avgPkg:6.8,  topPkg:12, companies:7,  pct:31, color:'#ef4444', status:'low',    hod:'Dr. Ramesh Iyer',    rec:'Critical: Training in AutoCAD + BIM urgent' },
-  { code:'EE', name:'Electrical Engg.',    students:48,  placed:12, avgPkg:6.2,  topPkg:11, companies:5,  pct:25, color:'#8b5cf6', status:'low',    hod:'Dr. Poonam Sharma',  rec:'Critical: Only 5 companies visited this year'},
-  { code:'CH', name:'Chemical Engg.',      students:40,  placed:10, avgPkg:6.0,  topPkg:10, companies:4,  pct:25, color:'#14b8a6', status:'low',    hod:'Dr. Alok Saxena',    rec:'Critical: Industry tie-ups required urgently'},
-  { code:'IT', name:'Information Tech.',   students:95,  placed:55, avgPkg:14.8, topPkg:32, companies:18, pct:58, color:'#22c55e', status:'good',   hod:'Dr. Priya Kapoor',   rec:null                                         },
-  { code:'BT', name:'Biotechnology',       students:35,  placed:8,  avgPkg:5.5,  topPkg:9,  companies:3,  pct:23, color:'#f43f5e', status:'low',    hod:'Dr. Neha Bose',      rec:'Critical: Very low industry engagement'     },
-];
+const branchMap = {
+  "Computer Science": { code: "CS", hod: "Dr. Vikram Mehta", color: "#6366f1" },
+  "Information Technology": { code: "IT", hod: "Dr. Priya Kapoor", color: "#22c55e" },
+  "Electronics & Comm.": { code: "EC", hod: "Dr. Anjali Rao", color: "#3b82f6" },
+  "Mechanical Engg.": { code: "ME", hod: "Dr. Suresh Kumar", color: "#f59e0b" },
+  "Civil Engg.": { code: "CE", hod: "Dr. Ramesh Iyer", color: "#ef4444" },
+  "Electrical Engg.": { code: "EE", hod: "Dr. Poonam Sharma", color: "#8b5cf6" },
+  "Chemical Engg.": { code: "CH", hod: "Dr. Alok Saxena", color: "#14b8a6" },
+  "Biotechnology": { code: "BT", hod: "Dr. Neha Bose", color: "#f43f5e" }
+};
 
 const STATUS_OPTS = ['All','good','warn','low'];
 const STATUS_LABEL = { good:'🟢 Strong', warn:'🟡 Needs Attention', low:'🔴 Lagging' };
@@ -22,22 +22,72 @@ export default function BranchComparison() {
   const [filter, setFilter]   = useState('All');
   const [sort, setSort]       = useState('pct');
   const [view, setView]       = useState('cards');
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const sorted = [...BRANCHES]
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/v1/admin/analytics/placement', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const list = (data.branch_performance || []).map(b => {
+            const info = branchMap[b.branch] || { code: b.branch.slice(0, 2).toUpperCase(), hod: "TBD", color: "#6366f1" };
+            
+            // Determine status based on placement percentage
+            let status = 'good';
+            if (b.placement_pct < 30) status = 'low';
+            else if (b.placement_pct < 50) status = 'warn';
+
+            // Recommendations
+            let rec = null;
+            if (status === 'low') rec = `Critical: Industry tie-ups and training required urgently.`;
+            else if (status === 'warn') rec = `Upskilling and placement training recommended.`;
+
+            return {
+              code: info.code,
+              name: b.branch,
+              students: b.total_students,
+              placed: b.placed_students,
+              avgPkg: data.avg_package_lpa || 0,
+              companies: 0,
+              pct: b.placement_pct,
+              color: info.color,
+              status,
+              hod: info.hod,
+              rec
+            };
+          });
+          setBranches(list);
+        }
+      } catch (err) {
+        console.error('Error fetching branch performance:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const sorted = [...branches]
     .filter(b => filter==='All' || b.status===filter)
     .sort((a,b) => sort==='pct' ? b.pct-a.pct : sort==='pkg' ? b.avgPkg-a.avgPkg : sort==='students' ? b.students-a.students : 0);
 
   function contactHOD(b) {
-    showToast(`Email drafted to HOD: ${b.hod} (${b.code} Dept). (Demo)`, 'default', 2500);
+    showToast(`Email drafted to HOD: ${b.hod} (${b.code} Dept).`, 'default', 2500);
   }
   function allocateTraining(b) {
     showToast(`Training resource allocation request sent for ${b.code} dept.`, 'success', 2500);
   }
 
   const overall = {
-    totalStudents: BRANCHES.reduce((s,b) => s+b.students, 0),
-    totalPlaced:   BRANCHES.reduce((s,b) => s+b.placed, 0),
-    avgPct:        Math.round(BRANCHES.reduce((s,b)=>s+b.pct,0)/BRANCHES.length),
+    totalEligible: branches.reduce((s,b) => s+b.students, 0),
+    totalPlaced:   branches.reduce((s,b) => s+b.placed, 0),
+    avgPct:        branches.length > 0 ? Math.round(branches.reduce((s,b)=>s+b.pct,0)/branches.length) : 0,
   };
 
   return (
@@ -49,9 +99,9 @@ export default function BranchComparison() {
       {/* Overall Summary */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'1.25rem'}}>
         {[
-          { label:'Total Eligible Students', value:overall.totalStudents, color:'#6366f1' },
-          { label:'Total Placed',            value:overall.totalPlaced,   color:'#4ade80' },
-          { label:'Overall Placement %',     value:`${overall.avgPct}%`,  color:'#fbbf24' },
+          { label:'Total Eligible Students', value:loading ? '...' : overall.totalEligible, color:'#6366f1' },
+          { label:'Total Placed',            value:loading ? '...' : overall.totalPlaced,   color:'#4ade80' },
+          { label:'Overall Placement %',     value:loading ? '...' : `${overall.avgPct}%`,  color:'#fbbf24' },
         ].map(s => (
           <div key={s.label} className="ad-card" style={{padding:'1.25rem 1.35rem'}}>
             <div style={{fontSize:'2rem',fontWeight:800,color:s.color,lineHeight:1}}>{s.value}</div>
@@ -67,7 +117,7 @@ export default function BranchComparison() {
           <span className="ad-badge ad-badge-info">Batch 2024–25</span>
         </div>
         <div style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
-          {[...BRANCHES].sort((a,b) => b.pct-a.pct).map(b => (
+          {branches.length > 0 ? [...branches].sort((a,b) => b.pct-a.pct).map(b => (
             <div key={b.code} style={{display:'flex',alignItems:'center',gap:'1rem'}}>
               <span style={{width:'36px',fontWeight:800,fontSize:'.82rem',color:'var(--text-primary)',flexShrink:0}}>{b.code}</span>
               <div style={{flex:1,height:'11px',background:'var(--border)',borderRadius:'999px',overflow:'hidden'}}>
@@ -76,7 +126,11 @@ export default function BranchComparison() {
               <span style={{fontSize:'.78rem',fontWeight:700,color:b.color,width:'38px',textAlign:'right',flexShrink:0}}>{b.pct}%</span>
               <span style={{fontSize:'.75rem',color:'var(--text-secondary)',width:'80px',textAlign:'right',flexShrink:0}}>₹{b.avgPkg}L avg</span>
             </div>
-          ))}
+          )) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', padding: '1.5rem 0', textAlign: 'center' }}>
+              No department data recorded in the database.
+            </div>
+          )}
         </div>
       </div>
 
@@ -102,7 +156,7 @@ export default function BranchComparison() {
       {/* Cards View */}
       {view==='cards' && (
         <div className="ad-branch-grid">
-          {sorted.map(b => (
+          {sorted.length > 0 ? sorted.map(b => (
             <div key={b.code} className="ad-branch-card">
               <div className="ad-branch-header">
                 <div>
@@ -130,7 +184,11 @@ export default function BranchComparison() {
                 {b.status!=='good' && <button className="ad-btn ad-btn-primary" style={{flex:1,padding:'.35rem',fontSize:'.72rem',justifyContent:'center'}} onClick={() => allocateTraining(b)}>📚 Train</button>}
               </div>
             </div>
-          ))}
+          )) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', padding: '2rem 0', width: '100%', textAlign: 'center' }}>
+              {loading ? 'Loading department data...' : 'No departments match the selected filter.'}
+            </div>
+          )}
         </div>
       )}
 
@@ -143,7 +201,7 @@ export default function BranchComparison() {
                 <tr><th>Branch</th><th>HOD</th><th>Students</th><th>Placed</th><th>%</th><th>Avg CTC</th><th>Companies</th><th>Status</th><th>Actions</th></tr>
               </thead>
               <tbody>
-                {sorted.map(b => (
+                {sorted.length > 0 ? sorted.map(b => (
                   <tr key={b.code}>
                     <td><strong>{b.code}</strong><div style={{fontSize:'.72rem',color:'var(--text-secondary)'}}>{b.name}</div></td>
                     <td style={{fontSize:'.8rem',color:'var(--text-secondary)'}}>{b.hod}</td>
@@ -160,7 +218,13 @@ export default function BranchComparison() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="9" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', padding: '1.5rem 0', textAlign: 'center' }}>
+                      {loading ? 'Loading department data...' : 'No departments match the selected filter.'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
