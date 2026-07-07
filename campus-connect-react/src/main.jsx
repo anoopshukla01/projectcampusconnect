@@ -17,7 +17,7 @@ if (
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     if (typeof input === 'string' && input.startsWith('/api/')) {
-      input = 'http://localhost:5000' + input;
+      input = 'http://127.0.0.1:5000' + input;
     }
     return originalFetch(input, init);
   };
