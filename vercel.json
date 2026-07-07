@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "installCommand": "npm --prefix campus-connect-react install",
   "buildCommand": "npm --prefix campus-connect-react run build",
   "outputDirectory": "campus-connect-react/dist",
   "rewrites": [
