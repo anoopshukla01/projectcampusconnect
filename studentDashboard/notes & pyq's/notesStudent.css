@@ -1,0 +1,208 @@
+/* ════════════════════════════════════════════════
+   StudentSphere – Student Notes & PYQs Styles
+   File: notesStudent.css
+   ════════════════════════════════════════════════ */
+
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.search-box-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+}
+
+.notes-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--clr-muted);
+  pointer-events: none;
+}
+
+#notesSearchInput {
+  width: 100%;
+  font-family: var(--font);
+  font-size: 0.825rem;
+  padding: 0.625rem 1rem 0.625rem 2.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  box-shadow: var(--shadow-card);
+  outline: none;
+  transition: border var(--t);
+}
+
+#notesSearchInput:focus {
+  border-color: var(--clr-primary);
+}
+
+/* File Structure Layout */
+.files-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-bottom: 3.5rem;
+}
+
+.subject-section {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-panel);
+}
+
+.subject-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--clr-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.subject-section-header svg {
+  width: 18px;
+  height: 18px;
+  color: var(--clr-primary);
+}
+
+.subject-section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--clr-text);
+}
+
+.files-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .files-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--clr-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  transition: all var(--t);
+}
+
+.file-row:hover {
+  background: var(--clr-surface);
+  border-color: var(--clr-border);
+  box-shadow: var(--shadow-card);
+}
+
+.file-info-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.file-icon-wrap {
+  width: 32px;
+  height: 32px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--t);
+}
+
+.file-row:hover .file-icon-wrap {
+  background: var(--clr-primary-soft);
+  border-color: rgba(59,130,246,0.25);
+}
+
+.file-icon-wrap svg {
+  width: 16px;
+  height: 16px;
+  color: var(--clr-muted);
+}
+
+.file-row:hover .file-icon-wrap svg {
+  color: var(--clr-primary-dark);
+}
+
+.file-text-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.file-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--clr-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-meta-sub {
+  font-size: 0.65rem;
+  color: var(--clr-muted);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.file-type-badge {
+  font-size: 0.575rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--clr-primary);
+  background: rgba(59,130,246,0.06);
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+}
+
+.file-type-badge.pyq {
+  color: var(--clr-warning);
+  background: rgba(245,158,11,0.06);
+}
+
+/* Download Action */
+.file-dl-btn {
+  background: none;
+  border: none;
+  color: var(--clr-muted);
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--t);
+  flex-shrink: 0;
+}
+
+.file-dl-btn:hover {
+  background: var(--clr-bg);
+  color: var(--clr-text);
+}
+
+.file-dl-btn svg {
+  width: 16px;
+  height: 16px;
+}

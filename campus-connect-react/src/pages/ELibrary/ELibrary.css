@@ -1,0 +1,21 @@
+.lib-controls { display:flex; flex-direction:column; gap:0.75rem; }
+.lib-search-wrap { position:relative; }
+.lib-search-icon { position:absolute; left:0.875rem; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--clr-muted); pointer-events:none; }
+.lib-search { width:100%; padding:0.65rem 0.875rem 0.65rem 2.5rem; border:1.5px solid var(--clr-border); border-radius:var(--radius-md); background:var(--clr-surface); font-family:var(--font); font-size:0.875rem; color:var(--clr-text); outline:none; transition:border-color var(--t); }
+.lib-search:focus { border-color:var(--clr-primary); }
+.lib-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:var(--gap); }
+.lib-empty { grid-column:1/-1; text-align:center; color:var(--clr-muted); font-size:0.85rem; padding:2rem; }
+.book-card { background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); padding:1.125rem; display:flex; flex-direction:column; gap:0.75rem; box-shadow:var(--shadow-card); transition:box-shadow var(--t),transform var(--t); position:relative; }
+.book-card:hover { box-shadow:var(--shadow-panel); transform:translateY(-2px); }
+.avail-indicator { position:absolute; top:0.75rem; right:0.75rem; font-size:0.65rem; font-weight:700; padding:0.15rem 0.5rem; border-radius:99px; }
+.avail-indicator.available  { background:#dcfce7; color:#15803d; }
+.avail-indicator.issued     { background:#fee2e2; color:#b91c1c; }
+.avail-indicator.requested  { background:#fef9c3; color:#854d0e; }
+.book-cover { width:100%; aspect-ratio:3/2; background:var(--clr-primary-soft); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; }
+.book-cover span { font-size:2rem; font-weight:800; color:var(--clr-primary); }
+.book-info { display:flex; flex-direction:column; gap:0.2rem; flex:1; }
+.book-title  { font-size:0.875rem; font-weight:700; color:var(--clr-text); line-height:1.35; }
+.book-author { font-size:0.75rem; color:var(--clr-muted); }
+.book-year   { font-size:0.68rem; color:var(--clr-muted); }
+.listing-btn.disabled   { background:var(--clr-border)!important; color:var(--clr-muted)!important; cursor:not-allowed!important; }
+.listing-btn.requested  { background:var(--clr-warning)!important; }

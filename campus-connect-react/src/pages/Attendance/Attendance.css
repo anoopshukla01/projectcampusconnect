@@ -1,0 +1,75 @@
+/* Attendance Page CSS */
+.attend-top-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); align-items: start; }
+
+.summary-card { display: flex; align-items: center; gap: 1.5rem; }
+
+.circle-wrap { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
+.circle-svg  { width: 96px; height: 96px; transform: rotate(-90deg); }
+.circle-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.circle-pct   { font-size: 1.2rem; font-weight: 800; color: var(--clr-text); }
+.circle-label { font-size: 0.62rem; color: var(--clr-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.summary-info { display: flex; flex-direction: column; gap: 0.3rem; }
+.summary-title  { font-size: 1rem; font-weight: 700; color: var(--clr-text); }
+.summary-sub    { font-size: 0.8rem; color: var(--clr-success); font-weight: 500; }
+.summary-sub.danger-alert { color: var(--clr-danger); }
+.summary-detail { font-size: 0.75rem; color: var(--clr-muted); }
+
+.calc-card { display: flex; flex-direction: column; gap: 0; }
+
+.calc-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  background: var(--clr-input-bg);
+  font-family: var(--font); font-size: 0.85rem;
+  color: var(--clr-text); outline: none;
+  transition: border-color var(--t);
+  margin-bottom: 0.75rem;
+}
+.calc-select:focus { border-color: var(--clr-primary); }
+
+.calc-btns { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+.calc-btn  { flex: 1; font-size: 0.78rem; padding: 0.55rem 0.75rem; }
+
+.calc-result {
+  font-size: 0.82rem; padding: 0.75rem;
+  border-left: 3px solid;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--clr-bg);
+  line-height: 1.5;
+}
+.calc-result.ok { border-color: var(--clr-success); }
+.calc-result.no { border-color: var(--clr-danger); }
+
+.attend-table-wrap { overflow-x: auto; }
+.attend-table { width: 100%; border-collapse: collapse; }
+.attend-table th, .attend-table td {
+  padding: 0.75rem 0.875rem; text-align: left;
+  font-size: 0.825rem; border-bottom: 1px solid var(--clr-border);
+}
+.attend-table th { font-weight: 700; color: var(--clr-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--clr-bg); }
+.attend-table tr:hover td { background: var(--clr-bg); }
+.attend-table tr:last-child td { border-bottom: none; }
+
+.subject-name-cell { font-weight: 600; color: var(--clr-text); }
+.code-cell code { font-size: 0.78rem; background: var(--clr-bg); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); }
+
+.bar-wrap { display: flex; align-items: center; gap: 0.6rem; }
+.bar-fill { height: 6px; border-radius: 3px; min-width: 4px; transition: width 0.5s ease; }
+.bar-pct  { font-size: 0.78rem; font-weight: 600; color: var(--clr-text); white-space: nowrap; }
+
+.status-pill { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 99px; }
+.status-pill.safe     { background: #dcfce7; color: #15803d; }
+.status-pill.warning  { background: #fef9c3; color: #854d0e; }
+.status-pill.critical { background: #fee2e2; color: #b91c1c; }
+
+@media (max-width: 768px) {
+  .attend-top-row { grid-template-columns: 1fr; }
+  .summary-card { flex-direction: column; text-align: center; }
+  .calc-btns { flex-direction: column; }
+}

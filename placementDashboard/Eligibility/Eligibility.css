@@ -1,0 +1,27 @@
+/* ===== Eligibility Engine ===== */
+.el-drive-selector { margin-bottom: .5rem; }
+.el-drive-cards { display: flex; gap: .75rem; flex-wrap: wrap; }
+.el-drive-card {
+  display: flex; flex-direction: column; gap: .4rem;
+  padding: .85rem 1.1rem; border-radius: .875rem;
+  border: 1px solid var(--border); background: var(--surface);
+  cursor: pointer; text-align: left; transition: all .18s; min-width: 160px;
+}
+.el-drive-card.active, .el-drive-card:hover { border-color: #6366f1; background: rgba(99,102,241,.08); }
+.el-drive-company { font-weight: 700; font-size: .95rem; color: var(--text-primary); }
+.el-drive-role { font-size: .78rem; color: var(--text-secondary); }
+.el-drive-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.el-criteria-banner {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: .9rem 1.25rem; border-radius: .875rem;
+  background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.25);
+}
+.el-criteria-title { font-size: .85rem; color: var(--text-secondary); }
+.el-criteria-pills { display: flex; gap: .4rem; flex-wrap: wrap; flex: 1; }
+.el-eligible-count { font-size: .9rem; font-weight: 700; color: #818cf8; margin-left: auto; }
+.el-count-label { font-size: .85rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+
+.el-cgpa { padding: .15rem .5rem; border-radius: .4rem; font-weight: 700; font-size: .85rem; }
+.el-cgpa.pass { background: rgba(34,197,94,.12); color: #4ade80; }
+.el-cgpa.fail { background: rgba(239,68,68,.12); color: #f87171; }

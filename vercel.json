@@ -1,0 +1,11 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm --prefix campus-connect-react run build",
+  "outputDirectory": "campus-connect-react/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

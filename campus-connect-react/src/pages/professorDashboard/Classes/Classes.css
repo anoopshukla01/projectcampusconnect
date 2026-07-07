@@ -1,0 +1,63 @@
+.classes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--gap);
+  margin-top: 1rem;
+}
+.class-page-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--t), transform var(--t);
+}
+.class-page-card:hover {
+  box-shadow: var(--shadow-panel);
+  transform: translateY(-2px);
+}
+.class-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.class-code {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--clr-primary);
+  background: var(--clr-primary-soft);
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+}
+.student-count-badge {
+  font-size: 0.75rem;
+  color: var(--clr-muted);
+  font-weight: 600;
+}
+.class-name-large {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--clr-text);
+  line-height: 1.3;
+}
+.class-card-desc {
+  font-size: 0.8rem;
+  color: var(--clr-muted);
+}
+.class-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--clr-border);
+}
+.class-card-actions button {
+  font-size: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  flex: 1;
+  min-width: 90px;
+}

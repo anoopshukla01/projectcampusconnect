@@ -1,0 +1,7 @@
+.grades-summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); }
+.grade-stat-card { background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); padding:1.25rem; display:flex; flex-direction:column; align-items:center; gap:0.25rem; box-shadow:var(--shadow-card); }
+.grade-stat-val   { font-size:2rem; font-weight:800; color:var(--clr-primary); }
+.grade-stat-label { font-size:0.72rem; font-weight:600; color:var(--clr-muted); text-align:center; }
+.grade-pill { font-size:0.8rem; font-weight:700; padding:0.2rem 0.55rem; border-radius:99px; }
+@media (max-width:768px) { .grades-summary-row { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:480px) { .grades-summary-row { grid-template-columns:1fr; } }

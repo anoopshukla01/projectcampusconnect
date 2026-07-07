@@ -1,0 +1,56 @@
+/* ===== Companies CRM ===== */
+.co-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+.co-sector-tabs { display: flex; gap: .35rem; flex-wrap: wrap; }
+.co-sector-tab {
+  padding: .35rem .9rem; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-secondary); font-size: .78rem;
+  font-weight: 600; cursor: pointer; transition: all .16s;
+}
+.co-sector-tab.active,
+.co-sector-tab:hover { background: #6366f1; color: #fff; border-color: #6366f1; }
+
+.co-summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem;
+}
+.co-sum-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: .875rem;
+  padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .2rem;
+}
+.co-sum-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+.co-sum-label { font-size: .75rem; color: var(--text-secondary); font-weight: 500; }
+
+.co-table .co-company-cell { display: flex; align-items: center; gap: .65rem; }
+.co-logo {
+  width: 32px; height: 32px; border-radius: 8px; background: rgba(99,102,241,.18);
+  color: #818cf8; font-weight: 800; font-size: .72rem; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.co-sector-badge {
+  display: inline-flex; padding: .2rem .6rem; border-radius: 999px; font-size: .72rem;
+  font-weight: 600; background: rgba(99,102,241,.12); color: #818cf8;
+}
+.co-email { color: var(--text-secondary); font-size: .82rem; }
+.co-actions { display: flex; gap: .35rem; }
+.co-action-btn {
+  width: 30px; height: 30px; border-radius: .5rem; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: var(--text-secondary); transition: all .16s;
+}
+.co-action-btn svg { width: 14px; height: 14px; }
+.co-action-btn:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,.08); }
+.co-action-del:hover { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.08); }
+.co-empty { text-align: center; color: var(--text-secondary); padding: 2rem; font-size: .9rem; }
+
+.pd-badge-inactive { background: rgba(100,116,139,.15); color: #94a3b8; }
+
+/* Modal */
+.co-modal { max-width: 600px; }
+.co-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.co-field { display: flex; flex-direction: column; gap: .3rem; }
+.co-label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); }
+.co-input {
+  padding: .6rem .85rem; border: 1px solid var(--border); border-radius: .65rem;
+  background: var(--bg); color: var(--text-primary); font-size: .88rem;
+  transition: border-color .16s;
+}
+.co-input:focus { outline: none; border-color: #6366f1; }

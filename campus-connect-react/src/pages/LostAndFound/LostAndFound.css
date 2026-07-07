@@ -1,0 +1,14 @@
+.laf-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:var(--gap); }
+.laf-card { background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); padding:1.25rem; display:flex; gap:0.875rem; align-items:flex-start; box-shadow:var(--shadow-card); transition:box-shadow var(--t); }
+.laf-card:hover { box-shadow:var(--shadow-panel); }
+.laf-card.lost  { border-left:3px solid var(--clr-danger); }
+.laf-card.found { border-left:3px solid var(--clr-success); }
+.laf-icon-wrap { font-size:2rem; flex-shrink:0; width:48px; height:48px; background:var(--clr-bg); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; }
+.laf-body  { flex:1; min-width:0; display:flex; flex-direction:column; gap:0.3rem; }
+.laf-badge { font-size:0.62rem; font-weight:700; letter-spacing:0.06em; }
+.laf-badge.lost  { color:var(--clr-danger); }
+.laf-badge.found { color:var(--clr-success); }
+.laf-title   { font-size:0.9rem; font-weight:700; color:var(--clr-text); }
+.laf-meta    { font-size:0.75rem; color:var(--clr-muted); }
+.laf-contact { font-size:0.75rem; color:var(--clr-text-2); font-weight:500; }
+.laf-btn { margin-top:0.5rem; font-size:0.75rem; padding:0.4rem 0.8rem; align-self:flex-start; }

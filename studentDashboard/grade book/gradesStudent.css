@@ -1,0 +1,233 @@
+/* ════════════════════════════════════════════════
+   StudentSphere – Student Grades Styles
+   File: gradesStudent.css
+   ════════════════════════════════════════════════ */
+
+.grades-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1.5fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 950px) {
+  .grades-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gpa-summary-card, .gpa-details-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  margin-bottom: 1.25rem;
+}
+
+/* SGPA Chart Columns */
+.chart-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 180px;
+  border-bottom: 2px solid var(--clr-border);
+  padding: 1rem 0.5rem 0;
+  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+}
+
+.chart-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 0.5rem;
+}
+
+.chart-bar-wrap {
+  width: 100%;
+  max-width: 32px;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.chart-bar {
+  width: 100%;
+  background: var(--clr-primary-soft);
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s ease, background var(--t);
+  position: relative;
+}
+
+.chart-bar:hover {
+  background: var(--clr-primary);
+}
+
+.chart-bar-val {
+  position: absolute;
+  top: -1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.675rem;
+  font-weight: 700;
+  color: var(--clr-text-2);
+}
+
+.chart-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--clr-muted);
+}
+
+/* CGPA Target Calculator */
+.calc-box {
+  background: rgba(243, 244, 248, 0.4);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 1.125rem;
+}
+
+.calc-box h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  margin-bottom: 0.35rem;
+}
+
+.calc-desc {
+  font-size: 0.75rem;
+  color: var(--clr-muted);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+.estimator-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--clr-text-2);
+}
+
+.input-wrap input {
+  font-family: var(--font);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  width: 80px;
+  outline: none;
+  transition: border var(--t);
+}
+
+.input-wrap input:focus {
+  border-color: var(--clr-primary);
+}
+
+.calc-btn {
+  background: var(--clr-primary);
+  color: var(--clr-surface);
+  border: none;
+  font-size: 0.775rem;
+  font-weight: 700;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--t);
+}
+
+.calc-btn:hover {
+  background: var(--clr-primary-dark);
+}
+
+.estimate-result {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--clr-text-2);
+  background: var(--clr-surface);
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--clr-primary);
+  line-height: 1.4;
+}
+
+/* Latest Grades Details */
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--clr-border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.details-header .card-heading {
+  margin-bottom: 0;
+}
+
+.cgpa-stat {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--clr-primary-dark);
+}
+
+.grades-table-wrap {
+  overflow-x: auto;
+}
+
+.grades-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.grades-table th, .grades-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.grades-table th {
+  background: rgba(243, 244, 248, 0.6);
+  font-weight: 700;
+  color: var(--clr-text-2);
+}
+
+.grades-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.grade-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+}
+
+.grade-badge.a-plus { background: rgba(34, 197, 94, 0.08); color: var(--clr-success); }
+.grade-badge.a { background: rgba(59, 130, 246, 0.08); color: var(--clr-primary); }
+.grade-badge.b-plus { background: rgba(245, 158, 11, 0.08); color: var(--clr-warning); }
+.grade-badge.b { background: rgba(107, 114, 128, 0.08); color: var(--clr-muted); }
+.grade-badge.o { background: rgba(168, 85, 247, 0.08); color: #7c3aed; }

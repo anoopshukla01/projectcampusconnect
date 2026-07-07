@@ -1,0 +1,151 @@
+/* ════════════════════════════════════════════════
+   StudentSphere – Student Events Styles
+   File: eventsStudent.css
+   ════════════════════════════════════════════════ */
+
+.events-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 3.5rem;
+}
+
+.event-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--t), border var(--t);
+}
+
+.event-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59,130,246,0.15);
+}
+
+.event-banner {
+  height: 120px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.event-banner.fest {
+  background: linear-gradient(135deg, #701a75 0%, #d946ef 100%);
+}
+
+.event-banner.hackathon {
+  background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
+}
+
+.event-banner.workshop {
+  background: linear-gradient(135deg, #7c2d12 0%, #f97316 100%);
+}
+
+.event-banner-icon {
+  width: 48px;
+  height: 48px;
+  color: rgba(255,255,255,0.3);
+}
+
+.event-category-tag {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  background: rgba(0,0,0,0.2);
+}
+
+.event-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-grow: 1;
+}
+
+.event-organizer {
+  font-size: 0.675rem;
+  font-weight: 700;
+  color: var(--clr-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.event-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--clr-text);
+  line-height: 1.3;
+}
+
+.event-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--clr-text-2);
+  margin-top: 0.25rem;
+}
+
+.event-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.event-detail-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--clr-muted);
+}
+
+/* Footer / Action */
+.event-footer {
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid var(--clr-border);
+  background: rgba(243, 244, 248, 0.4);
+}
+
+.event-btn {
+  width: 100%;
+  background: var(--clr-primary);
+  color: var(--clr-surface);
+  border: none;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--t);
+}
+
+.event-btn:hover {
+  background: var(--clr-primary-dark);
+}
+
+.event-btn.registered {
+  background: var(--clr-success);
+  cursor: default;
+}

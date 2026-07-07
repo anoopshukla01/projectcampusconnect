@@ -1,0 +1,197 @@
+/* ════════════════════════════════════════════════
+   StudentSphere – Student Library Styles
+   File: elibraryStudent.css
+   ════════════════════════════════════════════════ */
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.search-box-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 280px;
+}
+
+.lib-search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--clr-muted);
+  pointer-events: none;
+}
+
+#libSearchInput {
+  width: 100%;
+  font-family: var(--font);
+  font-size: 0.825rem;
+  padding: 0.625rem 1rem 0.625rem 2.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  box-shadow: var(--shadow-card);
+  outline: none;
+  transition: border var(--t);
+}
+
+#libSearchInput:focus {
+  border-color: var(--clr-primary);
+}
+
+/* Library Grid */
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 3rem;
+}
+
+.book-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--t), border var(--t);
+}
+
+.book-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59,130,246,0.15);
+}
+
+.book-cover-placeholder {
+  height: 160px;
+  background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.25);
+  position: relative;
+}
+
+.book-cover-placeholder svg {
+  width: 42px;
+  height: 42px;
+}
+
+.genre-tag {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+}
+
+.book-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-grow: 1;
+}
+
+.book-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  line-height: 1.3;
+}
+
+.book-author {
+  font-size: 0.725rem;
+  color: var(--clr-muted);
+}
+
+.book-meta {
+  font-size: 0.7rem;
+  color: var(--clr-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.avail-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.675rem;
+  font-weight: 700;
+}
+
+.avail-indicator::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.avail-indicator.available::before { background: var(--clr-success); }
+.avail-indicator.issued::before { background: var(--clr-warning); }
+.avail-indicator.requested::before { background: var(--clr-primary); }
+
+/* Book Footer */
+.book-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--clr-border);
+  background: rgba(243, 244, 248, 0.4);
+}
+
+.book-action-btn {
+  flex: 1;
+  font-family: var(--font);
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--t);
+  outline: none;
+}
+
+.book-action-btn.primary {
+  background: var(--clr-primary);
+  color: var(--clr-surface);
+  border: none;
+}
+
+.book-action-btn.primary:hover {
+  background: var(--clr-primary-dark);
+}
+
+.book-action-btn.primary.disabled {
+  background: var(--clr-bg);
+  color: var(--clr-muted);
+  border: 1px solid var(--clr-border);
+  cursor: not-allowed;
+}
+
+.book-action-btn.secondary {
+  background: var(--clr-surface);
+  color: var(--clr-text-2);
+  border: 1px solid var(--clr-border);
+}
+
+.book-action-btn.secondary:hover {
+  background: var(--clr-bg);
+}

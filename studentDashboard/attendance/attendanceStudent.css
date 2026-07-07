@@ -1,0 +1,314 @@
+/* ════════════════════════════════════════════════
+   StudentSphere – Student Attendance Styles
+   File: attendanceStudent.css
+   ════════════════════════════════════════════════ */
+
+.attendance-summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 900px) {
+  .attendance-summary-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--clr-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+}
+
+.main-pct {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Percentage Circle Progress */
+.pct-circle-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0.5rem 0;
+}
+
+.pct-circle-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.circle-bg {
+  fill: none;
+  stroke: var(--clr-bg);
+  stroke-width: 3.2;
+}
+
+.circle-fill {
+  fill: none;
+  stroke: var(--clr-success);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+.pct-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--clr-text);
+}
+
+.summary-sub {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--clr-success);
+  margin-top: 0.75rem;
+}
+
+.summary-sub.danger-alert {
+  color: var(--clr-danger);
+}
+
+/* Bunk Calculator Form */
+.bunk-calc-card {
+  justify-content: space-between;
+}
+
+.calc-description {
+  font-size: 0.825rem;
+  color: var(--clr-muted);
+  line-height: 1.4;
+  margin-bottom: 1rem;
+}
+
+.calc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.calc-form select {
+  font-family: var(--font);
+  font-size: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-bg);
+  outline: none;
+  transition: border var(--t);
+}
+
+.calc-form select:focus {
+  border-color: var(--clr-primary);
+}
+
+.calc-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.calc-btn {
+  flex: 1;
+  background: var(--clr-primary);
+  color: var(--clr-surface);
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.625rem;
+  border-radius: var(--radius-md);
+  transition: background var(--t);
+}
+
+.calc-btn:hover {
+  background: var(--clr-primary-dark);
+}
+
+.calc-btn.danger {
+  background: var(--clr-bg);
+  color: var(--clr-text);
+  border: 1px solid var(--clr-border);
+}
+
+.calc-btn.danger:hover {
+  background: #fee2e2;
+  color: var(--clr-danger);
+  border-color: #fca5a5;
+}
+
+.calc-result {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--clr-text-2);
+  background: rgba(243, 244, 248, 0.6);
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--clr-primary);
+}
+
+/* ── Subject Grid ────────────────────────────── */
+.section-heading {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--clr-text);
+  margin: 2rem 0 1rem;
+}
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.subject-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform var(--t), border var(--t);
+}
+
+.subject-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59,130,246,0.15);
+}
+
+.sub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sub-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  line-height: 1.3;
+}
+
+.sub-code {
+  font-size: 0.7rem;
+  color: var(--clr-muted);
+  display: block;
+}
+
+.sub-pct-label {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--clr-text);
+}
+
+/* Attendance Bar */
+.sub-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sub-bar {
+  height: 6px;
+  background: var(--clr-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sub-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.sub-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.725rem;
+  color: var(--clr-muted);
+}
+
+.status-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.status-badge.safe { background: rgba(34, 197, 94, 0.08); color: var(--clr-success); }
+.status-badge.warning { background: rgba(245, 158, 11, 0.08); color: var(--clr-warning); }
+.status-badge.critical { background: rgba(239, 68, 68, 0.08); color: var(--clr-danger); }
+
+/* ── Log Table ───────────────────────────────── */
+.log-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.log-table th, .log-table td {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.log-table th {
+  background: rgba(243, 244, 248, 0.6);
+  font-weight: 700;
+  color: var(--clr-text-2);
+}
+
+.log-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.log-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.log-badge.present {
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--clr-success);
+}
+
+.log-badge.absent {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--clr-danger);
+}

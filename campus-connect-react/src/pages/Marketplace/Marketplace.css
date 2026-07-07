@@ -1,0 +1,21 @@
+.market-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:var(--gap); }
+.listing-card { background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-card); transition:box-shadow var(--t),transform var(--t); display:flex; flex-direction:column; }
+.listing-card:hover { box-shadow:var(--shadow-panel); transform:translateY(-2px); }
+.listing-img { height:120px; background:var(--clr-primary-soft); display:flex; align-items:center; justify-content:center; font-size:3rem; }
+.listing-body { padding:1rem; display:flex; flex-direction:column; gap:0.4rem; flex:1; }
+.listing-badge { font-size:0.62rem; font-weight:700; color:var(--clr-primary); letter-spacing:0.05em; text-transform:uppercase; }
+.listing-title { font-size:0.9rem; font-weight:700; color:var(--clr-text); line-height:1.3; }
+.listing-seller { font-size:0.75rem; color:var(--clr-muted); }
+.listing-footer { display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:0.5rem; }
+.listing-price { font-size:1.1rem; font-weight:800; color:var(--clr-primary); }
+.listing-btn { font-size:0.75rem; padding:0.4rem 0.8rem; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:200; backdrop-filter:blur(4px); }
+.modal-box { background:var(--clr-surface); border-radius:var(--radius-lg); width:min(480px,90vw); max-height:85vh; overflow-y:auto; box-shadow:var(--shadow-panel); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; border-bottom:1px solid var(--clr-border); }
+.modal-header h2 { font-size:1rem; font-weight:700; }
+.modal-close { background:none; border:none; font-size:1rem; color:var(--clr-muted); padding:0.25rem; }
+.modal-close:hover { color:var(--clr-text); }
+.sell-form { padding:1.25rem 1.5rem; display:flex; flex-direction:column; gap:0.875rem; }
+.sell-form label { display:flex; flex-direction:column; gap:0.3rem; font-size:0.82rem; font-weight:600; color:var(--clr-text); }
+.sell-form input, .sell-form select, .sell-form textarea { padding:0.6rem 0.75rem; border:1.5px solid var(--clr-border); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.875rem; color:var(--clr-text); background:var(--clr-input-bg); outline:none; transition:border-color var(--t); resize:vertical; }
+.sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color:var(--clr-primary); }

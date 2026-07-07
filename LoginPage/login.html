@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in – StudentSphere</title>
+  <meta name="description" content="Sign in to StudentSphere using your institutional email or student ID." />
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- External Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════
+       LOGIN CARD
+  ══════════════════════════════════════════ -->
+  <main class="card" role="main">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-wrap" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+          <path d="M6 12v5c3.33 1.67 8.67 1.67 12 0v-5"/>
+        </svg>
+      </div>
+      <h1 class="header-title">Sign in to StudentSphere</h1>
+      <p class="header-sub">Use your institutional email or ID</p>
+    </div>
+
+    <!-- Login Form -->
+    <form class="form" id="loginForm" novalidate aria-label="Login form">
+
+      <!-- Email / Student ID -->
+      <div class="field">
+        <label for="emailId">Email or student ID</label>
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="emailId"
+            name="emailId"
+            placeholder="name@college.edu.in"
+            autocomplete="username"
+            spellcheck="false"
+            aria-describedby="emailId-error"
+            aria-required="true"
+            aria-invalid="false"
+          />
+        </div>
+        <span class="field-error" id="emailId-error" role="alert" aria-live="polite"></span>
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            aria-describedby="password-error"
+            aria-required="true"
+            aria-invalid="false"
+          />
+
+          <!-- Show / Hide Password Toggle -->
+          <button
+            type="button"
+            class="toggle-pw"
+            id="togglePw"
+            aria-label="Show password"
+            aria-pressed="false"
+          >
+            <!-- Eye (password hidden) -->
+            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <!-- Eye-off (password visible) -->
+            <svg id="eyeOffIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true" style="display:none;">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
+        <span class="field-error" id="password-error" role="alert" aria-live="polite"></span>
+      </div>
+
+      <!-- Forgot Password -->
+      <div class="forgot-row">
+        <a href="#" class="forgot-link" id="forgotLink">Forgot password?</a>
+      </div>
+
+      <!-- Sign In Button -->
+      <button type="submit" class="btn-signin" id="submitBtn">
+        <span class="btn-text">Sign in</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+
+      <!-- Role Selector -->
+      <div class="divider">
+        <span class="role-label">Signing in as</span>
+      </div>
+
+      <div class="role-grid" role="radiogroup" aria-label="Select your role">
+
+        <button type="button" class="role-btn active" id="role-student"
+                role="radio" aria-checked="true" data-role="student">
+          <!-- Person icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          Student
+        </button>
+
+        <button type="button" class="role-btn" id="role-professor"
+                role="radio" aria-checked="false" data-role="professor">
+          <!-- Monitor icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Professor
+        </button>
+
+        <button type="button" class="role-btn" id="role-placement"
+                role="radio" aria-checked="false" data-role="placement">
+          <!-- Briefcase icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="7" width="20" height="14" rx="2"/>
+            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            <line x1="12" y1="12" x2="12" y2="16"/>
+            <line x1="10" y1="14" x2="14" y2="14"/>
+          </svg>
+          Placement
+        </button>
+
+        <button type="button" class="role-btn" id="role-admin"
+                role="radio" aria-checked="false" data-role="admin">
+          <!-- Gear icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33
+                     1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33
+                     l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+                     A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9
+                     4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06
+                     a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+                     a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Admin
+        </button>
+
+      </div>
+
+      <!-- Policy -->
+      <p class="policy">
+        By continuing you agree to your college's
+        <a href="#" id="policyLink">data usage policy</a>
+      </p>
+
+    </form><!-- /loginForm -->
+
+  </main><!-- /card -->
+
+
+  <!-- ══════════════════════════════════════════
+       FORGOT PASSWORD MODAL
+  ══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modalOverlay" role="dialog"
+       aria-modal="true" aria-labelledby="modalTitle">
+
+    <div class="modal">
+      <h2 class="modal-title" id="modalTitle">Reset your password</h2>
+      <p class="modal-sub">
+        Enter the email address linked to your account and we'll send you a reset link.
+      </p>
+
+      <div class="field">
+        <label for="resetEmail">Registered email address</label>
+        <div class="input-wrap">
+          <input
+            type="email"
+            id="resetEmail"
+            name="resetEmail"
+            placeholder="name@college.edu.in"
+            autocomplete="email"
+            aria-describedby="resetEmail-error"
+            aria-required="true"
+            aria-invalid="false"
+          />
+        </div>
+        <span class="field-error" id="resetEmail-error" role="alert" aria-live="polite"></span>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="modalCancel">Cancel</button>
+        <button type="button" class="btn-send"   id="modalSend">Send Reset Link</button>
+      </div>
+
+      <!-- Hidden close button (keyboard / screen reader) -->
+      <button type="button" id="modalClose" style="display:none;" aria-label="Close dialog">
+        Close
+      </button>
+    </div>
+
+  </div><!-- /modalOverlay -->
+
+
+  <!-- ══════════════════════════════════════════
+       TOAST NOTIFICATION
+  ══════════════════════════════════════════ -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+
+  <!-- External JavaScript (deferred so DOM is ready) -->
+  <script src="login.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudentSphere – Live & Recorded Lectures</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../student.css" />
+  <link rel="stylesheet" href="lecturesStudent.css" />
+</head>
+
+<body>
+
+  <div class="layout" id="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3.33 1.67 8.67 1.67 12 0v-5"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">StudentSphere</span>
+          <span class="brand-sub">Learner portal</span>
+        </div>
+      </div>
+      <div class="sidebar-search">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="search" id="sidebarSearch" placeholder="Search menu…" aria-label="Search the portal" autocomplete="off" />
+      </div>
+      <nav class="sidebar-nav" aria-label="Portal navigation">
+        <div class="nav-section">
+          <span class="nav-section-label">Academic</span>
+          <ul class="nav-list" role="list">
+            <li><button class="nav-item" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button></li>
+            <li><button class="nav-item" data-page="timetable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Timetable</button></li>
+            <li><button class="nav-item" data-page="attendance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</button></li>
+            <li><button class="nav-item" data-page="assignments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>Assignments<span class="nav-badge" id="sidebarAssignBadge">3</span></button></li>
+            <li><button class="nav-item active" data-page="lectures" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Lectures</button></li>
+            <li><button class="nav-item" data-page="elibrary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>E-Library</button></li>
+            <li><button class="nav-item" data-page="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Notes and PYQs</button></li>
+            <li><button class="nav-item" data-page="grades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>Grade book</button></li>
+          </ul>
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-label">Community</span>
+          <ul class="nav-list" role="list">
+            <li><button class="nav-item" data-page="chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Class chats<span class="nav-badge">20</span></button></li>
+            <li><button class="nav-item" data-page="events"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>Events</button></li>
+            <li><button class="nav-item" data-page="marketplace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Marketplace</button></li>
+            <li><button class="nav-item" data-page="lostandfound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Lost and found</button></li>
+          </ul>
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-label">Career</span>
+          <ul class="nav-list" role="list">
+            <li><button class="nav-item" data-page="internships"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>Internships<span class="nav-badge new">New</span></button></li>
+            <li><button class="nav-item" data-page="resume"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Resume builder</button></li>
+            <li><button class="nav-item" data-page="mentorship"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Mentorship</button></li>
+            <li><button class="nav-item" data-page="mock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Mock Interviews</button></li>
+          </ul>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="student-mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Student mode</span>
+        <p class="student-mode-sub">Viewing the student interface.</p>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-wrapper">
+      <header class="topbar" role="banner">
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="topbar-right">
+          <button class="icon-btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="notif-dot" aria-hidden="true"></span>
+          </button>
+          <button class="logout-btn" id="logoutBtn" aria-label="Sign out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign out
+          </button>
+          <button class="avatar-btn" id="avatarBtn">
+            <span class="avatar" id="avatarInitials">AS</span>
+            <div class="avatar-info">
+              <span class="avatar-name" id="avatarName">Ananya</span>
+              <span class="avatar-role">Student</span>
+            </div>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="welcome-block">
+          <div>
+            <p class="welcome-greeting">E-Learning &nbsp;·&nbsp; Stream classes</p>
+            <h1 class="welcome-title">Lectures Portal</h1>
+            <p class="welcome-meta" id="welcomeMeta">Computer science &nbsp;·&nbsp; Semester 6</p>
+          </div>
+        </div>
+
+        <!-- Syllabus Progress -->
+        <h2 class="section-heading">Syllabus Progress</h2>
+        <div class="syllabus-grid" id="syllabusGrid">
+          <!-- Loaded dynamically -->
+        </div>
+
+        <!-- Live Lectures -->
+        <h2 class="section-heading">Live Lectures Today</h2>
+        <div class="live-grid" id="liveGrid">
+          <!-- Loaded dynamically -->
+        </div>
+
+        <!-- Past Recordings Catalogue -->
+        <h2 class="section-heading">Recorded Lectures Library</h2>
+        <div class="controls-row">
+          <div class="filter-group" role="group" aria-label="Subject filter">
+            <!-- Subject buttons loaded dynamically -->
+          </div>
+        </div>
+
+        <div class="recordings-grid" id="recordingsGrid">
+          <!-- Loaded dynamically -->
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+  <script src="../studentCommon.js"></script>
+  <script src="lecturesStudent.js"></script>
+</body>
+</html>

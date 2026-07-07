@@ -1,0 +1,71 @@
+/* Assignments page CSS */
+.assign-layout { display: grid; grid-template-columns: 360px 1fr; gap: var(--gap); align-items: start; }
+
+.assign-list-panel { padding: 0.75rem; }
+
+.assign-card {
+  width: 100%; text-align: left;
+  display: flex; flex-direction: column; gap: 0.375rem;
+  padding: 0.875rem 1rem;
+  background: var(--clr-bg); border: 1.5px solid var(--clr-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.assign-card:last-child { margin-bottom: 0; }
+.assign-card:hover { border-color: var(--clr-primary); box-shadow: 0 0 0 3px var(--clr-primary-soft); }
+.assign-card.selected { border-color: var(--clr-primary); background: var(--clr-primary-soft); box-shadow: 0 0 0 3px var(--clr-primary-soft); }
+
+.card-subject-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.card-subject { font-size: 0.72rem; font-weight: 700; color: var(--clr-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.card-title   { font-size: 0.875rem; font-weight: 600; color: var(--clr-text); line-height: 1.3; }
+.card-due-row { display: flex; align-items: center; justify-content: space-between; }
+.card-due     { font-size: 0.72rem; font-weight: 600; color: var(--clr-danger); }
+.card-pts     { font-size: 0.72rem; font-weight: 600; color: var(--clr-muted); }
+
+.status-badge { font-size: 0.65rem; font-weight: 700; text-transform: capitalize; padding: 0.15rem 0.5rem; border-radius: 99px; white-space: nowrap; }
+.status-badge.pending   { background: #fee2e2; color: #b91c1c; }
+.status-badge.submitted { background: #fef9c3; color: #854d0e; }
+.status-badge.graded    { background: #dcfce7; color: #15803d; }
+
+.detail-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; padding: 3rem; color: var(--clr-muted); font-size: 0.85rem; text-align: center;
+  min-height: 300px;
+}
+.detail-empty svg { width: 40px; height: 40px; opacity: 0.3; }
+
+.detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.detail-subject { font-size: 0.72rem; font-weight: 700; color: var(--clr-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.detail-title   { font-size: 1.1rem; font-weight: 800; color: var(--clr-text); margin-bottom: 0.25rem; line-height: 1.3; }
+.detail-points  { font-size: 0.78rem; font-weight: 600; color: var(--clr-primary); margin-bottom: 0.75rem; }
+.detail-instructions { font-size: 0.85rem; color: var(--clr-text-2); line-height: 1.6; margin-bottom: 1rem; }
+
+.attachment-section {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 0.875rem;
+  background: var(--clr-bg); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem; font-size: 0.82rem;
+}
+.attachment-section svg { width: 15px; height: 15px; color: var(--clr-primary); flex-shrink: 0; }
+.attachment-section a { color: var(--clr-primary); font-weight: 600; }
+
+.graded-section { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 1rem; }
+.grade-score    { font-size: 2rem; font-weight: 800; color: #15803d; margin-bottom: 0.4rem; }
+.grade-feedback { font-size: 0.82rem; color: var(--clr-text-2); line-height: 1.5; }
+
+.drop-zone {
+  border: 2px dashed var(--clr-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  text-align: center; font-size: 0.8rem; color: var(--clr-muted);
+  cursor: pointer; transition: border-color var(--t), background var(--t);
+}
+.drop-zone svg { width: 24px; height: 24px; }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--clr-primary); background: var(--clr-primary-soft); color: var(--clr-primary); }
+.drop-zone:focus-visible { outline: 2px solid var(--clr-primary); outline-offset: 2px; }
+
+@media (max-width: 1024px) { .assign-layout { grid-template-columns: 300px 1fr; } }
+@media (max-width: 768px)  { .assign-layout { grid-template-columns: 1fr; } }

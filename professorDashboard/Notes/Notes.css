@@ -1,0 +1,12 @@
+.notes-list { display:flex; flex-direction:column; gap:0.5rem; }
+.note-card { background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-md); padding:0.875rem 1rem; display:flex; align-items:center; gap:0.875rem; transition:border-color var(--t),box-shadow var(--t); }
+.note-card:hover { border-color:var(--clr-primary); box-shadow:0 0 0 3px var(--clr-primary-soft); }
+.note-icon-wrap { width:40px; height:40px; background:var(--clr-primary-soft); border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+.note-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:0.15rem; }
+.note-subject { font-size:0.68rem; font-weight:700; color:var(--clr-primary); text-transform:uppercase; letter-spacing:0.04em; }
+.note-title { font-size:0.875rem; font-weight:600; color:var(--clr-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.note-meta  { font-size:0.72rem; color:var(--clr-muted); }
+.note-type-badge { font-size:0.65rem; font-weight:700; padding:0.2rem 0.5rem; border-radius:99px; white-space:nowrap; }
+.note-type-badge.notes  { background:#ede9fe; color:#6d28d9; }
+.note-type-badge.slides { background:#dbeafe; color:#1e40af; }
+.note-type-badge.pyq    { background:#dcfce7; color:#15803d; }
