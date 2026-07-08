@@ -120,7 +120,7 @@ class DevelopmentConfig(BaseConfig):
     RATELIMIT_ENABLED = False            # Disabled in dev — easier to iterate
     RATELIMIT_STORAGE_URL = "memory://"  # No Redis required in dev
 
-    CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS = "*"
 
     ALLOWED_EMAIL_DOMAIN = os.environ.get("ALLOWED_EMAIL_DOMAIN", "college.edu.in")
     COLLEGE_NAME         = os.environ.get("COLLEGE_NAME", "Demo College")
@@ -172,7 +172,7 @@ class ProductionConfig(BaseConfig):
     CORS_ORIGINS = []
     ALLOWED_EMAIL_DOMAIN = None
     COLLEGE_NAME = None
-    MOCK_OTP = False
+    MOCK_OTP = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
     # ── Supabase / pgBouncer (transaction mode) engine options ────────────────
     # When using Supabase's connection pooler (port 6543, transaction mode):
@@ -204,6 +204,7 @@ class ProductionConfig(BaseConfig):
         cls.RATELIMIT_STORAGE_URL = os.environ.get("REDIS_URL", "memory://")
         cls.ALLOWED_EMAIL_DOMAIN = _require_env("ALLOWED_EMAIL_DOMAIN")
         cls.COLLEGE_NAME = _require_env("COLLEGE_NAME")
+        cls.MOCK_OTP = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
         cls.CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",")
 

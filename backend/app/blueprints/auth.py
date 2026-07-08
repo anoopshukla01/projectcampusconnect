@@ -119,7 +119,10 @@ def otp_send():
         return internal_error_response(exc, "otp_send")
 
     audit_action("auth.otp.send", detail={"phone": phone})
-    return jsonify({"message": "OTP sent successfully. Valid for 10 minutes."}), 200
+    res_data = {"message": "OTP sent successfully. Valid for 10 minutes."}
+    if current_app.config.get("MOCK_OTP", False):
+        res_data["mock_otp"] = otp
+    return jsonify(res_data), 200
 
 
 # ── A2: POST /auth/otp/verify ─────────────────────────────────────────────────
