@@ -8,6 +8,14 @@ export default function AnalyticsDashboard() {
   const [profiles, setProfiles] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Modals state
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showPlacementModal, setShowPlacementModal] = useState(false);
+
+  // Forms state
+  const [subjectForm, setSubjectForm] = useState({ name: '', code: '', branch: 'Computer Science' });
+  const [placementForm, setPlacementForm] = useState({ branch: 'Computer Science', placed_count: '', total_count: '' });
+
   useEffect(() => {
     fetchAnalytics();
   }, []);
@@ -32,6 +40,69 @@ export default function AnalyticsDashboard() {
     }
   }
 
+  async function handleAddSubject(e) {
+    e.preventDefault();
+    if (!subjectForm.name.trim() || !subjectForm.code.trim()) {
+      showToast('Subject name and code are required.', 'error', 3000);
+      return;
+    }
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch('/api/v1/admin/subjects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: subjectForm.name.trim(),
+          code: subjectForm.code.trim().toUpperCase(),
+          branch: subjectForm.branch
+        })
+      });
+      const resData = await res.json();
+      if (res.ok) {
+        showToast(resData.message || 'Subject added successfully!', 'success', 3000);
+        setShowSubjectModal(false);
+        setSubjectForm({ name: '', code: '', branch: 'Computer Science' });
+      } else {
+        showToast(resData.error || 'Failed to add subject.', 'error', 3000);
+      }
+    } catch {
+      showToast('Network error while adding subject.', 'error', 3000);
+    }
+  }
+
+  async function handleUpdatePlacement(e) {
+    e.preventDefault();
+    if (!placementForm.placed_count || !placementForm.total_count) {
+      showToast('Placed count and total count are required.', 'error', 3000);
+      return;
+    }
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch('/api/v1/admin/branch-placements', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(placementForm)
+      });
+      const resData = await res.json();
+      if (res.ok) {
+        showToast(resData.message || 'Placement stats updated!', 'success', 3000);
+        setShowPlacementModal(false);
+        setPlacementForm({ branch: 'Computer Science', placed_count: '', total_count: '' });
+        fetchAnalytics(); // Refresh
+      } else {
+        showToast(resData.error || 'Failed to update stats.', 'error', 3000);
+      }
+    } catch {
+      showToast('Network error while updating stats.', 'error', 3000);
+    }
+  }
+
   if (loading) {
     return (
       <div className="ad-root">
@@ -49,6 +120,14 @@ export default function AnalyticsDashboard() {
         <div>
           <h1 className="page-title">College-Wide Analytics</h1>
           <p className="page-sub">NAAC/NBA ready · Real-time metrics computed directly from institutional records</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button className="ad-btn ad-btn-primary" onClick={() => setShowSubjectModal(true)}>
+            📚 Add Subject
+          </button>
+          <button className="ad-btn ad-btn-outline" onClick={() => setShowPlacementModal(true)}>
+            📈 Add Placed Count
+          </button>
         </div>
       </div>
 
@@ -111,13 +190,133 @@ export default function AnalyticsDashboard() {
               {data.branch_performance.map(b => (
                 <tr key={b.branch}>
                   <td><strong style={{ color: '#818cf8' }}>{b.branch}</strong></td>
-                  <td>{b.placed_count}</td>
+                  <td>{b.placed_students} / {b.total_students} students placed ({b.placement_pct}%)</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Add Subject Modal */}
+      {showSubjectModal && (
+        <div className="ad-modal-overlay open" onClick={() => setShowSubjectModal(false)}>
+          <div className="ad-modal" onClick={e => e.stopPropagation()}>
+            <h2 className="ad-modal-title">Add New Subject</h2>
+            <p className="ad-modal-sub">Create a new academic subject course in the college ecosystem</p>
+            
+            <form onSubmit={handleAddSubject}>
+              <div className="ad-modal-fields">
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Subject Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Computer Networks"
+                    value={subjectForm.name}
+                    onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Subject Code</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. CS3081"
+                    value={subjectForm.code}
+                    onChange={e => setSubjectForm({ ...subjectForm, code: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Department / Branch</label>
+                  <select
+                    value={subjectForm.branch}
+                    onChange={e => setSubjectForm({ ...subjectForm, branch: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  >
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics & Comm.">Electronics & Comm.</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Civil">Civil</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="ad-modal-actions">
+                <button type="button" className="ad-btn ad-btn-outline" onClick={() => setShowSubjectModal(false)}>Cancel</button>
+                <button type="submit" className="ad-btn ad-btn-primary">Add Subject</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Placed Count Modal */}
+      {showPlacementModal && (
+        <div className="ad-modal-overlay open" onClick={() => setShowPlacementModal(false)}>
+          <div className="ad-modal" onClick={e => e.stopPropagation()}>
+            <h2 className="ad-modal-title">Update Branch Placements</h2>
+            <p className="ad-modal-sub">Set or override manual placement statistics for college branches</p>
+            
+            <form onSubmit={handleUpdatePlacement}>
+              <div className="ad-modal-fields">
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Select Branch</label>
+                  <select
+                    value={placementForm.branch}
+                    onChange={e => setPlacementForm({ ...placementForm, branch: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  >
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics & Comm.">Electronics & Comm.</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Civil">Civil</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Placed Count (Students Placed)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    placeholder="e.g. 45"
+                    value={placementForm.placed_count}
+                    onChange={e => setPlacementForm({ ...placementForm, placed_count: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Total Students in Batch</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 60"
+                    value={placementForm.total_count}
+                    onChange={e => setPlacementForm({ ...placementForm, total_count: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  />
+                </div>
+              </div>
+
+              <div className="ad-modal-actions">
+                <button type="button" className="ad-btn ad-btn-outline" onClick={() => setShowPlacementModal(false)}>Cancel</button>
+                <button type="submit" className="ad-btn ad-btn-primary">Update Stats</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

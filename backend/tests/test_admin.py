@@ -160,3 +160,43 @@ def test_audit_logs_actor_id_validation(client, admin_test_context):
     assert resp_valid.status_code == 200
     assert "logs" in resp_valid.json
 
+
+def test_add_and_list_subjects_as_admin(client, admin_test_context):
+    token = create_access_token(identity=str(admin_test_context["admin"].id), additional_claims={"role": "admin"})
+    
+    # Add subject
+    resp = client.post("/api/v1/admin/subjects", json={
+        "name": "Database Management Systems",
+        "code": "CS3030",
+        "branch": "Computer Science"
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 201
+    assert "Successfully added subject" in resp.json["message"]
+    
+    # List subjects
+    resp_list = client.get("/api/v1/admin/subjects", headers={"Authorization": f"Bearer {token}"})
+    assert resp_list.status_code == 200
+    assert len(resp_list.json["subjects"]) >= 1
+    assert resp_list.json["subjects"][0]["code"] == "CS3030"
+
+
+def test_add_branch_placement_as_admin(client, admin_test_context):
+    token = create_access_token(identity=str(admin_test_context["admin"].id), additional_claims={"role": "admin"})
+    
+    # Add branch placement override
+    resp = client.post("/api/v1/admin/branch-placements", json={
+        "branch": "Computer Science",
+        "placed_count": 42,
+        "total_count": 100
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert "placement override" in resp.json["message"].lower()
+    
+    # Verify override is reflected in placement analytics
+    resp_analytics = client.get("/api/v1/admin/analytics/placement", headers={"Authorization": f"Bearer {token}"})
+    assert resp_analytics.status_code == 200
+    cs_stat = next(b for b in resp_analytics.json["branch_performance"] if b["branch"] == "Computer Science")
+    assert cs_stat["placed_students"] == 42
+    assert cs_stat["total_students"] == 100
+    assert cs_stat["placement_pct"] == 42.0
+

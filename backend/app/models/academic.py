@@ -76,3 +76,13 @@ class AssignmentSubmission(db.Model):
 
     assignment = db.relationship("Assignment", backref="submissions")
     student = db.relationship("StudentProfile", backref="assignment_submissions")
+
+
+class Subject(db.Model):
+    __tablename__ = "subjects"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = db.Column(db.String(255), nullable=False)
+    code = db.Column(db.String(50), nullable=False, unique=True)
+    branch = db.Column(db.String(50), nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

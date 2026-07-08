@@ -36,7 +36,8 @@ from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
-from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus
+from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, BranchPlacement
+from app.models.academic import Subject
 from app.models.token import Invite
 from app.models.audit import AuditLog
 from app.schemas.admin import (
@@ -397,9 +398,25 @@ def get_placement_analytics():
         )
 
         placed_map = {b: count for b, count in placed_by_branch}
+        
+        # Load overrides from BranchPlacement table
+        custom_placements = {bp.branch: bp.placed_count for bp in BranchPlacement.query.all()}
+        custom_totals = {bp.branch: bp.total_count for bp in BranchPlacement.query.all()}
+        
+        all_branches = set([b for b, _ in total_by_branch if b] + list(custom_placements.keys()))
+        if not all_branches:
+            all_branches.add("Computer Science")
+
         branch_stats = []
-        for branch, total in total_by_branch:
-            placed = placed_map.get(branch, 0)
+        for branch in all_branches:
+            total = custom_totals.get(branch)
+            if total is None:
+                total = next((t for b, t in total_by_branch if b == branch), 0)
+            
+            placed = custom_placements.get(branch)
+            if placed is None:
+                placed = placed_map.get(branch, 0)
+                
             pct = (placed / total) * 100 if total > 0 else 0.0
             branch_stats.append({
                 "branch": branch,
@@ -553,3 +570,110 @@ def import_students_csv():
         "imported_count": imported_count,
         "skipped_count": skipped_count
     }), 201
+
+
+# ── AD12: POST /admin/subjects ──────────────────────────────────────────────
+@admin_bp.post("/subjects")
+@require_auth
+@require_roles("admin")
+def add_subject():
+    """Create a new academic subject/course in the system."""
+    try:
+        data = request.get_json(force=True) or {}
+        name = data.get("name")
+        code = data.get("code")
+        branch = data.get("branch")
+
+        if not name or not code:
+            return jsonify({"error": "Subject name and code are required."}), 400
+
+        # Check if code already exists
+        existing = db.session.query(Subject).filter_by(code=code).first()
+        if existing:
+            return jsonify({"error": f"Subject with code '{code}' already exists."}), 400
+
+        sub = Subject(name=name, code=code, branch=branch)
+        db.session.add(sub)
+        db.session.commit()
+
+        audit_action("admin.subject.created", detail={"code": code, "name": name})
+        return jsonify({
+            "message": f"Successfully added subject: {name} ({code})",
+            "subject": {
+                "id": str(sub.id),
+                "name": sub.name,
+                "code": sub.code,
+                "branch": sub.branch
+            }
+        }), 201
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "add_subject")
+
+
+# ── AD13: GET /admin/subjects ───────────────────────────────────────────────
+@admin_bp.get("/subjects")
+@require_auth
+@require_roles("admin")
+def get_subjects():
+    """Get all academic subjects in the system."""
+    try:
+        subjects = db.session.query(Subject).order_by(Subject.code).all()
+        res = [{
+            "id": str(s.id),
+            "name": s.name,
+            "code": s.code,
+            "branch": s.branch
+        } for s in subjects]
+        return jsonify({"subjects": res}), 200
+    except Exception as exc:
+        return internal_error_response(exc, "get_subjects")
+
+
+# ── AD14: POST /admin/branch-placements ─────────────────────────────────────
+@admin_bp.post("/branch-placements")
+@require_auth
+@require_roles("admin")
+def add_branch_placement():
+    """Create or update manual placement stats override for a branch."""
+    try:
+        data = request.get_json(force=True) or {}
+        branch = data.get("branch")
+        placed_count = data.get("placed_count")
+        total_count = data.get("total_count", 0)
+
+        if not branch:
+            return jsonify({"error": "Branch name is required."}), 400
+
+        try:
+            placed_count = int(placed_count)
+            total_count = int(total_count)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Placed count and total count must be valid integers."}), 400
+
+        # Upsert logic
+        bp = db.session.query(BranchPlacement).filter_by(branch=branch).first()
+        if not bp:
+            bp = BranchPlacement(branch=branch, placed_count=placed_count, total_count=total_count)
+            db.session.add(bp)
+            msg = f"Created placement override for {branch}."
+        else:
+            bp.placed_count = placed_count
+            bp.total_count = total_count
+            msg = f"Updated placement override for {branch}."
+
+        db.session.commit()
+        audit_action("admin.branch_placement.upsert", detail={"branch": branch, "placed": placed_count, "total": total_count})
+        
+        return jsonify({
+            "message": msg,
+            "branch_placement": {
+                "id": str(bp.id),
+                "branch": bp.branch,
+                "placed_count": bp.placed_count,
+                "total_count": bp.total_count
+            }
+        }), 200
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "add_branch_placement")

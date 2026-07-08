@@ -10,11 +10,12 @@ from app.models.placement import (
     DriveStatus,
     ApplicationStatus,
     ShortlistStatus,
-    OfferStatus
+    OfferStatus,
+    BranchPlacement
 )
 from app.models.token import OTPToken, RefreshToken, Invite, OTPPurpose
 from app.models.audit import AuditLog
-from app.models.academic import Grade, AttendanceRecord, TimetableSlot, Assignment, AssignmentSubmission
+from app.models.academic import Grade, AttendanceRecord, TimetableSlot, Assignment, AssignmentSubmission, Subject
 from app.models.community import Announcement, CampusEvent, MarketplaceItem, LostFoundItem, StudyNote, LibraryResource
 from app.models.chat import Conversation, GroupMembership, ChatMessage, ConversationType, GroupRole, MessageType
 
@@ -33,6 +34,7 @@ __all__ = [
     "ApplicationStatus",
     "ShortlistStatus",
     "OfferStatus",
+    "BranchPlacement",
     "OTPToken",
     "RefreshToken",
     "Invite",
@@ -43,6 +45,7 @@ __all__ = [
     "TimetableSlot",
     "Assignment",
     "AssignmentSubmission",
+    "Subject",
     "Announcement",
     "CampusEvent",
     "MarketplaceItem",

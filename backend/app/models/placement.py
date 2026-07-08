@@ -120,3 +120,13 @@ class PlacementOffer(db.Model):
     # Relationships
     drive = db.relationship("PlacementDrive", back_populates="offers")
     student = db.relationship("User", foreign_keys=[student_id])
+
+
+class BranchPlacement(db.Model):
+    __tablename__ = "branch_placements"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    branch = db.Column(db.String(100), nullable=False, unique=True)
+    placed_count = db.Column(db.Integer, nullable=False, default=0)
+    total_count = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
