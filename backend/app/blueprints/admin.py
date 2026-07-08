@@ -572,62 +572,44 @@ def import_students_csv():
     }), 201
 
 
-# ── AD12: POST /admin/subjects ──────────────────────────────────────────────
-@admin_bp.post("/subjects")
+# ── AD12: POST /admin/branches ──────────────────────────────────────────────
+@admin_bp.post("/branches")
 @require_auth
 @require_roles("admin")
-def add_subject():
-    """Create a new academic subject/course in the system."""
+def add_branch():
+    """Create a new academic branch/department in the system."""
     try:
         data = request.get_json(force=True) or {}
-        name = data.get("name")
-        code = data.get("code")
         branch = data.get("branch")
 
-        if not name or not code:
-            return jsonify({"error": "Subject name and code are required."}), 400
+        if not branch or not branch.strip():
+            return jsonify({"error": "Branch name is required."}), 400
 
-        # Check if code already exists
-        existing = db.session.query(Subject).filter_by(code=code).first()
+        branch_name = branch.strip()
+
+        # Check if it already exists as a BranchPlacement
+        existing = db.session.query(BranchPlacement).filter_by(branch=branch_name).first()
         if existing:
-            return jsonify({"error": f"Subject with code '{code}' already exists."}), 400
+            return jsonify({"error": f"Branch '{branch_name}' already exists."}), 400
 
-        sub = Subject(name=name, code=code, branch=branch)
-        db.session.add(sub)
+        # Create a BranchPlacement with 0 placed / 0 total as a stub
+        bp = BranchPlacement(branch=branch_name, placed_count=0, total_count=0)
+        db.session.add(bp)
         db.session.commit()
 
-        audit_action("admin.subject.created", detail={"code": code, "name": name})
+        audit_action("admin.branch.created", detail={"branch": branch_name})
         return jsonify({
-            "message": f"Successfully added subject: {name} ({code})",
-            "subject": {
-                "id": str(sub.id),
-                "name": sub.name,
-                "code": sub.code,
-                "branch": sub.branch
+            "message": f"Successfully added branch: {branch_name}",
+            "branch": {
+                "id": str(bp.id),
+                "branch": bp.branch,
+                "placed_count": bp.placed_count,
+                "total_count": bp.total_count
             }
         }), 201
     except Exception as exc:
         db.session.rollback()
-        return internal_error_response(exc, "add_subject")
-
-
-# ── AD13: GET /admin/subjects ───────────────────────────────────────────────
-@admin_bp.get("/subjects")
-@require_auth
-@require_roles("admin")
-def get_subjects():
-    """Get all academic subjects in the system."""
-    try:
-        subjects = db.session.query(Subject).order_by(Subject.code).all()
-        res = [{
-            "id": str(s.id),
-            "name": s.name,
-            "code": s.code,
-            "branch": s.branch
-        } for s in subjects]
-        return jsonify({"subjects": res}), 200
-    except Exception as exc:
-        return internal_error_response(exc, "get_subjects")
+        return internal_error_response(exc, "add_branch")
 
 
 # ── AD14: POST /admin/branch-placements ─────────────────────────────────────

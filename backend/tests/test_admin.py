@@ -161,23 +161,22 @@ def test_audit_logs_actor_id_validation(client, admin_test_context):
     assert "logs" in resp_valid.json
 
 
-def test_add_and_list_subjects_as_admin(client, admin_test_context):
+def test_add_branch_as_admin(client, admin_test_context):
     token = create_access_token(identity=str(admin_test_context["admin"].id), additional_claims={"role": "admin"})
     
-    # Add subject
-    resp = client.post("/api/v1/admin/subjects", json={
-        "name": "Database Management Systems",
-        "code": "CS3030",
-        "branch": "Computer Science"
+    # Add branch
+    resp = client.post("/api/v1/admin/branches", json={
+        "branch": "Civil Engineering"
     }, headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 201
-    assert "Successfully added subject" in resp.json["message"]
+    assert "Successfully added branch" in resp.json["message"]
     
-    # List subjects
-    resp_list = client.get("/api/v1/admin/subjects", headers={"Authorization": f"Bearer {token}"})
-    assert resp_list.status_code == 200
-    assert len(resp_list.json["subjects"]) >= 1
-    assert resp_list.json["subjects"][0]["code"] == "CS3030"
+    # Verify it is returned in placement analytics
+    resp_analytics = client.get("/api/v1/admin/analytics/placement", headers={"Authorization": f"Bearer {token}"})
+    assert resp_analytics.status_code == 200
+    civil_stat = next(b for b in resp_analytics.json["branch_performance"] if b["branch"] == "Civil Engineering")
+    assert civil_stat["placed_students"] == 0
+    assert civil_stat["total_students"] == 0
 
 
 def test_add_branch_placement_as_admin(client, admin_test_context):

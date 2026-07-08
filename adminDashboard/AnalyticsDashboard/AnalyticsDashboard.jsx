@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
 
@@ -9,16 +9,30 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
 
   // Modals state
-  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showBranchModal, setShowBranchModal]       = useState(false);
   const [showPlacementModal, setShowPlacementModal] = useState(false);
 
   // Forms state
-  const [subjectForm, setSubjectForm] = useState({ name: '', code: '', branch: 'Computer Science' });
+  const [branchForm, setBranchForm]       = useState({ branch: '' });
   const [placementForm, setPlacementForm] = useState({ branch: 'Computer Science', placed_count: '', total_count: '' });
 
   useEffect(() => {
     fetchAnalytics();
   }, []);
+
+  // Compute available branches dynamically for the Update Stats dropdown
+  const availableBranches = useMemo(() => {
+    const defaults = ['Computer Science', 'Information Technology', 'Electronics & Comm.', 'Electrical', 'Mechanical', 'Civil'];
+    const current = data?.branch_performance?.map(b => b.branch) || [];
+    return Array.from(new Set([...defaults, ...current]));
+  }, [data]);
+
+  // Set default selection when availableBranches list changes
+  useEffect(() => {
+    if (availableBranches.length > 0) {
+      setPlacementForm(prev => ({ ...prev, branch: availableBranches[0] }));
+    }
+  }, [availableBranches]);
 
   async function fetchAnalytics() {
     setLoading(true);
@@ -40,36 +54,35 @@ export default function AnalyticsDashboard() {
     }
   }
 
-  async function handleAddSubject(e) {
+  async function handleAddBranch(e) {
     e.preventDefault();
-    if (!subjectForm.name.trim() || !subjectForm.code.trim()) {
-      showToast('Subject name and code are required.', 'error', 3000);
+    if (!branchForm.branch.trim()) {
+      showToast('Branch name is required.', 'error', 3000);
       return;
     }
     const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/api/v1/admin/subjects', {
+      const res = await fetch('/api/v1/admin/branches', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: subjectForm.name.trim(),
-          code: subjectForm.code.trim().toUpperCase(),
-          branch: subjectForm.branch
+          branch: branchForm.branch.trim()
         })
       });
       const resData = await res.json();
       if (res.ok) {
-        showToast(resData.message || 'Subject added successfully!', 'success', 3000);
-        setShowSubjectModal(false);
-        setSubjectForm({ name: '', code: '', branch: 'Computer Science' });
+        showToast(resData.message || 'Branch added successfully!', 'success', 3000);
+        setShowBranchModal(false);
+        setBranchForm({ branch: '' });
+        fetchAnalytics(); // Refresh table to show the new branch!
       } else {
-        showToast(resData.error || 'Failed to add subject.', 'error', 3000);
+        showToast(resData.error || 'Failed to add branch.', 'error', 3000);
       }
     } catch {
-      showToast('Network error while adding subject.', 'error', 3000);
+      showToast('Network error while adding branch.', 'error', 3000);
     }
   }
 
@@ -93,7 +106,7 @@ export default function AnalyticsDashboard() {
       if (res.ok) {
         showToast(resData.message || 'Placement stats updated!', 'success', 3000);
         setShowPlacementModal(false);
-        setPlacementForm({ branch: 'Computer Science', placed_count: '', total_count: '' });
+        setPlacementForm({ branch: availableBranches[0] || 'Computer Science', placed_count: '', total_count: '' });
         fetchAnalytics(); // Refresh
       } else {
         showToast(resData.error || 'Failed to update stats.', 'error', 3000);
@@ -122,8 +135,8 @@ export default function AnalyticsDashboard() {
           <p className="page-sub">NAAC/NBA ready · Real-time metrics computed directly from institutional records</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="ad-btn ad-btn-primary" onClick={() => setShowSubjectModal(true)}>
-            📚 Add Subject
+          <button className="ad-btn ad-btn-primary" onClick={() => setShowBranchModal(true)}>
+            🏢 Add Branch
           </button>
           <button className="ad-btn ad-btn-outline" onClick={() => setShowPlacementModal(true)}>
             📈 Add Placed Count
@@ -198,59 +211,31 @@ export default function AnalyticsDashboard() {
         )}
       </div>
 
-      {/* Add Subject Modal */}
-      {showSubjectModal && (
-        <div className="ad-modal-overlay open" onClick={() => setShowSubjectModal(false)}>
+      {/* Add Branch Modal */}
+      {showBranchModal && (
+        <div className="ad-modal-overlay open" onClick={() => setShowBranchModal(false)}>
           <div className="ad-modal" onClick={e => e.stopPropagation()}>
-            <h2 className="ad-modal-title">Add New Subject</h2>
-            <p className="ad-modal-sub">Create a new academic subject course in the college ecosystem</p>
+            <h2 className="ad-modal-title">Add New Branch</h2>
+            <p className="ad-modal-sub">Create a new academic branch/department in the college ecosystem</p>
             
-            <form onSubmit={handleAddSubject}>
+            <form onSubmit={handleAddBranch}>
               <div className="ad-modal-fields">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Subject Name</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Branch Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Computer Networks"
-                    value={subjectForm.name}
-                    onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                    placeholder="e.g. Civil Engineering"
+                    value={branchForm.branch}
+                    onChange={e => setBranchForm({ branch: e.target.value })}
                     style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
                   />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Subject Code</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. CS3081"
-                    value={subjectForm.code}
-                    onChange={e => setSubjectForm({ ...subjectForm, code: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Department / Branch</label>
-                  <select
-                    value={subjectForm.branch}
-                    onChange={e => setSubjectForm({ ...subjectForm, branch: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-                  >
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics & Comm.">Electronics & Comm.</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Civil">Civil</option>
-                  </select>
                 </div>
               </div>
 
               <div className="ad-modal-actions">
-                <button type="button" className="ad-btn ad-btn-outline" onClick={() => setShowSubjectModal(false)}>Cancel</button>
-                <button type="submit" className="ad-btn ad-btn-primary">Add Subject</button>
+                <button type="button" className="ad-btn ad-btn-outline" onClick={() => setShowBranchModal(false)}>Cancel</button>
+                <button type="submit" className="ad-btn ad-btn-primary">Add Branch</button>
               </div>
             </form>
           </div>
@@ -273,12 +258,9 @@ export default function AnalyticsDashboard() {
                     onChange={e => setPlacementForm({ ...placementForm, branch: e.target.value })}
                     style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
                   >
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics & Comm.">Electronics & Comm.</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Mechanical">Mechanical</option>
-                    <option value="Civil">Civil</option>
+                    {availableBranches.map(bName => (
+                      <option key={bName} value={bName}>{bName}</option>
+                    ))}
                   </select>
                 </div>
 
