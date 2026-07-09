@@ -4,6 +4,7 @@ import DashboardLayout from './components/DashboardLayout';
 import Login           from './pages/Login/Login';
 import Dashboard       from './pages/Dashboard/Dashboard';
 import Timetable       from './pages/Timetable/Timetable';
+import ProfessorTimetable from '@professor/Timetable/Timetable';
 import Attendance      from './pages/Attendance/Attendance';
 import Assignments     from './pages/Assignments/Assignments';
 import Lectures        from './pages/Lectures/Lectures';
@@ -48,11 +49,9 @@ import DataManager        from '@admin/DataManager/DataManager';
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
 
 export default function App() {
-  const { user } = useAuth();
-  const isProf    = user?.role === 'professor';
-  const isTPO     = user?.role === 'tpo';
-  const isAdmin   = user?.role === 'admin';
-  const isStudent = user?.role === 'student';
+  // Pull pre-computed booleans from AuthContext (role sourced from JWT, never client input)
+  const { user, isStudent, isProfessor, isTPO, isAdmin } = useAuth();
+  const isProf = isProfessor;
 
   // Redirect helpers
   const onlyStudent = (el) => isStudent ? el : <Navigate to="/" replace />;
@@ -79,7 +78,7 @@ export default function App() {
           <Route path="/"              element={isAdmin ? <AdminDashboard /> : isTPO ? <PlacementDashboard /> : <Dashboard />} />
 
           {/* ── Shared pages (student + professor) ── */}
-          <Route path="/timetable"     element={notTPO(<Timetable />)} />
+          <Route path="/timetable"     element={notTPO(isProf ? <ProfessorTimetable /> : <Timetable />)} />
           <Route path="/attendance"    element={notTPO(<Attendance />)} />
           <Route path="/assignments"   element={notTPO(<Assignments />)} />
           <Route path="/lectures"      element={notTPO(<Lectures />)} />

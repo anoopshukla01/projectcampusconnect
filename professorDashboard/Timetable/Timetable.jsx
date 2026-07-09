@@ -1,6 +1,19 @@
-import { useState, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
+/**
+ * Professor Timetable Portal
+ *
+ * Fetches only the professor's own slots from the backend.
+ * Provides full CRUD: create slot, edit/reschedule, delete, add extra class.
+ *
+ * All mutations hit the backend via academicsApi — no static data fallback.
+ * Role enforced server-side; we never pass role in request body.
+ */
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@ctx/AuthContext';
+import { useToast } from '@ctx/ToastContext';
+import { useApiData } from '@/hooks/useApiData';
+import { academicsApi } from '@/services/api';
+import { StateContainer } from '@/components/StateContainer';
 import './Timetable.css';
 
 const WEEK_DAYS = [
@@ -9,180 +22,188 @@ const WEEK_DAYS = [
   { key: 'Wed', label: 'Wednesday', sub: 'Day 3' },
   { key: 'Thu', label: 'Thursday',  sub: 'Day 4' },
   { key: 'Fri', label: 'Friday',    sub: 'Day 5' },
+  { key: 'Sat', label: 'Saturday',  sub: 'Extra' },
 ];
 
-function getTimetableForBranch(branch, role) {
-  const b = (branch || '').toLowerCase();
-  if (role === 'professor') {
-    return {
-      Mon: [
-        { id: '1', time: '09:00 - 10:30', name: 'Computer networks',    code: 'CS3081', room: 'LH-201', prof: 'Dr. Sneha Patel', type: 'lecture' },
-        { id: '2', time: '11:00 - 12:30', name: 'Faculty Senate Meeting', code: 'MEET',   room: 'Conf Room 1', prof: 'Director', type: 'seminar' }
-      ],
-      Tue: [
-        { id: '3', time: '13:30 - 15:00', name: 'Theory of computation', code: 'CS3061', room: 'LH-201', prof: 'Dr. Sneha Patel', type: 'lecture' }
-      ],
-      Wed: [
-        { id: '4', time: '09:00 - 10:30', name: 'Computer networks',    code: 'CS3081', room: 'LH-201', prof: 'Dr. Sneha Patel', type: 'lecture' }
-      ],
-      Thu: [
-        { id: '5', time: '14:00 - 15:00', name: 'Research Lab Sync',    code: 'MEET',   room: 'Lab-2',       prof: 'Ph.D Students', type: 'seminar' }
-      ],
-      Fri: [
-        { id: '6', time: '09:00 - 10:30', name: 'Theory of computation', code: 'CS3061', room: 'LH-201', prof: 'Dr. Sneha Patel', type: 'lecture' }
-      ],
-    };
-  }
-
-  if (b.includes('communication') || b.includes('electronics')) {
-    return {
-      Mon: [
-        { id: 'ec-1', time: '10:00 - 11:30', name: 'Signals & Systems',         code: 'EC3021', room: 'LH-102', prof: 'Dr. Kavitha Menon', type: 'lecture' },
-        { id: 'ec-2', time: '13:00 - 14:30', name: 'VLSI Design',               code: 'EC3031', room: 'LH-210', prof: 'Dr. Suresh Babu',   type: 'lecture' },
-      ],
-      Tue: [
-        { id: 'ec-3', time: '09:00 - 10:30', name: 'Electromagnetic Waves',     code: 'EC3041', room: 'LH-102', prof: 'Dr. Kavitha Menon', type: 'lecture' },
-        { id: 'ec-4', time: '11:00 - 12:30', name: 'Digital Signal Processing', code: 'EC3051', room: 'LH-210', prof: 'Dr. Suresh Babu',   type: 'lecture' },
-      ],
-      Wed: [
-        { id: 'ec-5', time: '10:00 - 11:30', name: 'Signals & Systems',         code: 'EC3021', room: 'LH-102', prof: 'Dr. Kavitha Menon', type: 'lecture' },
-        { id: 'ec-6', time: '14:00 - 17:00', name: 'VLSI Design Lab',           code: 'EC3032', room: 'Lab-5',  prof: 'Dr. Suresh Babu',   type: 'lab'     },
-      ],
-      Thu: [
-        { id: 'ec-7', time: '09:00 - 10:30', name: 'Electromagnetic Waves',     code: 'EC3041', room: 'LH-102', prof: 'Dr. Kavitha Menon', type: 'lecture' },
-        { id: 'ec-8', time: '11:00 - 12:30', name: 'Digital Signal Processing', code: 'EC3051', room: 'LH-210', prof: 'Dr. Suresh Babu',   type: 'lecture' },
-      ],
-      Fri: [
-        { id: 'ec-9', time: '09:00 - 12:00', name: 'DSP & Systems Lab',         code: 'EC3052', room: 'Lab-6',  prof: 'Dr. Kavitha Menon', type: 'lab'     },
-        { id: 'ec-10',time: '14:00 - 15:30', name: 'Semiconductor Seminar',     code: 'EC3081', room: 'Aud-1',  prof: 'Dr. Suresh Babu',   type: 'seminar' },
-      ],
-    };
-  }
-  if (b.includes('mechanical')) {
-    return {
-      Mon: [
-        { id: 'me-1', time: '08:00 - 09:30', name: 'Thermodynamics',         code: 'ME3011', room: 'LH-401',    prof: 'Dr. Ramesh Kumar', type: 'lecture' },
-        { id: 'me-2', time: '12:00 - 13:30', name: 'Fluid Mechanics',        code: 'ME3021', room: 'Lab-3',      prof: 'Dr. Anil Sharma',  type: 'lecture' },
-      ],
-      Tue: [
-        { id: 'me-3', time: '09:00 - 10:30', name: 'Kinematics of Machines', code: 'ME3031', room: 'LH-402',    prof: 'Dr. Ramesh Kumar', type: 'lecture' },
-        { id: 'me-4', time: '11:00 - 12:30', name: 'Material Science',       code: 'ME3041', room: 'LH-402',    prof: 'Dr. Anil Sharma',  type: 'lecture' },
-      ],
-      Wed: [
-        { id: 'me-5', time: '08:00 - 09:30', name: 'Thermodynamics',         code: 'ME3011', room: 'LH-401',    prof: 'Dr. Ramesh Kumar', type: 'lecture' },
-        { id: 'me-6', time: '14:00 - 17:00', name: 'Fluid Mechanics Lab',    code: 'ME3022', room: 'Lab-3',      prof: 'Dr. Anil Sharma',  type: 'lab'     },
-      ],
-      Thu: [
-        { id: 'me-7', time: '09:00 - 10:30', name: 'Kinematics of Machines', code: 'ME3031', room: 'LH-402',    prof: 'Dr. Ramesh Kumar', type: 'lecture' },
-        { id: 'me-8', time: '11:00 - 12:30', name: 'Material Science',       code: 'ME3041', room: 'LH-402',    prof: 'Dr. Anil Sharma',  type: 'lecture' },
-      ],
-      Fri: [
-        { id: 'me-9', time: '09:00 - 12:00', name: 'Machine Shop Practice',  code: 'ME3032', room: 'Workshop-1', prof: 'Dr. Ramesh Kumar', type: 'lab'     },
-        { id: 'me-10',time: '14:00 - 15:30', name: 'CAD/CAM Seminar',        code: 'ME3061', room: 'Aud-3',      prof: 'Dr. Anil Sharma',  type: 'seminar' },
-      ],
-    };
-  }
-  // Default: Computer Science
-  return {
-    Mon: [
-      { id: 'cs-1', time: '09:00 - 10:30', name: 'Computer networks',         code: 'CS3081', room: 'LH-201', prof: 'Dr. Sneha Patel',  type: 'lecture' },
-      { id: 'cs-2', time: '11:00 - 12:30', name: 'Software engineering',      code: 'CS3041', room: 'LH-108', prof: 'Dr. Rohan Mehra',  type: 'lecture' },
-      { id: 'cs-3', time: '14:00 - 15:30', name: 'Database systems',          code: 'CS3051', room: 'LH-305', prof: 'Dr. Arjun Nair',   type: 'lecture' },
-    ],
-    Tue: [
-      { id: 'cs-4', time: '09:00 - 12:00', name: 'Network & SE Lab',          code: 'CS3082', room: 'Lab-2',  prof: 'Dr. Sneha Patel',  type: 'lab'     },
-      { id: 'cs-5', time: '13:30 - 15:00', name: 'Theory of computation',     code: 'CS3061', room: 'LH-201', prof: 'Dr. Sneha Patel',  type: 'lecture' },
-    ],
-    Wed: [
-      { id: 'cs-6', time: '09:00 - 10:30', name: 'Computer networks',         code: 'CS3081', room: 'LH-201', prof: 'Dr. Sneha Patel',  type: 'lecture' },
-      { id: 'cs-7', time: '11:00 - 12:30', name: 'Software engineering',      code: 'CS3041', room: 'LH-108', prof: 'Dr. Rohan Mehra',  type: 'lecture' },
-      { id: 'cs-8', time: '15:00 - 16:30', name: 'Technical Writing Seminar', code: 'HS3011', room: 'Aud-2',  prof: 'Dr. Vikram Singh', type: 'seminar' },
-    ],
-    Thu: [
-      { id: 'cs-9', time: '10:00 - 11:30', name: 'Database systems',          code: 'CS3051', room: 'LH-305', prof: 'Dr. Arjun Nair',  type: 'lecture' },
-      { id: 'cs-10',time: '13:00 - 16:00', name: 'DBMS & Projects Lab',       code: 'CS3052', room: 'Lab-4',  prof: 'Dr. Arjun Nair',  type: 'lab'     },
-    ],
-    Fri: [
-      { id: 'cs-11',time: '09:00 - 10:30', name: 'Theory of computation',     code: 'CS3061', room: 'LH-201', prof: 'Dr. Sneha Patel',  type: 'lecture' },
-      { id: 'cs-12',time: '11:00 - 12:30', name: 'Cloud Computing',           code: 'CS4021', room: 'LH-108', prof: 'Dr. Vikram Singh', type: 'lecture' },
-    ],
-  };
-}
+const EMPTY_TT = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
+const SLOT_TYPES = ['lecture', 'lab', 'seminar', 'extra'];
 
 export default function Timetable() {
-  const { user }   = useAuth();
-  const showToast  = useToast();
+  const { user } = useAuth();
+  const showToast = useToast();
+
   const [filter, setFilter]       = useState('all');
   const [mobileDay, setMobileDay] = useState('Mon');
-  const isProf = user?.role === 'professor';
 
-  // Load custom timetable state to allow editing
-  const [timetableData, setTimetableData] = useState(() => getTimetableForBranch(user?.branch, user?.role));
+  const { data: apiData, loading, error, refetch } = useApiData(
+    '/academics/timetable',
+    { timetable: EMPTY_TT },
+  );
 
-  // Edit Modal State
-  const [editModal, setEditModal] = useState(false);
-  const [editingClass, setEditingClass] = useState(null);
-  const [editForm, setEditForm] = useState({ time: '', room: '', day: '' });
+  const [slots, setSlots] = useState(EMPTY_TT);
+  useEffect(() => {
+    if (apiData?.timetable) setSlots(apiData.timetable);
+  }, [apiData]);
 
-  function handleExport() {
-    showToast('Timetable PDF generated & downloading…', 'success', 3000);
+  // ── Create Slot modal ──────────────────────────────────────────────────────
+  const [createModal, setCreateModal] = useState(false);
+  const [creating,    setCreating]    = useState(false);
+  const [createForm, setCreateForm] = useState({
+    day: 'Mon', time: '09:00 - 10:30', name: '', code: '', room: 'LH-101',
+    slot_type: 'lecture', branch: '', semester: '',
+  });
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreating(true);
+    const res = await academicsApi.saveTimetableSlot({
+      day_of_week:    createForm.day,
+      time_slot:      createForm.time,
+      course_name:    createForm.name,
+      course_code:    createForm.code || 'CS000',
+      room:           createForm.room,
+      professor_name: user?.name || '',
+      slot_type:      createForm.slot_type,
+      branch:         createForm.branch || null,
+      semester:       createForm.semester ? Number(createForm.semester) : null,
+    });
+    setCreating(false);
+    if (res?.error) {
+      showToast(res.error, 'error');
+    } else {
+      showToast('Slot created.', 'success', 2500);
+      setCreateModal(false);
+      setCreateForm({ day: 'Mon', time: '09:00 - 10:30', name: '', code: '',
+                      room: 'LH-101', slot_type: 'lecture', branch: '', semester: '' });
+      refetch();
+    }
   }
 
-  function handleEditClick(dayKey, cls) {
-    setEditingClass({ ...cls, dayKey });
-    setEditForm({ time: cls.time, room: cls.room, day: dayKey });
+  // ── Edit / Reschedule modal ────────────────────────────────────────────────
+  const [editModal,  setEditModal]  = useState(false);
+  const [editSlot,   setEditSlot]   = useState(null);
+  const [saving,     setSaving]     = useState(false);
+  const [editForm, setEditForm] = useState({
+    day: 'Mon', time: '', name: '', code: '', room: '', slot_type: 'lecture',
+    branch: '', semester: '',
+  });
+
+  function openEdit(dayKey, cls) {
+    setEditSlot({ ...cls, dayKey });
+    setEditForm({
+      day:       dayKey,
+      time:      cls.time,
+      name:      cls.name,
+      code:      cls.code,
+      room:      cls.room,
+      slot_type: cls.type,
+      branch:    cls.branch    || '',
+      semester:  cls.semester  || '',
+    });
     setEditModal(true);
   }
 
-  function saveEdit(e) {
+  async function handleSaveEdit(e) {
     e.preventDefault();
-    if (!editingClass) return;
-
-    setTimetableData(prev => {
-      const updated = { ...prev };
-      // Remove from old day
-      updated[editingClass.dayKey] = updated[editingClass.dayKey].filter(c => c.id !== editingClass.id);
-      // Add to new day (with updated values)
-      const newClass = {
-        ...editingClass,
-        time: editForm.time,
-        room: editForm.room
-      };
-      if (!updated[editForm.day]) {
-        updated[editForm.day] = [];
-      }
-      updated[editForm.day].push(newClass);
-      return updated;
+    setSaving(true);
+    const res = await academicsApi.updateTimetableSlot(editSlot.id, {
+      day_of_week: editForm.day,
+      time_slot:   editForm.time,
+      course_name: editForm.name,
+      course_code: editForm.code,
+      room:        editForm.room,
+      slot_type:   editForm.slot_type,
+      branch:      editForm.branch   || null,
+      semester:    editForm.semester ? Number(editForm.semester) : null,
     });
+    setSaving(false);
+    if (res?.error) {
+      showToast(res.error, 'error');
+    } else {
+      showToast('Slot updated.', 'success', 2500);
+      setEditModal(false);
+      refetch();
+    }
+  }
 
-    setEditModal(false);
-    showToast('Class details updated successfully! 📅', 'success', 2500);
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  async function handleDelete(slotId) {
+    if (!window.confirm('Remove this slot from your schedule?')) return;
+    const res = await academicsApi.deleteTimetableSlot(slotId);
+    if (res?.error) {
+      showToast(res.error, 'error');
+    } else {
+      showToast('Slot removed.', 'success');
+      refetch();
+    }
+  }
+
+  // ── Extra class modal ──────────────────────────────────────────────────────
+  const [extraModal,  setExtraModal]  = useState(false);
+  const [addingExtra, setAddingExtra] = useState(false);
+  const [extraForm, setExtraForm] = useState({
+    day: 'Sat', time: '10:00 - 11:30', name: '', code: 'CS-EXTRA',
+    room: 'LH-201', branch: '', semester: '',
+  });
+
+  async function handleAddExtra(e) {
+    e.preventDefault();
+    setAddingExtra(true);
+    const res = await academicsApi.addExtraClass({
+      day:      extraForm.day,
+      time:     extraForm.time,
+      name:     extraForm.name,
+      code:     extraForm.code,
+      room:     extraForm.room,
+      branch:   extraForm.branch   || null,
+      semester: extraForm.semester ? Number(extraForm.semester) : null,
+    });
+    setAddingExtra(false);
+    if (res?.error) {
+      showToast(res.error, 'error');
+    } else {
+      showToast('Extra class scheduled.', 'success', 2500);
+      setExtraModal(false);
+      refetch();
+    }
   }
 
   const todayKey = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
 
   return (
-    <>
+    <StateContainer loading={loading} error={error} isEmpty={false}
+                    emptyMessage="No classes scheduled yet.">
+
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">{isProf ? 'Schedule & Meetings' : 'Timetable'}</h1>
-          <p className="page-sub">
-            {isProf ? `Instructor Portal · ${user?.name}` : `${user?.branch} · Semester ${user?.semester}`}
-          </p>
+          <h1 className="page-title">Schedule &amp; Meetings</h1>
+          <p className="page-sub">Instructor Portal · {user?.name}</p>
         </div>
-        <button className="action-btn" id="exportBtn" onClick={handleExport}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="15" height="15">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Export Schedule
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="action-btn" onClick={() => setExtraModal(true)}>
+            + Extra Class
+          </button>
+          <button className="action-btn" onClick={() => setCreateModal(true)}>
+            + New Slot
+          </button>
+          <button className="action-btn" onClick={() => window.print()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="15" height="15">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export
+          </button>
+        </div>
       </div>
 
       {/* Filter Chips */}
-      <div className="filter-row" role="group" aria-label="Filter by class type">
-        {['all','lecture','lab'].map(f => (
-          <button key={f} className={`filter-btn${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>
+      <div className="filter-row" role="group" aria-label="Filter by session type">
+        {['all', ...SLOT_TYPES].map(f => (
+          <button key={f}
+            className={`filter-btn${filter === f ? ' active' : ''}`}
+            onClick={() => setFilter(f)}>
             {f === 'all' ? 'All sessions' : f.charAt(0).toUpperCase() + f.slice(1) + 's'}
           </button>
         ))}
@@ -191,13 +212,10 @@ export default function Timetable() {
       {/* Mobile Day Tabs */}
       <div className="day-tabs" role="tablist" aria-label="Select day">
         {WEEK_DAYS.map(d => (
-          <button
-            key={d.key}
-            role="tab"
+          <button key={d.key} role="tab"
             aria-selected={mobileDay === d.key}
             className={`day-tab${mobileDay === d.key ? ' active' : ''}`}
-            onClick={() => setMobileDay(d.key)}
-          >
+            onClick={() => setMobileDay(d.key)}>
             {d.key}
           </button>
         ))}
@@ -206,43 +224,52 @@ export default function Timetable() {
       {/* Grid */}
       <div className="timetable-grid" id="timetableGridContainer">
         {WEEK_DAYS.map(day => {
-          const classes = (timetableData[day.key] || []).filter(c =>
+          const classes = (slots[day.key] || []).filter(c =>
             filter === 'all' || c.type === filter
           );
-          const isToday   = day.key === todayKey;
-          const isMobile  = day.key === mobileDay;
+          const isToday  = day.key === todayKey;
+          const isMobile = day.key === mobileDay;
 
           return (
-            <div key={day.key} className={`day-column${isToday ? ' today-col' : ''}${isMobile ? ' active-day-col' : ''}`}>
+            <div key={day.key}
+              className={`day-column${isToday ? ' today-col' : ''}${isMobile ? ' active-day-col' : ''}`}>
               <div className="day-header">
                 <span className="day-title">{day.label}</span>
                 <span className="day-subtitle">{isToday ? '📍 Today' : day.sub}</span>
               </div>
               <div className="classes-list">
-                {classes.length > 0 ? classes.map((cls, i) => (
-                  <div className="class-card" key={i}>
+                {classes.length > 0 ? classes.map(cls => (
+                  <div className="class-card" key={cls.id}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <span className="class-time">{cls.time}</span>
-                      {isProf && (
-                        <button
-                          className="edit-schedule-btn"
-                          aria-label="Reschedule class"
-                          onClick={() => handleEditClick(day.key, cls)}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+                      <div style={{ display: 'flex', gap: '0.3rem' }}>
+                        <button className="edit-schedule-btn" aria-label="Edit slot"
+                          onClick={() => openEdit(day.key, cls)}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                               strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                           </svg>
                         </button>
-                      )}
+                        <button className="edit-schedule-btn" aria-label="Delete slot"
+                          style={{ color: 'var(--clr-danger, #ef4444)' }}
+                          onClick={() => handleDelete(cls.id)}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                               strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <span className="class-name">{cls.name}</span>
-                    <span className="class-meta">{cls.code} · {cls.room} · {cls.prof}</span>
+                    <span className="class-meta">{cls.code} · {cls.room}</span>
                     <span className={`class-badge badge-${cls.type}`}>{cls.type}</span>
                   </div>
                 )) : (
                   <div className="no-class-message">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                         strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
                     </svg>
                     No classes
@@ -254,47 +281,140 @@ export default function Timetable() {
         })}
       </div>
 
-      {/* Edit Timetable Modal (Professor Only) */}
+      {/* ── Create Slot Modal ─────────────────────────────────────────────── */}
+      {createModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true"
+             onClick={e => e.target === e.currentTarget && setCreateModal(false)}>
+          <div className="modal-box">
+            <div className="modal-header">
+              <h2>Add New Slot</h2>
+              <button className="modal-close" onClick={() => setCreateModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreate} className="sell-form">
+              <label>Day
+                <select value={createForm.day} onChange={e => setCreateForm(p => ({ ...p, day: e.target.value }))}>
+                  {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                </select>
+              </label>
+              <label>Time Slot
+                <input required value={createForm.time}
+                  onChange={e => setCreateForm(p => ({ ...p, time: e.target.value }))}
+                  placeholder="09:00 - 10:30" />
+              </label>
+              <label>Course Name
+                <input required value={createForm.name}
+                  onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))} />
+              </label>
+              <label>Course Code
+                <input value={createForm.code}
+                  onChange={e => setCreateForm(p => ({ ...p, code: e.target.value }))} />
+              </label>
+              <label>Room
+                <input required value={createForm.room}
+                  onChange={e => setCreateForm(p => ({ ...p, room: e.target.value }))} />
+              </label>
+              <label>Type
+                <select value={createForm.slot_type}
+                  onChange={e => setCreateForm(p => ({ ...p, slot_type: e.target.value }))}>
+                  {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+              <label>Branch (optional)
+                <input value={createForm.branch}
+                  onChange={e => setCreateForm(p => ({ ...p, branch: e.target.value }))}
+                  placeholder="e.g. CSE" />
+              </label>
+              <label>Semester (optional)
+                <input type="number" min="1" max="8" value={createForm.semester}
+                  onChange={e => setCreateForm(p => ({ ...p, semester: e.target.value }))} />
+              </label>
+              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating}>
+                {creating ? 'Creating…' : 'Create Slot'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Slot Modal ───────────────────────────────────────────────── */}
       {editModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && setEditModal(false)}>
+        <div className="modal-overlay" role="dialog" aria-modal="true"
+             onClick={e => e.target === e.currentTarget && setEditModal(false)}>
           <div className="modal-box">
             <div className="modal-header">
               <h2>Reschedule Session</h2>
               <button className="modal-close" onClick={() => setEditModal(false)}>✕</button>
             </div>
-            <form onSubmit={saveEdit} className="sell-form">
+            <form onSubmit={handleSaveEdit} className="sell-form">
               <div style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>
-                Course: <strong>{editingClass?.name} ({editingClass?.code})</strong>
+                Course: <strong>{editSlot?.name} ({editSlot?.code})</strong>
               </div>
-              <label>
-                Day of Week
+              <label>Day
                 <select value={editForm.day} onChange={e => setEditForm(p => ({ ...p, day: e.target.value }))}>
                   {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
               </label>
-              <label>
-                Time Slot
-                <input
-                  required
-                  value={editForm.time}
+              <label>Time Slot
+                <input required value={editForm.time}
                   onChange={e => setEditForm(p => ({ ...p, time: e.target.value }))}
-                  placeholder="e.g. 09:00 - 10:30"
-                />
+                  placeholder="09:00 - 10:30" />
               </label>
-              <label>
-                Classroom / Meeting Room
-                <input
-                  required
-                  value={editForm.room}
-                  onChange={e => setEditForm(p => ({ ...p, room: e.target.value }))}
-                  placeholder="e.g. LH-201 or Conf Room"
-                />
+              <label>Classroom / Meeting Room
+                <input required value={editForm.room}
+                  onChange={e => setEditForm(p => ({ ...p, room: e.target.value }))} />
               </label>
-              <button type="submit" className="action-btn" style={{ width: '100%' }}>Save Changes</button>
+              <label>Type
+                <select value={editForm.slot_type}
+                  onChange={e => setEditForm(p => ({ ...p, slot_type: e.target.value }))}>
+                  {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
             </form>
           </div>
         </div>
       )}
-    </>
+
+      {/* ── Extra Class Modal ─────────────────────────────────────────────── */}
+      {extraModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true"
+             onClick={e => e.target === e.currentTarget && setExtraModal(false)}>
+          <div className="modal-box">
+            <div className="modal-header">
+              <h2>Schedule Extra / Makeup Class</h2>
+              <button className="modal-close" onClick={() => setExtraModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAddExtra} className="sell-form">
+              <label>Day
+                <select value={extraForm.day} onChange={e => setExtraForm(p => ({ ...p, day: e.target.value }))}>
+                  {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                </select>
+              </label>
+              <label>Time
+                <input required value={extraForm.time}
+                  onChange={e => setExtraForm(p => ({ ...p, time: e.target.value }))} />
+              </label>
+              <label>Course Name
+                <input required value={extraForm.name}
+                  onChange={e => setExtraForm(p => ({ ...p, name: e.target.value }))} />
+              </label>
+              <label>Room
+                <input required value={extraForm.room}
+                  onChange={e => setExtraForm(p => ({ ...p, room: e.target.value }))} />
+              </label>
+              <label>Branch (optional)
+                <input value={extraForm.branch}
+                  onChange={e => setExtraForm(p => ({ ...p, branch: e.target.value }))} />
+              </label>
+              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={addingExtra}>
+                {addingExtra ? 'Scheduling…' : 'Schedule Class'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </StateContainer>
   );
 }

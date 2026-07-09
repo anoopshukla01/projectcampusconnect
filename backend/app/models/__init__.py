@@ -18,6 +18,12 @@ from app.models.audit import AuditLog
 from app.models.academic import Grade, AttendanceRecord, TimetableSlot, Assignment, AssignmentSubmission, Subject
 from app.models.community import Announcement, CampusEvent, MarketplaceItem, LostFoundItem, StudyNote, LibraryResource
 from app.models.chat import Conversation, GroupMembership, ChatMessage, ConversationType, GroupRole, MessageType
+from app.models.content import (
+    MentorProfile, MentorshipRequest, MentorshipRequestStatus,
+    MockInterviewSession, MockInterviewBooking,
+    LectureRecording, SyllabusProgress,
+)
+from app.models.notification import Notification
 
 __all__ = [
     "User",

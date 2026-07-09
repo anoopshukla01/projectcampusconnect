@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi, studentsApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 const SEV_COLOR = { high:'ad-badge-inactive', medium:'ad-badge-pending', low:'ad-badge-info' };
@@ -20,75 +21,51 @@ export default function DataHealth() {
   useEffect(() => {
     async function loadData() {
       try {
-        const token = localStorage.getItem('token');
-        const headers = { 'Authorization': `Bearer ${token}` };
+        const [analyticRes, studentsRes, auditRes] = await Promise.all([
+          adminApi.getProfileAnalytics(),
+          studentsApi.list({ per_page: 100 }),
+          adminApi.getAuditLog({ per_page: 50 }),
+        ]);
 
-        // 1. Profile completeness & compliance analytics
-        const analyticRes = await fetch('/api/v1/admin/analytics/profiles', { headers });
-        const analyticData = await analyticRes.json();
+        const analyticData = analyticRes || {};
+        const profileStats = analyticData.profile_completeness || { completed: 0, incomplete: 0, completed_pct: 0 };
+        const complianceStats = analyticData.dpdp_compliance || { consented: 0, pending: 0, consent_pct: 0 };
 
-        // 2. Student directory for incomplete list
-        const studentsRes = await fetch('/api/v1/students?per_page=100', { headers });
-        const studentsData = await studentsRes.json();
-
-        // 3. Audit logs for data access logs
-        const auditRes = await fetch('/api/v1/admin/audit-logs?per_page=50', { headers });
-        const auditData = await auditRes.json();
-
-        if (analyticRes.ok && studentsRes.ok) {
-          const profileStats = analyticData.profile_completeness || { completed: 0, incomplete: 0, completed_pct: 0 };
-          const complianceStats = analyticData.dpdp_compliance || { consented: 0, pending: 0, consent_pct: 0 };
-          
-          const allStudents = studentsData.students || [];
-          const incompleteList = allStudents
-            .filter(s => !s.profile_complete)
-            .map(s => {
-              const fields = [];
-              if (!s.resume_url) fields.push('Resume');
-              if (!s.linkedin_url) fields.push('LinkedIn URL');
-              if (!s.hostel_address) fields.push('Address');
-              
-              if (fields.length === 0) fields.push('Bio');
-
-              const severity = fields.includes('Resume') ? 'high' : fields.length > 1 ? 'medium' : 'low';
-              
-              return {
-                id: s.roll_no || s.id.slice(0, 8).toUpperCase(),
-                name: s.full_name,
-                branch: s.branch,
-                fields,
-                days: 1,
-                severity
-              };
-            });
-
-          const accessList = auditRes.ok ? (auditData.logs || [])
-            .filter(log => log.action.includes('read') || log.action.includes('export') || log.action.includes('update'))
-            .slice(0, 5)
-            .map(log => {
-              let entity = log.actor_role === 'admin' ? 'Administrator' : log.actor_role === 'placement_cell' ? 'TPO Cell' : 'Faculty Member';
-              return {
-                entity,
-                type: log.actor_role,
-                accessed: log.action.replace('placement.', '').replace('admin.', '').replace('.', ' '),
-                students: log.action.includes('bulk') ? 120 : 1,
-                date: new Date(log.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              };
-            }) : [];
-
-          setData({
-            completePct: Math.round(profileStats.completed_pct),
-            totalStudents: analyticData.total_students || 0,
-            consentedPct: Math.round(complianceStats.consent_pct),
-            consentedCount: complianceStats.consented || 0,
-            incompleteProfiles: incompleteList,
-            accessLogs: accessList,
-            loading: false
+        const allStudents = studentsRes?.students || [];
+        const incompleteList = allStudents
+          .filter(s => !s.profile_complete)
+          .map(s => {
+            const fields = [];
+            if (!s.resume_url) fields.push('Resume');
+            if (!s.linkedin_url) fields.push('LinkedIn URL');
+            if (!s.hostel_address) fields.push('Address');
+            if (fields.length === 0) fields.push('Bio');
+            const severity = fields.includes('Resume') ? 'high' : fields.length > 1 ? 'medium' : 'low';
+            return { id: s.roll_no || s.id?.slice(0, 8).toUpperCase(), name: s.full_name, branch: s.branch, fields, days: 1, severity };
           });
-        }
+
+        const accessList = (auditRes?.audit_logs || auditRes?.logs || [])
+          .filter(log => log.action?.includes('read') || log.action?.includes('export') || log.action?.includes('update'))
+          .slice(0, 5)
+          .map(log => ({
+            entity: log.actor_role === 'admin' ? 'Administrator' : log.actor_role === 'placement_cell' ? 'TPO Cell' : 'Faculty Member',
+            type: log.actor_role,
+            accessed: (log.action || '').replace('placement.', '').replace('admin.', '').replace('.', ' '),
+            students: log.action?.includes('bulk') ? 120 : 1,
+            date: log.created_at ? new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
+          }));
+
+        setData({
+          completePct: Math.round(profileStats.completed_pct || 0),
+          totalStudents: analyticData.total_students || 0,
+          consentedPct: Math.round(complianceStats.consent_pct || 0),
+          consentedCount: complianceStats.consented || 0,
+          incompleteProfiles: incompleteList,
+          accessLogs: accessList,
+          loading: false,
+        });
       } catch (err) {
         console.error('Error fetching Data Health:', err);
-      } finally {
         setData(prev => ({ ...prev, loading: false }));
       }
     }

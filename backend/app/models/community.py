@@ -60,11 +60,18 @@ class StudyNote(db.Model):
     title = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     semester = db.Column(db.Integer, nullable=False, default=1)
-    branch = db.Column(db.String(50), nullable=False)
+    branch = db.Column(db.String(50), nullable=False, default="General")
     author_name = db.Column(db.String(255), nullable=False)
+    uploaded_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     file_url = db.Column(db.String(1000), nullable=True)
-    downloads_count = db.Column(db.Integer, default=0)
+    note_type = db.Column(db.String(50), default="notes")        # notes | slides | pyq
+    description = db.Column(db.Text, nullable=True)
+    approved = db.Column(db.Boolean, default=False, nullable=False)  # professor must approve student uploads
+    downloads_count = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    uploader = db.relationship("User", foreign_keys=[uploaded_by_id])
+
 
 class LibraryResource(db.Model):
     __tablename__ = "library_resources"
@@ -74,5 +81,11 @@ class LibraryResource(db.Model):
     author = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     resource_type = db.Column(db.String(50), default="book")
+    uploaded_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     file_url = db.Column(db.String(1000), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    approved = db.Column(db.Boolean, default=True, nullable=False)   # professor/admin uploads auto-approved
+    downloads_count = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    uploader = db.relationship("User", foreign_keys=[uploaded_by_id])

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 const INITIAL_RULES = {
@@ -38,24 +39,51 @@ export default function RulesEngine() {
   const showToast = useToast();
   const [rules, setRules] = useState(INITIAL_RULES);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load persisted rules on mount
+  useEffect(() => {
+    adminApi.getRules().then(res => {
+      if (res?.rules && !res.error) {
+        // Merge server values into the local rule definitions
+        const merged = { ...INITIAL_RULES };
+        (res.rules || []).forEach(r => {
+          Object.keys(merged).forEach(section => {
+            merged[section] = merged[section].map(item =>
+              item.id === r.id ? { ...item, value: r.value } : item,
+            );
+          });
+        });
+        setRules(merged);
+      }
+    });
+  }, []);
 
   function updateRule(section, id, val) {
     setRules(prev => ({
       ...prev,
-      [section]: prev[section].map(r => r.id===id ? {...r, value:val} : r)
+      [section]: prev[section].map(r => r.id === id ? { ...r, value: val } : r),
     }));
     setDirty(true);
   }
 
-  function save() {
+  async function save() {
+    setSaving(true);
+    // Flatten rules to a list and persist
+    const flat = Object.entries(rules).flatMap(([section, items]) =>
+      items.map(r => ({ id: r.id, section, label: r.label, value: r.value })),
+    );
+    const res = await adminApi.saveRule({ rules: flat });
+    setSaving(false);
+    if (res?.error) { showToast(res.error, 'error'); return; }
     setDirty(false);
-    showToast('Rules published successfully. All new drives will use updated settings.', 'success', 3000);
+    showToast('Rules published. All new drives will use updated settings.', 'success', 3000);
   }
 
   function reset() {
     setRules(INITIAL_RULES);
     setDirty(false);
-    showToast('Rules reset to default values.', 'default', 2000);
+    showToast('Rules reset to default values.', 'info', 2000);
   }
 
   const Toggle = ({ on, onToggle }) => (
@@ -74,9 +102,9 @@ export default function RulesEngine() {
         </div>
         <div className="ad-header-actions">
           <button className="ad-btn ad-btn-outline" onClick={reset}>Reset Defaults</button>
-          <button className="ad-btn ad-btn-primary" onClick={save} style={{position:'relative'}}>
-            {dirty && <span style={{position:'absolute',top:'-4px',right:'-4px',width:'10px',height:'10px',borderRadius:'50%',background:'#f59e0b'}}/>}
-            💾 Publish Rules
+          <button className="ad-btn ad-btn-primary" onClick={save} disabled={saving} style={{position:'relative'}}>
+            {dirty && !saving && <span style={{position:'absolute',top:'-4px',right:'-4px',width:'10px',height:'10px',borderRadius:'50%',background:'#f59e0b'}}/>}
+            {saving ? 'Publishing…' : '💾 Publish Rules'}
           </button>
         </div>
       </div>

@@ -1,64 +1,75 @@
-import { useMemo, useState } from 'react';
+/**
+ * GradeBook — Student & Professor Portal
+ *
+ * Student: fetches own grade sheet from /academics/grades.
+ * Professor: fetches their assignments list, then loads submissions
+ *            per assignment to display all student grades.
+ *
+ * Role sourced from AuthContext (JWT) — never from form input.
+ */
+
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './GradeBook.css';
 
 const GRADE_COLORS = {
-  'A+': '#15803d',
-  'A':  '#1e40af',
-  'B+': '#6d28d9',
-  'B':  '#854d0e',
-  'C':  '#dc2626',
-  'D':  '#b45309',
-  'F':  '#991b1b',
+  'A+': '#15803d', 'A': '#1e40af', 'B+': '#6d28d9',
+  'B':  '#854d0e', 'C': '#dc2626', 'D': '#b45309', 'F': '#991b1b',
 };
 
 export default function GradeBook() {
-  const { user }  = useAuth();
+  const { user, isProfessor } = useAuth();
   const showToast = useToast();
-  const isProf    = user?.role === 'professor';
 
-  // ── Student view data ──────────────────────────────────────────────────────
+  // ── Student view ───────────────────────────────────────────────────────────
   const { data: apiData, loading, error, isEmpty } = useApiData(
-    '/api/v1/academics/grades',
-    { grades: [], cgpa: '--', total_credits: 0 }
+    '/academics/grades',
+    { grades: [], cgpa: '--', total_credits: 0 },
   );
-
-  const grades       = useMemo(() => apiData?.grades || [], [apiData]);
+  const grades       = useMemo(() => apiData?.grades       || [], [apiData]);
   const totalCredits = apiData?.total_credits || 0;
-  const cgpa         = apiData?.cgpa || '--';
-
-  // ── Professor view data ────────────────────────────────────────────────────
-  const {
-    data: profData,
-    loading: profLoading,
-    error: profError
-  } = useApiData(
-    isProf ? '/api/v1/professors/grades' : null,
-    { student_grades: [], classes: [] }
-  );
-
-  const [selectedClass, setSelectedClass] = useState('');
-  const [search,        setSearch]        = useState('');
-
-  const profClasses = useMemo(() => profData?.classes || user?.classes || [], [profData, user]);
-  const allStudentGrades = useMemo(() => profData?.student_grades || [], [profData]);
-
-  const filteredGrades = useMemo(() => {
-    return allStudentGrades.filter(g => {
-      const matchesClass = !selectedClass || g.class_code === selectedClass;
-      const query = search.toLowerCase();
-      const matchesSearch = !query ||
-        (g.name  && g.name.toLowerCase().includes(query)) ||
-        (g.roll  && g.roll.toLowerCase().includes(query));
-      return matchesClass && matchesSearch;
-    });
-  }, [allStudentGrades, selectedClass, search]);
+  const cgpa         = apiData?.cgpa          || '--';
 
   // ── Professor view ─────────────────────────────────────────────────────────
-  if (isProf) {
+  // Step 1: load professor's assignments to build the class selector
+  const { data: assignData, loading: assignLoading } = useApiData(
+    isProfessor ? '/academics/assignments' : null,
+    { assignments: [] },
+  );
+  const profAssignments = useMemo(() => assignData?.assignments || [], [assignData]);
+
+  const [selectedAssignment, setSelectedAssignment] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Step 2: load submissions for the selected assignment
+  const [submissions, setSubmissions] = useState([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedAssignment) { setSubmissions([]); return; }
+    setSubsLoading(true);
+    academicsApi.listSubmissions(selectedAssignment)
+      .then(res => {
+        setSubmissions(res?.submissions || []);
+      })
+      .finally(() => setSubsLoading(false));
+  }, [selectedAssignment]);
+
+  const filteredSubs = useMemo(() => {
+    if (!search) return submissions;
+    const q = search.toLowerCase();
+    return submissions.filter(s =>
+      s.student_name?.toLowerCase().includes(q) ||
+      s.roll_no?.toLowerCase().includes(q),
+    );
+  }, [submissions, search]);
+
+  // ── Professor view render ──────────────────────────────────────────────────
+  if (isProfessor) {
     return (
       <>
         <div className="page-header">
@@ -69,46 +80,44 @@ export default function GradeBook() {
         </div>
 
         <div className="roster-controls">
-          {profClasses.length > 0 ? (
-            <select
-              className="class-selector"
-              value={selectedClass}
-              onChange={e => setSelectedClass(e.target.value)}
-            >
-              <option value="">— All classes —</option>
-              {profClasses.map(c => (
-                <option key={c.code || c} value={c.code || c}>
-                  {c.name ? `${c.name} (${c.code})` : c}
-                </option>
-              ))}
-            </select>
-          ) : null}
+          <select
+            className="class-selector"
+            value={selectedAssignment}
+            onChange={e => setSelectedAssignment(e.target.value)}
+            disabled={assignLoading}
+          >
+            <option value="">— Select Assignment —</option>
+            {profAssignments.map(a => (
+              <option key={a.id} value={a.id}>
+                {a.name} · {a.subject}
+              </option>
+            ))}
+          </select>
 
           <div className="lib-search-wrap" style={{ flex: 1 }}>
-            <svg className="lib-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg className="lib-search-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input
-              className="lib-search"
-              type="search"
-              placeholder="Search student by name or roll number…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            <input className="lib-search" type="search"
+              placeholder="Search by name or roll number…"
+              value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
 
         <section className="panel">
           <div className="attend-table-wrap">
-            {profLoading ? (
-              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>Loading grades…</p>
-            ) : profError ? (
-              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-danger)' }}>
-                Couldn't load grades. Is the backend running?
-              </p>
-            ) : filteredGrades.length === 0 ? (
+            {!selectedAssignment ? (
               <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
-                No grade records yet. Grades appear once you publish them.
+                Select an assignment to view its grades.
+              </p>
+            ) : subsLoading ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
+                Loading submissions…
+              </p>
+            ) : filteredSubs.length === 0 ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
+                No submissions yet for this assignment.
               </p>
             ) : (
               <table className="attend-table">
@@ -116,28 +125,28 @@ export default function GradeBook() {
                   <tr>
                     <th>Roll No</th>
                     <th>Student Name</th>
-                    <th>Internal (30)</th>
-                    <th>Mid-Sem (50)</th>
-                    <th>Final Grade</th>
+                    <th>Status</th>
+                    <th>Grade</th>
+                    <th>Feedback</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredGrades.map((g, idx) => (
-                    <tr key={g.id || idx}>
-                      <td><code>{g.roll}</code></td>
-                      <td className="subject-name-cell">{g.name}</td>
-                      <td>{g.internal ?? '—'}</td>
-                      <td>{g.mid ?? '—'}</td>
+                  {filteredSubs.map((s, idx) => (
+                    <tr key={s.id || idx}>
+                      <td><code>{s.roll_no}</code></td>
+                      <td className="subject-name-cell">{s.student_name}</td>
                       <td>
-                        <span
-                          className="grade-pill"
-                          style={{
-                            background: `${GRADE_COLORS[g.grade] || '#4b5563'}22`,
-                            color: GRADE_COLORS[g.grade] || '#4b5563'
-                          }}
-                        >
-                          {g.grade || '—'}
+                        <span className={`status-badge ${s.status}`}>{s.status}</span>
+                      </td>
+                      <td>
+                        <span className="grade-pill"
+                          style={{ background: `${GRADE_COLORS[s.grade] || '#4b5563'}22`,
+                                   color: GRADE_COLORS[s.grade] || '#4b5563' }}>
+                          {s.grade || '—'}
                         </span>
+                      </td>
+                      <td style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', maxWidth: '200px' }}>
+                        {s.feedback || '—'}
                       </td>
                     </tr>
                   ))}
@@ -150,9 +159,10 @@ export default function GradeBook() {
     );
   }
 
-  // ── Student view ───────────────────────────────────────────────────────────
+  // ── Student view render ────────────────────────────────────────────────────
   return (
-    <StateContainer loading={loading} error={error} isEmpty={isEmpty} emptyMessage="No grades published yet for this semester. Check back after your exams.">
+    <StateContainer loading={loading} error={error} isEmpty={isEmpty}
+      emptyMessage="No grades published yet for this semester. Check back after your exams.">
       <div className="page-header">
         <div>
           <h1 className="page-title">Grade Book</h1>
@@ -175,7 +185,7 @@ export default function GradeBook() {
           <span className="grade-stat-label">A / A+ Grades</span>
         </div>
         <div className="grade-stat-card">
-          <span className="grade-stat-val">{grades.filter(g => (g.gp || 10) < 7).length}</span>
+          <span className="grade-stat-val">{grades.filter(g => (g.gp ?? 10) < 7).length}</span>
           <span className="grade-stat-label">Below B</span>
         </div>
       </div>
@@ -189,13 +199,8 @@ export default function GradeBook() {
           <table className="attend-table">
             <thead>
               <tr>
-                <th>Subject</th>
-                <th>Code</th>
-                <th>Internal (30)</th>
-                <th>Mid-Sem (50)</th>
-                <th>Credits</th>
-                <th>Grade</th>
-                <th>GP</th>
+                <th>Subject</th><th>Code</th><th>Internal (30)</th>
+                <th>Mid-Sem (50)</th><th>Credits</th><th>Grade</th><th>GP</th>
               </tr>
             </thead>
             <tbody>
@@ -207,13 +212,9 @@ export default function GradeBook() {
                   <td>{g.mid ?? '—'}</td>
                   <td>{g.credits ?? '—'}</td>
                   <td>
-                    <span
-                      className="grade-pill"
-                      style={{
-                        background: `${GRADE_COLORS[g.grade] || '#3b82f6'}22`,
-                        color: GRADE_COLORS[g.grade] || '#3b82f6'
-                      }}
-                    >
+                    <span className="grade-pill"
+                      style={{ background: `${GRADE_COLORS[g.grade] || '#3b82f6'}22`,
+                               color: GRADE_COLORS[g.grade] || '#3b82f6' }}>
                       {g.grade || '—'}
                     </span>
                   </td>

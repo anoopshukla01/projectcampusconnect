@@ -445,6 +445,19 @@ def bulk_shortlist(drive_id):
     audit_action("placement.shortlist.bulk", target_type="placement_drive", target_id=str(drive_id),
                  detail={"added": len(added), "skipped": len(skipped), "round": round_num})
 
+    # ── Cross-feature trigger: notify each shortlisted student ───────────────
+    try:
+        from app.utils.notify import notify
+        notify(
+            [str(sid) for sid in student_ids if str(sid) in added],
+            f"You're Shortlisted: {drive.company_name}",
+            body=f"Congratulations! You've been shortlisted for {drive.role_title} at {drive.company_name} (Round {round_num}).",
+            notif_type="placement",
+            link="/internships",
+        )
+    except Exception:
+        pass
+
     return jsonify({
         "message": f"{len(added)} students shortlisted.",
         "added": added,
@@ -564,6 +577,20 @@ def create_offer(drive_id):
 
     audit_action("placement.offer.created", target_type="placement_offer", target_id=str(offer.id),
                  detail={"student_id": str(student_id), "drive_id": str(drive_id)})
+
+    # ── Cross-feature trigger: notify the student an offer was issued ────────
+    try:
+        from app.utils.notify import notify
+        notify(
+            student_id,
+            f"Offer Letter: {drive.company_name}",
+            body=f"You have received an offer for {drive.role_title} at {drive.company_name}. Please respond before the deadline.",
+            notif_type="placement",
+            link="/internships",
+        )
+    except Exception:
+        pass
+
     return jsonify({"message": "Offer extended successfully.", "offer_id": str(offer.id)}), 201
 
 

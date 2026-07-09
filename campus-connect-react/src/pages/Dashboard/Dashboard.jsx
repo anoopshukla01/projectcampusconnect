@@ -39,19 +39,13 @@ export default function Dashboard() {
 
   // Student specific API data
   const { data: studentProfile, loading: profileLoading } = useApiData(
-    user?.role !== 'professor' ? '/api/v1/students/me' : null,
+    user?.role !== 'professor' ? '/students/me' : null,
     null
   );
 
-  // Load announcements from localStorage or defaults
-  const [announcements] = useState(() => {
-    const saved = localStorage.getItem('ss_announcements');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, title: 'Mid-semester exam schedule released', source: 'Academic office', time: '2h ago', color: '#3b82f6' },
-      { id: 2, title: 'Google Summer of Code info session', source: 'Placement cell', time: '5h ago', color: '#22c55e' },
-      { id: 3, title: 'Hackathon Hyperion 4.0 registrations open', source: 'E-Cell', time: '1d ago', color: '#f59e0b' }
-    ];
-  });
+  // Live announcements from backend
+  const { data: annData } = useApiData('/community/announcements', { announcements: [] });
+  const announcements = useMemo(() => (annData?.announcements || []).slice(0, 5), [annData]);
 
   const isProf = user?.role === 'professor';
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 export default function AuditLog() {
@@ -14,22 +15,10 @@ export default function AuditLog() {
 
   async function fetchAuditLogs() {
     setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/v1/admin/audit-logs?per_page=100', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setLogs(data.audit_logs || []);
-      } else {
-        showToast(data.error || 'Failed to fetch audit logs.', 'error', 3000);
-      }
-    } catch {
-      showToast('Network error fetching audit logs.', 'error', 3000);
-    } finally {
-      setLoading(false);
-    }
+    const res = await adminApi.getAuditLog({ per_page: 100 });
+    setLoading(false);
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    setLogs(res?.audit_logs || res?.logs || []);
   }
 
   const filtered = logs.filter(l =>
@@ -76,7 +65,7 @@ export default function AuditLog() {
                 {filtered.map(l => (
                   <tr key={l.id}>
                     <td style={{ color: '#94a3b8', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                      {l.created_at ? new Date(l.created_at).toLocaleString() : '—'}
+                      {(l.created_at || l.timestamp) ? new Date(l.created_at || l.timestamp).toLocaleString() : '—'}
                     </td>
                     <td><strong style={{ color: '#818cf8' }}>{l.action}</strong></td>
                     <td>{l.actor_email || l.actor_id || 'System'}</td>

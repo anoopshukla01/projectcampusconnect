@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 const PERMISSIONS = [
@@ -30,76 +31,38 @@ export default function UserManagement() {
 
   async function fetchUsers() {
     setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/v1/admin/users?per_page=100', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUsers(data.users || []);
-      } else {
-        showToast(data.error || 'Failed to fetch users.', 'error', 3000);
-      }
-    } catch {
-      showToast('Network error fetching users list.', 'error', 3000);
-    } finally {
-      setLoading(false);
-    }
+    const res = await adminApi.listUsers({ per_page: 100 });
+    setLoading(false);
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    setUsers(res?.users || []);
   }
 
-  const roleFilterMap = ['','student','professor','placement_cell'];
+  const roleFilterMap = ['', 'student', 'professor', 'placement_cell'];
   const filtered = users.filter(u => {
-    const roleMatch = !roleFilterMap[tab] || u.role === roleFilterMap[tab] || (roleFilterMap[tab] === 'tpo' && u.role === 'placement_cell');
+    const roleMatch = !roleFilterMap[tab] || u.role === roleFilterMap[tab];
     const searchMatch = !search || (u.email && u.email.toLowerCase().includes(search.toLowerCase())) || (u.phone && u.phone.includes(search));
     return roleMatch && searchMatch;
   });
 
   async function toggleUserActive(user) {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v1/admin/users/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ is_active: !user.is_active })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: !user.is_active } : u));
-        showToast(`User account ${!user.is_active ? 'activated' : 'deactivated'}.`, 'success', 2000);
-      } else {
-        showToast(data.error || 'Update failed.', 'error', 3000);
-      }
-    } catch {
-      showToast('Error updating user status.', 'error', 3000);
-    }
+    const res = await adminApi.toggleUserActive(user.id, !user.is_active);
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: !user.is_active } : u));
+    showToast(`User account ${!user.is_active ? 'activated' : 'deactivated'}.`, 'success', 2000);
   }
 
   async function generateInvite() {
     if (!newUser.email) { showToast('Email address is required.', 'error', 2000); return; }
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/v1/admin/invites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ email: newUser.email, role: newUser.role })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Invite generated successfully!', 'success', 3000);
-        if (data.token) {
-          setInviteTokenResult(data.token);
-        } else {
-          setModalOpen(false);
-          setNewUser({ email:'', role:'professor' });
-        }
-        fetchUsers();
-      } else {
-        showToast(data.error || 'Failed to generate invite.', 'error', 3000);
-      }
-    } catch {
-      showToast('Error sending invite request.', 'error', 3000);
+    const res = await adminApi.createInvite({ email: newUser.email, role: newUser.role });
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    showToast('Invite generated successfully!', 'success', 3000);
+    if (res?.token) {
+      setInviteTokenResult(res.token);
+    } else {
+      setModalOpen(false);
+      setNewUser({ email: '', role: 'professor' });
     }
+    fetchUsers();
   }
 
   const Toggle = ({ on, onToggle }) => (

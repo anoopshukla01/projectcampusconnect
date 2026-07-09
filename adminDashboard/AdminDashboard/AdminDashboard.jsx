@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { adminApi, placementApi } from '@/services/api';
+import { useApiData } from '@/hooks/useApiData';
 import '@admin/admin.shared.css';
 
 const IconStudents = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
@@ -43,72 +45,53 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadData() {
       try {
-        const token = localStorage.getItem('token');
-        const headers = { 'Authorization': `Bearer ${token}` };
+        const [usersRes, placementRes, drivesRes, auditRes] = await Promise.all([
+          adminApi.listUsers({ per_page: 100 }),
+          adminApi.getAnalytics(),
+          placementApi.listDrives(),
+          adminApi.getAuditLog({ per_page: 6 }),
+        ]);
 
-        // Fetch users to count roles
-        const usersRes = await fetch('/api/v1/admin/users?per_page=100', { headers });
-        const usersData = await usersRes.json();
-        
-        // Fetch placement analytics for placement rate
-        const placementRes = await fetch('/api/v1/admin/analytics/placement', { headers });
-        const placementData = await placementRes.json();
+        const users = usersRes?.users || [];
+        const students  = users.filter(u => u.role === 'student');
+        const faculty   = users.filter(u => u.role === 'professor');
+        const tpo       = users.filter(u => u.role === 'placement_cell');
+        const admins    = users.filter(u => u.role === 'admin');
 
-        // Fetch drives
-        const drivesRes = await fetch('/api/v1/placement/drives', { headers });
-        const drivesData = await drivesRes.json();
+        const pendingStudents = students.filter(u => !u.is_active).length;
+        const pendingFaculty  = faculty.filter(u => !u.is_active).length;
+        const totalPlaced     = placementRes?.placements_this_year || 0;
+        const placementRatePct = students.length > 0 ? Math.round((totalPlaced / students.length) * 100) : 0;
 
-        // Fetch audit logs
-        const auditRes = await fetch('/api/v1/admin/audit-logs?per_page=6', { headers });
-        const auditData = await auditRes.json();
+        const activityLogs = (auditRes?.audit_logs || auditRes?.logs || []).map(log => ({
+          icon: log.action?.includes('invite') ? '✉️' : log.action?.includes('approve') ? '✅' : '📋',
+          text: `${(log.action || '').replace('admin.', '').replace('.', ' ')}: ${log.detail?.email || log.target_type || ''}`,
+          time: log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          cls:  log.action?.includes('reject') ? 'ad-act-rose' : 'ad-act-blue',
+        }));
 
-        if (usersRes.ok) {
-          const users = usersData.users || [];
-          
-          const students = users.filter(u => u.role === 'student');
-          const faculty = users.filter(u => u.role === 'professor');
-          const tpo = users.filter(u => u.role === 'placement_cell');
-          const admins = users.filter(u => u.role === 'admin');
-
-          const pendingStudents = students.filter(u => !u.is_active).length;
-          const pendingFaculty = faculty.filter(u => !u.is_active).length;
-
-          // Placement rate from actual placement analytics
-          const totalPlacements = placementRes.ok ? (placementData.placements_this_year || 0) : 0;
-          const placementRatePct = students.length > 0 ? Math.round((totalPlacements / students.length) * 100) : 0;
-
-          // Activity logs mapping
-          const activityLogs = auditRes.ok ? (auditData.logs || []).map(log => ({
-            icon: log.action.includes('invite') ? '✉️' : log.action.includes('approve') ? '✅' : '📋',
-            text: `${log.action.replace('admin.', '').replace('.', ' ')}: ${log.detail?.email || log.target_type || ''}`,
-            time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            cls: log.action.includes('reject') ? 'ad-act-rose' : 'ad-act-blue'
-          })) : [];
-
-          setData(prev => ({
-            ...prev,
-            totalStudents: students.length,
-            pendingStudents,
-            facultyMembers: faculty.length,
-            pendingFaculty,
-            placementRate: placementRatePct,
-            activeDrives: drivesRes.ok ? (drivesData.drives || []).length : 0,
-            roleOverview: [
-              { role: 'Students',       total: students.length, active: students.filter(u => u.is_active).length, pending: pendingStudents },
-              { role: 'Faculty',        total: faculty.length, active: faculty.filter(u => u.is_active).length, pending: pendingFaculty },
-              { role: 'Placement Cell', total: tpo.length, active: tpo.filter(u => u.is_active).length, pending: 0 },
-              { role: 'Admins',         total: admins.length, active: admins.filter(u => u.is_active).length, pending: 0 },
-            ],
-            activity: activityLogs,
-          }));
-        }
+        setData(prev => ({
+          ...prev,
+          totalStudents: students.length,
+          pendingStudents,
+          facultyMembers: faculty.length,
+          pendingFaculty,
+          placementRate: placementRatePct,
+          activeDrives: (drivesRes?.drives || []).length,
+          roleOverview: [
+            { role: 'Students',       total: students.length, active: students.filter(u => u.is_active).length, pending: pendingStudents },
+            { role: 'Faculty',        total: faculty.length,  active: faculty.filter(u => u.is_active).length,  pending: pendingFaculty  },
+            { role: 'Placement Cell', total: tpo.length,      active: tpo.filter(u => u.is_active).length,      pending: 0               },
+            { role: 'Admins',         total: admins.length,   active: admins.filter(u => u.is_active).length,   pending: 0               },
+          ],
+          activity: activityLogs,
+        }));
       } catch (err) {
         console.error('Error loading admin dashboard stats:', err);
       } finally {
         setLoading(false);
       }
     }
-
     loadData();
   }, []);
 

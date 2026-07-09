@@ -36,15 +36,18 @@ class TimetableSlot(db.Model):
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     branch = db.Column(db.String(50), nullable=True)
-    role = db.Column(db.String(50), nullable=True)
-    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
-    day_of_week = db.Column(db.String(20), nullable=False) # Mon, Tue, etc.
-    time_slot = db.Column(db.String(50), nullable=False)   # e.g. "09:00 - 10:30"
+    semester = db.Column(db.Integer, nullable=True)          # e.g. 4 — scopes slot to a semester
+    role = db.Column(db.String(50), nullable=True)           # "student" | "professor" — broadcast scope
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)  # owning professor
+    day_of_week = db.Column(db.String(20), nullable=False)   # Mon, Tue, Wed, Thu, Fri, Sat
+    time_slot = db.Column(db.String(50), nullable=False)     # e.g. "09:00 - 10:30"
     course_name = db.Column(db.String(255), nullable=False)
     course_code = db.Column(db.String(50), nullable=False)
     room = db.Column(db.String(50), nullable=False)
     professor_name = db.Column(db.String(255), nullable=False)
-    slot_type = db.Column(db.String(50), default="lecture")
+    slot_type = db.Column(db.String(50), default="lecture")  # lecture | lab | extra | cancelled
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Assignment(db.Model):
     __tablename__ = "assignments"

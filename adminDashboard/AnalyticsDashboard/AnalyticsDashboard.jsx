@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi, apiPost } from '@/services/api';
 import '@admin/admin.shared.css';
 
 export default function AnalyticsDashboard() {
@@ -36,84 +37,37 @@ export default function AnalyticsDashboard() {
 
   async function fetchAnalytics() {
     setLoading(true);
-    const token = localStorage.getItem('token');
-    const headers = { 'Authorization': `Bearer ${token}` };
-
-    try {
-      const [pRes, prRes] = await Promise.all([
-        fetch('/api/v1/admin/analytics/placement', { headers }),
-        fetch('/api/v1/admin/analytics/profiles', { headers })
-      ]);
-
-      if (pRes.ok) { const pData = await pRes.json(); setData(pData); }
-      if (prRes.ok) { const prData = await prRes.json(); setProfiles(prData); }
-    } catch {
-      showToast('Network error loading analytics data.', 'error', 3000);
-    } finally {
-      setLoading(false);
-    }
+    const [pRes, prRes] = await Promise.all([
+      adminApi.getAnalytics(),          // /admin/analytics/placement
+      adminApi.getProfileAnalytics(),   // /admin/analytics/profiles
+    ]);
+    if (pRes && !pRes.error) setData(pRes);
+    if (prRes && !prRes.error) setProfiles(prRes);
+    setLoading(false);
   }
 
   async function handleAddBranch(e) {
     e.preventDefault();
-    if (!branchForm.branch.trim()) {
-      showToast('Branch name is required.', 'error', 3000);
-      return;
-    }
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch('/api/v1/admin/branches', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          branch: branchForm.branch.trim()
-        })
-      });
-      const resData = await res.json();
-      if (res.ok) {
-        showToast(resData.message || 'Branch added successfully!', 'success', 3000);
-        setShowBranchModal(false);
-        setBranchForm({ branch: '' });
-        fetchAnalytics(); // Refresh table to show the new branch!
-      } else {
-        showToast(resData.error || 'Failed to add branch.', 'error', 3000);
-      }
-    } catch {
-      showToast('Network error while adding branch.', 'error', 3000);
-    }
+    if (!branchForm.branch.trim()) { showToast('Branch name is required.', 'error', 3000); return; }
+    const res = await apiPost('/admin/branches', { branch: branchForm.branch.trim() });
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    showToast(res?.message || 'Branch added!', 'success', 3000);
+    setShowBranchModal(false);
+    setBranchForm({ branch: '' });
+    fetchAnalytics();
   }
 
   async function handleUpdatePlacement(e) {
     e.preventDefault();
     if (!placementForm.placed_count || !placementForm.total_count) {
-      showToast('Placed count and total count are required.', 'error', 3000);
-      return;
+      showToast('Placed count and total count are required.', 'error', 3000); return;
     }
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch('/api/v1/admin/branch-placements', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(placementForm)
-      });
-      const resData = await res.json();
-      if (res.ok) {
-        showToast(resData.message || 'Placement stats updated!', 'success', 3000);
-        setShowPlacementModal(false);
-        setPlacementForm({ branch: availableBranches[0] || 'Computer Science', placed_count: '', total_count: '' });
-        fetchAnalytics(); // Refresh
-      } else {
-        showToast(resData.error || 'Failed to update stats.', 'error', 3000);
-      }
-    } catch {
-      showToast('Network error while updating stats.', 'error', 3000);
-    }
+    const res = await apiPost('/admin/branch-placements', placementForm);
+    if (res?.error) { showToast(res.error, 'error', 3000); return; }
+    showToast(res?.message || 'Placement stats updated!', 'success', 3000);
+    setShowPlacementModal(false);
+    setPlacementForm({ branch: availableBranches[0] || 'Computer Science', placed_count: '', total_count: '' });
+    fetchAnalytics();
   }
 
   if (loading) {

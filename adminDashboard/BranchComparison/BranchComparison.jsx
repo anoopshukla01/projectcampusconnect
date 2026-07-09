@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 const branchMap = {
@@ -28,47 +29,26 @@ export default function BranchComparison() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('/api/v1/admin/analytics/placement', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          const list = (data.branch_performance || []).map(b => {
-            const info = branchMap[b.branch] || { code: b.branch.slice(0, 2).toUpperCase(), hod: "TBD", color: "#6366f1" };
-            
-            // Determine status based on placement percentage
-            let status = 'good';
-            if (b.placement_pct < 30) status = 'low';
-            else if (b.placement_pct < 50) status = 'warn';
+      const data = await adminApi.getBranchStats();
+      setLoading(false);
+      if (!data || data.error) return;
 
-            // Recommendations
-            let rec = null;
-            if (status === 'low') rec = `Critical: Industry tie-ups and training required urgently.`;
-            else if (status === 'warn') rec = `Upskilling and placement training recommended.`;
-
-            return {
-              code: info.code,
-              name: b.branch,
-              students: b.total_students,
-              placed: b.placed_students,
-              avgPkg: data.avg_package_lpa || 0,
-              companies: 0,
-              pct: b.placement_pct,
-              color: info.color,
-              status,
-              hod: info.hod,
-              rec
-            };
-          });
-          setBranches(list);
-        }
-      } catch (err) {
-        console.error('Error fetching branch performance:', err);
-      } finally {
-        setLoading(false);
-      }
+      const list = (data.branch_performance || []).map(b => {
+        const info = branchMap[b.branch] || { code: b.branch.slice(0, 2).toUpperCase(), hod: 'TBD', color: '#6366f1' };
+        let status = 'good';
+        if (b.placement_pct < 30) status = 'low';
+        else if (b.placement_pct < 50) status = 'warn';
+        return {
+          code: info.code, name: b.branch,
+          students: b.total_students, placed: b.placed_students,
+          avgPkg: data.avg_package_lpa || 0, companies: 0,
+          pct: b.placement_pct, color: info.color, status,
+          hod: info.hod,
+          rec: status === 'low' ? 'Critical: Industry tie-ups and training required urgently.'
+             : status === 'warn' ? 'Upskilling and placement training recommended.' : null,
+        };
+      });
+      setBranches(list);
     }
     loadData();
   }, []);

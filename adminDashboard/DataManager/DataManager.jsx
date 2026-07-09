@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { adminApi, studentsApi, professorsApi, placementApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 const TABS = ['Students', 'Professors', 'Placement Drives'];
@@ -21,52 +22,27 @@ export default function DataManager() {
 
   async function fetchAllData() {
     setLoading(true);
-    const token = localStorage.getItem('token');
-    const headers = { 'Authorization': `Bearer ${token}` };
-
-    try {
-      const [sRes, pRes, dRes] = await Promise.all([
-        fetch('/api/v1/students?per_page=100', { headers }),
-        fetch('/api/v1/professors?per_page=100', { headers }),
-        fetch('/api/v1/placement/drives', { headers })
-      ]);
-
-      if (sRes.ok) { const data = await sRes.json(); setStudents(data.students || []); }
-      if (pRes.ok) { const data = await pRes.json(); setProfs(data.professors || []); }
-      if (dRes.ok) { const data = await dRes.json(); setDrives(data.drives || []); }
-    } catch {
-      showToast('Error loading database records.', 'error', 3000);
-    } finally {
-      setLoading(false);
-    }
+    const [sRes, pRes, dRes] = await Promise.all([
+      studentsApi.list({ per_page: 100 }),
+      professorsApi.list({ per_page: 100 }),
+      placementApi.listDrives(),
+    ]);
+    if (sRes?.students)  setStudents(sRes.students);
+    if (pRes?.professors) setProfs(pRes.professors);
+    if (dRes?.drives)    setDrives(dRes.drives);
+    setLoading(false);
   }
 
   async function handleCsvUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append('file', file);
-
-    const token = localStorage.getItem('token');
-    showToast('Importing student CSV roster…', 'default', 2500);
-
-    try {
-      const res = await fetch('/api/v1/admin/students/import-csv', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || 'CSV imported successfully!', 'success', 3500);
-        fetchAllData();
-      } else {
-        showToast(data.error || 'CSV import failed.', 'error', 3500);
-      }
-    } catch {
-      showToast('Network error during CSV import.', 'error', 3500);
-    }
+    showToast('Importing student CSV roster…', 'info', 2500);
+    const res = await adminApi.bulkImportStudents(formData);
+    if (res?.error) { showToast(res.error, 'error', 3500); return; }
+    showToast(res?.message || 'CSV imported successfully!', 'success', 3500);
+    fetchAllData();
   }
 
   const filteredStudents = students.filter(s =>

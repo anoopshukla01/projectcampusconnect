@@ -219,3 +219,6 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.chats import chats_bp
     app.register_blueprint(chats_bp, url_prefix="/api/v1/career/chats")
 
+    from .blueprints.notifications import notifications_bp
+    app.register_blueprint(notifications_bp, url_prefix="/api/v1/notifications")
+

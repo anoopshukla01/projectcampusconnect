@@ -1,21 +1,69 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { notificationsApi } from '../services/api';
 
 export default function Topbar({ onMenuToggle }) {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const showToast = useToast();
 
-  /* ── Notifications ── */
-  const [showDot, setShowDot] = useState(true);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifs, setNotifs] = useState([
-    { id: 1, title: 'Google Drive Scheduled', text: 'On-campus drive scheduled for Dec 10.', time: '2h ago', unread: true },
-    { id: 2, title: 'Syllabus Updated', text: 'Dr. Ramesh updated course materials for CS3081.', time: '5h ago', unread: true },
-    { id: 3, title: 'Mentorship Approved', text: 'Your request with Prof. Sneha was approved.', time: '1d ago', unread: false },
-  ]);
+  /* ── Notifications — live from backend ── */
+  const [notifOpen,  setNotifOpen]  = useState(false);
+  const [notifs,     setNotifs]     = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+
+  // Poll unread count every 30 s; full list fetched on first open
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) return;
+    const res = await notificationsApi.unreadCount();
+    if (res?.count !== undefined) setUnreadCount(res.count);
+  }, [user]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    setLoadingNotifs(true);
+    const res = await notificationsApi.list({ per_page: 20 });
+    setLoadingNotifs(false);
+    if (res?.notifications) {
+      setNotifs(res.notifications);
+      setUnreadCount(res.unread ?? 0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const id = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(id);
+  }, [fetchUnreadCount]);
+
+  async function toggleNotif() {
+    const willOpen = !notifOpen;
+    setNotifOpen(willOpen);
+    if (willOpen) {
+      await fetchNotifications();
+      // Mark all read on open (fire-and-forget)
+      notificationsApi.markAllRead().then(() => setUnreadCount(0));
+    }
+  }
+
+  async function clearNotifs() {
+    // Best-effort: mark all read and clear locally
+    await notificationsApi.markAllRead();
+    setNotifs([]);
+    setUnreadCount(0);
+    showToast('Notifications cleared', 'success');
+  }
+
+  async function removeNotif(id, e) {
+    e.stopPropagation();
+    // Mark single notification as read and remove from list
+    await notificationsApi.markRead(id);
+    setNotifs(prev => prev.filter(n => n.id !== id));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }
 
   /* ── Profile & Settings Modal ── */
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,23 +107,6 @@ export default function Topbar({ onMenuToggle }) {
     setTimeout(() => navigate('/login'), 800);
   }
 
-  function toggleNotif() {
-    setNotifOpen(!notifOpen);
-    setShowDot(false);
-    // Mark all as read
-    setNotifs(prev => prev.map(n => ({ ...n, unread: false })));
-  }
-
-  function clearNotifs() {
-    setNotifs([]);
-    showToast('Notifications cleared', 'success');
-  }
-
-  function removeNotif(id, e) {
-    e.stopPropagation();
-    setNotifs(prev => prev.filter(n => n.id !== id));
-  }
-
   function handleSaveProfile() {
     if (!formName.trim() || !formEmail.trim()) {
       showToast('Name and email cannot be blank.', 'error');
@@ -91,11 +122,17 @@ export default function Topbar({ onMenuToggle }) {
       showToast('New password must be at least 6 characters.', 'error');
       return;
     }
-    updateUser({ password: newPw });
-    showToast('Password updated successfully!', 'success');
-    setOldPw('');
-    setNewPw('');
-    setModalOpen(false);
+    // Call the real backend password change endpoint
+    import('../services/api').then(({ authApi }) => {
+      authApi.changePassword({ current_password: oldPw, new_password: newPw })
+        .then(res => {
+          if (res?.error) { showToast(res.error, 'error'); return; }
+          showToast('Password updated successfully!', 'success');
+          setOldPw('');
+          setNewPw('');
+          setModalOpen(false);
+        });
+    });
   }
 
   function handleSavePreferences() {
@@ -103,9 +140,8 @@ export default function Topbar({ onMenuToggle }) {
     setModalOpen(false);
   }
 
-  const initials = user?.initials || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'ST');
-  const roleLabel = user?.role === 'tpo' ? 'TPO / Placement' : user?.role === 'professor' ? 'Professor' : 'Student';
-  const unreadCount = notifs.filter(n => n.unread).length;
+  const initials   = user?.initials || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'ST');
+  const roleLabel  = user?.role === 'tpo' ? 'TPO / Placement' : user?.role === 'professor' ? 'Professor' : user?.role === 'admin' ? 'Admin' : 'Student';
 
   return (
     <header className="topbar" role="banner">
@@ -121,12 +157,16 @@ export default function Topbar({ onMenuToggle }) {
       <div className="topbar-right">
         {/* Notification Bell with Dropdown */}
         <div className="topbar-dropdown-wrap" ref={notifRef}>
-          <button className={`icon-btn${unreadCount > 0 || showDot ? ' has-unread' : ''}`} id="notifBtn" aria-label="Notifications" onClick={toggleNotif}>
+          <button className={`icon-btn${unreadCount > 0 ? ' has-unread' : ''}`} id="notifBtn" aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`} onClick={toggleNotif}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            {(unreadCount > 0 || showDot) && <span className="notif-dot" aria-hidden="true" />}
+            {unreadCount > 0 && (
+              <span className="notif-dot" aria-hidden="true">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {notifOpen && (
@@ -136,9 +176,15 @@ export default function Topbar({ onMenuToggle }) {
                 {notifs.length > 0 && <button onClick={clearNotifs}>Clear all</button>}
               </div>
               <div className="notif-dropdown-body">
-                {notifs.map(n => (
+                {loadingNotifs ? (
+                  <div className="notif-empty">
+                    <span>⏳</span><p>Loading…</p>
+                  </div>
+                ) : notifs.map(n => (
                   <div key={n.id} className={`notif-item${n.unread ? ' unread' : ''}`}>
-                    <div className="notif-item-content">
+                    <div className="notif-item-content"
+                         style={n.link ? { cursor: 'pointer' } : {}}
+                         onClick={() => n.link && navigate(n.link)}>
                       <h4>{n.title}</h4>
                       <p>{n.text}</p>
                       <span>{n.time}</span>
@@ -146,7 +192,7 @@ export default function Topbar({ onMenuToggle }) {
                     <button className="notif-item-close" onClick={(e) => removeNotif(n.id, e)}>✕</button>
                   </div>
                 ))}
-                {notifs.length === 0 && (
+                {!loadingNotifs && notifs.length === 0 && (
                   <div className="notif-empty">
                     <span>🔔</span>
                     <p>No new notifications</p>

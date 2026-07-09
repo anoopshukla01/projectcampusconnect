@@ -1,127 +1,86 @@
-import { useState, useEffect } from 'react';
+/**
+ * Applications — TPO Portal  (PL9, PL10, PL11, PL12)
+ * Select a drive → view all applications → shortlist / offer.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@ctx/ToastContext';
+import { placementApi } from '@/services/api';
 import './Applications.css';
 
 export default function Applications() {
   const showToast = useToast();
-  const [drives, setDrives]           = useState([]);
+  const [drives,          setDrives]          = useState([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [applications,    setApplications]    = useState([]);
+  const [loading,         setLoading]         = useState(true);
 
-  useEffect(() => {
-    fetchDrives();
+  // Offer modal state
+  const [offerModal,   setOfferModal]   = useState(false);
+  const [offerStudent, setOfferStudent] = useState(null);
+  const [ctcInput,     setCtcInput]     = useState('12');
+  const [issuing,      setIssuing]      = useState(false);
+
+  const fetchDrives = useCallback(async () => {
+    const res = await placementApi.listDrives();
+    const list = res?.drives || [];
+    setDrives(list);
+    if (list.length > 0) setSelectedDriveId(String(list[0].id));
+    else setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (selectedDriveId) {
-      fetchApplications(selectedDriveId);
-    } else {
-      setApplications([]);
-    }
-  }, [selectedDriveId]);
-
-  async function fetchDrives() {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/v1/placement/drives', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const driveList = data.drives || [];
-        setDrives(driveList);
-        if (driveList.length > 0) {
-          setSelectedDriveId(driveList[0].id);
-        } else {
-          setLoading(false);
-        }
-      }
-    } catch {
-      showToast('Error loading placement drives.', 'error', 3000);
-      setLoading(false);
-    }
-  }
-
-  async function fetchApplications(driveId) {
+  const fetchApplications = useCallback(async (driveId) => {
     setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v1/placement/drives/${driveId}/applications`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setApplications(data.applications || []);
-      } else {
-        showToast(data.error || 'Failed to fetch drive applications.', 'error', 3000);
-      }
-    } catch {
-      showToast('Error fetching drive applications.', 'error', 3000);
-    } finally {
-      setLoading(false);
-    }
+    const res = await placementApi.getDriveApplications(driveId);
+    setLoading(false);
+    if (res?.error) { showToast(res.error, 'error'); return; }
+    setApplications(res || []);
+  }, []);
+
+  useEffect(() => { fetchDrives(); }, [fetchDrives]);
+  useEffect(() => {
+    if (selectedDriveId) fetchApplications(selectedDriveId);
+    else setApplications([]);
+  }, [selectedDriveId, fetchApplications]);
+
+  async function shortlist(studentId) {
+    const res = await placementApi.bulkShortlist(selectedDriveId, [studentId]);
+    if (res?.error) { showToast(res.error, 'error'); return; }
+    showToast('Student shortlisted.', 'success', 2500);
+    fetchApplications(selectedDriveId);
   }
 
-  async function shortlistStudent(studentId) {
-    if (!selectedDriveId) return;
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v1/placement/drives/${selectedDriveId}/shortlist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ student_ids: [studentId] })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Student shortlisted successfully!', 'success', 2500);
-        fetchApplications(selectedDriveId);
-      } else {
-        showToast(data.error || 'Failed to shortlist.', 'error', 3000);
-      }
-    } catch {
-      showToast('Error shortlisting student.', 'error', 3000);
-    }
-  }
-
-  async function offerStudent(studentId) {
-    if (!selectedDriveId) return;
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/v1/placement/drives/${selectedDriveId}/offers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ student_id: studentId, ctc_lpa: 12.0 })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast('Offer extended successfully!', 'success', 2500);
-        fetchApplications(selectedDriveId);
-      } else {
-        showToast(data.error || 'Failed to extend offer.', 'error', 3000);
-      }
-    } catch {
-      showToast('Error extending offer.', 'error', 3000);
-    }
+  async function issueOffer() {
+    if (!offerStudent) return;
+    setIssuing(true);
+    const res = await placementApi.issueOffer(selectedDriveId, {
+      student_id: offerStudent.student_id,
+      ctc_lpa:    parseFloat(ctcInput) || 12,
+    });
+    setIssuing(false);
+    if (res?.error) { showToast(res.error, 'error'); return; }
+    showToast('Offer letter issued!', 'success', 2500);
+    setOfferModal(false);
+    fetchApplications(selectedDriveId);
   }
 
   return (
     <div className="ap-root">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Application Pipeline & Tracking</h1>
-          <p className="page-sub">Review candidates, shortlist profiles, and issue offer letters</p>
+          <h1 className="page-title">Application Pipeline</h1>
+          <p className="page-sub">Review candidates, shortlist and issue offer letters</p>
         </div>
       </div>
 
-      {/* Drive Selector */}
+      {/* Drive selector */}
       <div className="ad-card" style={{ marginBottom: '1.25rem' }}>
-        <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem', fontWeight: 600 }}>Select Active Placement Drive</label>
-        <select
-          value={selectedDriveId}
-          onChange={e => setSelectedDriveId(e.target.value)}
-          style={{ width: '100%', maxWidth: '400px', padding: '0.6rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
-        >
+        <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem', fontWeight: 600 }}>
+          Select Drive
+        </label>
+        <select value={selectedDriveId} onChange={e => setSelectedDriveId(e.target.value)}
+          style={{ width: '100%', maxWidth: 400, padding: '0.6rem', borderRadius: 8,
+                   background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}>
           {drives.map(d => (
             <option key={d.id} value={d.id}>{d.company_name} — {d.role_title}</option>
           ))}
@@ -129,41 +88,47 @@ export default function Applications() {
       </div>
 
       <div className="ad-card">
-        <div className="ad-table-wrap">
-          {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-              <div className="ad-spinner" style={{ margin: '0 auto 1rem auto' }} />
-              Loading drive candidate applications…
-            </div>
-          ) : applications.length === 0 ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-              <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>No student applications for this drive</p>
-              <p style={{ fontSize: '0.85rem' }}>Student applications submitted for this drive will appear here.</p>
-            </div>
-          ) : (
+        {loading ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading applications…</div>
+        ) : applications.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+            <p style={{ fontWeight: 600 }}>No applications for this drive</p>
+            <p style={{ fontSize: '0.85rem' }}>Student applications will appear here once submitted.</p>
+          </div>
+        ) : (
+          <div className="ad-table-wrap">
             <table className="ad-table">
               <thead>
-                <tr><th>Student Name</th><th>Roll No</th><th>Branch</th><th>CGPA</th><th>Applied On</th><th>Status</th><th>Actions</th></tr>
+                <tr>
+                  <th>Name</th><th>Roll No</th><th>Branch</th>
+                  <th>CGPA</th><th>Applied On</th><th>Status</th><th>Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {applications.map(a => (
-                  <tr key={a.id}>
-                    <td><div style={{ fontWeight: 600, color: '#f8fafc' }}>{a.student_name}</div></td>
+                  <tr key={a.application_id}>
+                    <td style={{ fontWeight: 600, color: '#f8fafc' }}>{a.full_name}</td>
                     <td><code>{a.roll_no}</code></td>
                     <td>{a.branch}</td>
                     <td><strong>{a.cgpa}</strong></td>
-                    <td style={{ color: '#94a3b8', fontSize: '0.82rem' }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}</td>
+                    <td style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
+                      {a.applied_at ? new Date(a.applied_at).toLocaleDateString() : '—'}
+                    </td>
                     <td><span className="ad-badge ad-badge-info">{a.status}</span></td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        {a.status === 'Applied' && (
-                          <button className="ad-btn ad-btn-primary" style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem' }} onClick={() => shortlistStudent(a.student_id)}>
+                        {a.status === 'applied' && (
+                          <button className="ad-btn ad-btn-primary"
+                            style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem' }}
+                            onClick={() => shortlist(a.student_id)}>
                             Shortlist
                           </button>
                         )}
-                        {a.status === 'Shortlisted' && (
-                          <button className="ad-btn ad-btn-primary" style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', background: '#10b981' }} onClick={() => offerStudent(a.student_id)}>
-                            Extend Offer
+                        {a.status === 'shortlisted' && (
+                          <button className="ad-btn ad-btn-primary"
+                            style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', background: '#10b981' }}
+                            onClick={() => { setOfferStudent(a); setCtcInput('12'); setOfferModal(true); }}>
+                            Offer
                           </button>
                         )}
                       </div>
@@ -172,9 +137,38 @@ export default function Applications() {
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Issue Offer Modal */}
+      {offerModal && (
+        <div className="modal-overlay" onClick={() => setOfferModal(false)}>
+          <div className="modal-box" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Issue Offer Letter</h2>
+              <button className="modal-close" onClick={() => setOfferModal(false)}>✕</button>
+            </div>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Offering to <strong>{offerStudent?.full_name}</strong> ({offerStudent?.roll_no})
+            </p>
+            <label style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+              CTC (LPA)
+              <input type="number" step="0.5" value={ctcInput}
+                onChange={e => setCtcInput(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: '0.3rem', padding: '0.55rem',
+                         borderRadius: 8, background: 'rgba(255,255,255,0.06)',
+                         border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} />
+            </label>
+            <div className="modal-footer" style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button className="pd-btn pd-btn-outline" onClick={() => setOfferModal(false)}>Cancel</button>
+              <button className="pd-btn pd-btn-primary" onClick={issueOffer} disabled={issuing}>
+                {issuing ? 'Issuing…' : 'Issue Offer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

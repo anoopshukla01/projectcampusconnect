@@ -1,8 +1,36 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+/**
+ * AuthContext — Authentication State & Session Management
+ * ========================================================
+ * SECURITY CONTRACT:
+ *  - Role is ALWAYS sourced from the backend JWT response (data.role),
+ *    never from a client-supplied form field.
+ *  - Tokens are stored in localStorage under consistent keys.
+ *  - Silent token refresh is handled in services/api.js. This context
+ *    listens for the 'session:expired' event fired when refresh fails,
+ *    and cleans up state immediately.
+ *  - The offline mock fallback (static USERS list) is only active when
+ *    the backend is genuinely unreachable (network error). It never
+ *    bypasses backend authentication when the server is up.
+ */
+
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { USERS } from '../data/users';
 
 const AuthContext = createContext(null);
+
+// ── Storage keys (must stay in sync with services/api.js) ────────────────────
+const KEYS = {
+  ACCESS:  'access_token',
+  REFRESH: 'refresh_token',
+  USER:    'ss_user',
+  // Legacy keys written by older code — we keep these in sync for compat
+  TOKEN:   'token',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Offline-mode helpers (dev only, never used when backend is reachable)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function getCustomUsers() {
   try {
@@ -11,90 +39,140 @@ function getCustomUsers() {
   } catch { return []; }
 }
 
-function findUser(identifier, password, role) {
+function findOfflineUser(identifier, password) {
   const id = identifier.toLowerCase().trim();
   const pw = password.trim();
   const custom = getCustomUsers();
-  
-  // Search static USERS list first
-  const foundStatic = USERS.find(u =>
-    (u.email.toLowerCase() === id || u.id.toLowerCase() === id) &&
-    u.password === pw &&
-    u.role === role
-  );
-  if (foundStatic) return foundStatic;
 
-  // Search dynamic custom users
-  return custom.find(u =>
-    (u.email.toLowerCase() === id || u.id?.toLowerCase() === id) &&
-    u.password === pw &&
-    u.role === role
-  ) || null;
+  return (
+    USERS.find(
+      (u) =>
+        (u.email?.toLowerCase() === id || u.id?.toLowerCase() === id) &&
+        u.password === pw,
+    ) ??
+    custom.find(
+      (u) =>
+        (u.email?.toLowerCase() === id || u.id?.toLowerCase() === id) &&
+        u.password === pw,
+    ) ??
+    null
+  );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Role mapping  (backend → UI)
+// The UI uses 'tpo' as the display role for placement_cell users.
+// All permission checks in App.jsx and route guards use these UI strings.
+// ─────────────────────────────────────────────────────────────────────────────
+const BACKEND_ROLE_TO_UI = {
+  student:         'student',
+  professor:       'professor',
+  placement_cell:  'tpo',
+  admin:           'admin',
+};
+
+function mapRole(backendRole) {
+  return BACKEND_ROLE_TO_UI[backendRole] ?? backendRole;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers to build the user object stored in state / localStorage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build the normalised user object from a successful backend login response.
+ * Role is taken EXCLUSIVELY from data.role (server-resolved from JWT claims).
+ */
+function buildUserFromResponse(data, identifierHint = '') {
+  const roleVal = mapRole(data.role);
+  const rawName =
+    data.name ??
+    data.full_name ??
+    (identifierHint.includes('@')
+      ? identifierHint.split('@')[0].replace(/[._-]/g, ' ')
+      : identifierHint);
+  const displayName =
+    rawName.charAt(0).toUpperCase() + rawName.slice(1);
+
+  return {
+    id:          data.user_id,
+    email:       data.email ?? (identifierHint.includes('@') ? identifierHint : null),
+    roll_no:     data.roll_no ?? null,
+    role:        roleVal,          // UI role string (student / professor / tpo / admin)
+    backendRole: data.role,        // raw backend value — keep for API calls that need it
+    name:        displayName,
+    initials:    displayName.slice(0, 2).toUpperCase(),
+  };
+}
+
+function persistSession(userObj, accessToken, refreshToken) {
+  localStorage.setItem(KEYS.USER,    JSON.stringify(userObj));
+  localStorage.setItem(KEYS.ACCESS,  accessToken);
+  localStorage.setItem(KEYS.TOKEN,   accessToken);   // legacy compat
+  if (refreshToken) localStorage.setItem(KEYS.REFRESH, refreshToken);
+}
+
+function clearSession() {
+  localStorage.removeItem(KEYS.USER);
+  localStorage.removeItem(KEYS.ACCESS);
+  localStorage.removeItem(KEYS.REFRESH);
+  localStorage.removeItem(KEYS.TOKEN);
+  localStorage.removeItem('ss_token');  // older legacy key
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const raw = localStorage.getItem('ss_user');
+      const raw = localStorage.getItem(KEYS.USER);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   });
 
-  const login = useCallback(async (identifier, password, _selectedRole) => {
-    const idStr = identifier.trim();
-    const isEmail = idStr.includes('@');
-    const payload = isEmail
-      ? { email: idStr, password: password.trim() }
-      : { roll_no: idStr, password: password.trim() };
+  // ── Listen for session:expired events fired by services/api.js ────────────
+  useEffect(() => {
+    function onSessionExpired() {
+      clearSession();
+      setUser(null);
+    }
+    window.addEventListener('session:expired', onSessionExpired);
+    return () => window.removeEventListener('session:expired', onSessionExpired);
+  }, []);
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  const login = useCallback(async (identifier, password) => {
+    const idStr    = identifier.trim();
+    const isEmail  = idStr.includes('@');
+    const payload  = isEmail
+      ? { email: idStr,    password: password.trim() }
+      : { roll_no: idStr,  password: password.trim() };
 
     try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
+      const res  = await fetch('/api/v1/auth/login', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body:    JSON.stringify(payload),
       });
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('access_token', data.access_token);
-        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-
-        // Map backend role string to UI role string
-        const roleMap = {
-          student: 'student',
-          professor: 'professor',
-          placement_cell: 'tpo',
-          admin: 'admin',
-        };
-        const roleVal = roleMap[data.role] ?? data.role;
-
-        // Build display name: prefer data.name, fall back to email prefix
-        const rawName = data.name || idStr.split('@')[0].replace(/[._-]/g, ' ');
-        const displayName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-
-        const userObj = {
-          id: data.user_id,
-          email: isEmail ? idStr : (data.email || idStr + '@college.edu.in'),
-          role: roleVal,
-          name: displayName,
-          initials: displayName.slice(0, 2).toUpperCase(),
-          backendRole: data.role,  // keep the raw backend value too
-        };
-
-        localStorage.setItem('ss_user', JSON.stringify(userObj));
+        // ✅ Role resolved from backend JWT claim — never from client input
+        const userObj = buildUserFromResponse(data, idStr);
+        persistSession(userObj, data.access_token, data.refresh_token);
         setUser(userObj);
         return { success: true, user: userObj };
       }
 
-      return { success: false, error: data.error || 'Invalid credentials.' };
+      return { success: false, error: data.error ?? data.message ?? 'Invalid credentials.' };
+
     } catch {
-      // Dev fallback — backend offline
-      const found = findUser(identifier, password, _selectedRole || 'student');
+      // Backend is genuinely unreachable → offline dev fallback
+      const found = findOfflineUser(identifier, password);
       if (found) {
-        localStorage.setItem('ss_user', JSON.stringify(found));
-        localStorage.setItem('token', 'mock-token');
-        localStorage.setItem('access_token', 'mock-token');
+        persistSession(found, 'mock-token', null);
         setUser(found);
         return { success: true, user: found };
       }
@@ -102,87 +180,131 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // ── Register (offline dev registration only) ──────────────────────────────
+  /**
+   * NOTE: Real user creation goes through the backend invite / OTP flow.
+   * This helper persists a temporary local user for offline dev/demo mode.
+   */
   const register = useCallback((name, email, password, role) => {
     const custom = getCustomUsers();
     const id = email.toLowerCase().trim();
 
-    // Check if user already exists
-    const existsStatic = USERS.some(u => u.email.toLowerCase() === id);
-    const existsCustom = custom.some(u => u.email.toLowerCase() === id);
+    const existsStatic = USERS.some((u) => u.email?.toLowerCase() === id);
+    const existsCustom = custom.some((u) => u.email?.toLowerCase() === id);
     if (existsStatic || existsCustom) {
       return { error: 'A user with this email address already exists.' };
     }
 
     const newUser = {
-      id: `USR${Math.floor(1000 + Math.random() * 9000)}`,
+      id:       `USR${Math.floor(1000 + Math.random() * 9000)}`,
       name,
       email,
       password,
-      role,
+      role:     mapRole(role),   // normalise even in offline mode
       initials: name.slice(0, 2).toUpperCase(),
-      stats: role === 'tpo' ? { totalStudents: 320, placed: 187, avgPackage: '12.4 LPA', drivesThisYear: 34 } : {}
     };
 
     custom.push(newUser);
     localStorage.setItem('ss_custom_users', JSON.stringify(custom));
-    
-    // Automatically log in newly registered user
-    localStorage.setItem('ss_user', JSON.stringify(newUser));
-    localStorage.setItem('token', 'mock-token');
-    localStorage.setItem('access_token', 'mock-token');
+    persistSession(newUser, 'mock-token', null);
     setUser(newUser);
     return { user: newUser };
   }, []);
 
+  // ── Update local user metadata (name, avatar, etc.) ──────────────────────
   const updateUser = useCallback((updatedFields) => {
-    setUser(prev => {
+    setUser((prev) => {
       if (!prev) return null;
-      const nextUser = { ...prev, ...updatedFields, initials: (updatedFields.name || prev.name).slice(0,2).toUpperCase() };
-      
-      // Update current logged-in user
-      localStorage.setItem('ss_user', JSON.stringify(nextUser));
+      const nextUser = {
+        ...prev,
+        ...updatedFields,
+        // Never allow role to be overwritten from the client
+        role:     prev.role,
+        backendRole: prev.backendRole,
+        initials: (updatedFields.name ?? prev.name).slice(0, 2).toUpperCase(),
+      };
+      localStorage.setItem(KEYS.USER, JSON.stringify(nextUser));
 
-      // Also update in ss_custom_users if they registered dynamically
+      // Keep offline custom-users list in sync
       const custom = getCustomUsers();
-      const updatedCustom = custom.map(u => u.email.toLowerCase() === prev.email.toLowerCase() ? { ...u, ...updatedFields } : u);
-      localStorage.setItem('ss_custom_users', JSON.stringify(updatedCustom));
-
+      const updated = custom.map((u) =>
+        u.email?.toLowerCase() === prev.email?.toLowerCase()
+          ? { ...u, ...updatedFields }
+          : u,
+      );
+      localStorage.setItem('ss_custom_users', JSON.stringify(updated));
       return nextUser;
     });
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('ss_user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+  // ── Logout ────────────────────────────────────────────────────────────────
+  const logout = useCallback(async () => {
+    // Best-effort server-side token revocation (fire and forget)
+    try {
+      const token = localStorage.getItem(KEYS.ACCESS);
+      if (token && token !== 'mock-token') {
+        await fetch('/api/v1/auth/logout', {
+          method:  'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        });
+      }
+    } catch { /* ignore network errors on logout */ }
+
+    clearSession();
     setUser(null);
   }, []);
 
+  // ── Helpers consumed by route guards ─────────────────────────────────────
+  const isStudent  = user?.role === 'student';
+  const isProfessor = user?.role === 'professor';
+  const isTPO      = user?.role === 'tpo';
+  const isAdmin    = user?.role === 'admin';
+
   return (
-    <AuthContext.Provider value={{ user, login, register, updateUser, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        updateUser,
+        logout,
+        // Convenience booleans used by App.jsx and guards
+        isStudent,
+        isProfessor,
+        isTPO,
+        isAdmin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Hooks & Guards
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-/** Wraps protected routes – redirects to /login if not authenticated */
+/**
+ * RequireAuth — wraps a protected route.
+ * Redirects to /login if the user is not authenticated.
+ * Uses React Router's useNavigate for a proper SPA redirect.
+ */
 export function RequireAuth({ children }) {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
 
-  if (!user) {
-    // Use effect-style redirect
-    if (typeof window !== 'undefined') {
-      // Redirect immediately
-      window.location.replace('/login');
-      return null;
-    }
-    return null;
-  }
+  useEffect(() => {
+    if (!user) navigate('/login', { replace: true });
+  }, [user, navigate]);
+
+  if (!user) return null;
   return children;
 }
