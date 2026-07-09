@@ -7,18 +7,18 @@ import { PermissionProvider } from './context/PermissionContext'
 import './styles/global.css'
 import App from './App'
 
-// Redirect API requests to the backend when deployed on Vercel.
-// VITE_API_BASE is set in Vercel env vars to the Railway/Render backend URL.
-// Falls back to localhost:5001 for local development.
+// Redirect API requests to the deployed Railway backend when on Vercel.
+// VITE_API_BASE is set in Vercel env vars.
+// In local dev, Vite's proxy handles /api → localhost:5001 so API_BASE stays empty.
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 if (API_BASE) {
-  const originalFetch = window.fetch;
+  const _orig = window.fetch;
   window.fetch = function (input, init) {
     if (typeof input === 'string' && input.startsWith('/api/')) {
-      input = API_BASE + input;
+      input = API_BASE.replace(/\/$/, '') + input;
     }
-    return originalFetch(input, init);
+    return _orig(input, init);
   };
 }
 
