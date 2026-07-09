@@ -17,6 +17,8 @@ if (API_BASE) {
   window.fetch = function (input, init) {
     if (typeof input === 'string' && input.startsWith('/api/')) {
       input = API_BASE.replace(/\/$/, '') + input;
+      // bypass localtunnel browser warning page
+      init = { ...init, headers: { ...(init?.headers || {}), 'bypass-tunnel-reminder': 'true' } };
     }
     return _orig(input, init);
   };
