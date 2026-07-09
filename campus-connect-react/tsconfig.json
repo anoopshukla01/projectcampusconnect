@@ -1,24 +1,38 @@
 {
   "compilerOptions": {
-    "target": "es2023",
-    "module": "esnext",
-    "lib": ["ES2023", "DOM"],
-    "types": ["vite/client"],
-    "allowArbitraryExtensions": true,
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
     "skipLibCheck": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
 
-    /* Linting */
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    /* JavaScript support — this is a .jsx project */
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx",
+
+    /* Path aliases — keep in sync with vite.config.js */
+    "baseUrl": ".",
+    "paths": {
+      "@/*":          ["src/*"],
+      "@ctx/*":       ["src/context/*"],
+      "@placement/*": ["../placementDashboard/*"],
+      "@admin/*":     ["../adminDashboard/*"],
+      "@professor/*": ["../professorDashboard/*"]
+    },
+
+    /* Linting — relaxed for JS project, IDE won't flood red */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "strict": false
   },
-  "include": ["src"]
+  "include": ["src", "../placementDashboard", "../adminDashboard", "../professorDashboard"]
 }
