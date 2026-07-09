@@ -7,17 +7,16 @@ import { PermissionProvider } from './context/PermissionContext'
 import './styles/global.css'
 import App from './App'
 
-// Redirect API requests to localhost:5000 when deployed on Vercel for local backend testing
-if (
-  window.location.hostname !== 'localhost' &&
-  window.location.hostname !== '127.0.0.1' &&
-  !window.location.hostname.startsWith('192.168.') &&
-  !window.location.hostname.startsWith('10.')
-) {
+// Redirect API requests to the backend when deployed on Vercel.
+// VITE_API_BASE is set in Vercel env vars to the Railway/Render backend URL.
+// Falls back to localhost:5001 for local development.
+const API_BASE = import.meta.env.VITE_API_BASE || '';
+
+if (API_BASE) {
   const originalFetch = window.fetch;
   window.fetch = function (input, init) {
     if (typeof input === 'string' && input.startsWith('/api/')) {
-      input = 'http://127.0.0.1:5001' + input;
+      input = API_BASE + input;
     }
     return originalFetch(input, init);
   };
