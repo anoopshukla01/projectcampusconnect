@@ -1,0 +1,40 @@
+# ── Core framework ──────────────────────────────────────────────────────────
+Flask==3.1.0
+Werkzeug==3.1.3             # Flask dependency; pinned for security
+
+# ── Database ─────────────────────────────────────────────────────────────────
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.1.0
+psycopg2-binary==2.9.10     # PostgreSQL adapter
+alembic==1.14.1             # Migrations (pulled in by Flask-Migrate; pinned explicitly)
+
+# ── Auth & tokens ────────────────────────────────────────────────────────────
+Flask-JWT-Extended==4.7.1
+bcrypt==4.2.1               # Password + OTP hashing  (do NOT use hashlib for passwords)
+
+# ── Input validation & serialisation ─────────────────────────────────────────
+marshmallow==3.22.0         # Request validation + response shaping
+marshmallow-enum==1.5.1     # Enum field support for Marshmallow
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+Flask-Limiter==3.9.2
+redis==5.2.1                # Rate-limit storage backend (also used for JWT blocklist)
+
+# ── CORS (frontend ↔ backend) ─────────────────────────────────────────────────
+Flask-CORS==5.0.0
+
+# ── Environment / config ─────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Production WSGI ──────────────────────────────────────────────────────────
+gunicorn==23.0.0
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+pytest==8.3.5
+pytest-flask==1.3.0
+factory-boy==3.3.1          # Model factories for test fixtures
+Faker==30.8.2               # Realistic fake data in tests
+
+# ── Dev utilities ─────────────────────────────────────────────────────────────
+# (Do not install in production — use: pip install -r requirements.txt --no-dev)
+# If you want a separate requirements-dev.txt, say so and I'll split it out.
