@@ -22,15 +22,20 @@ export default function DataManager() {
 
   async function fetchAllData() {
     setLoading(true);
-    const [sRes, pRes, dRes] = await Promise.all([
-      studentsApi.list({ per_page: 100 }),
-      professorsApi.list({ per_page: 100 }),
-      placementApi.listDrives(),
-    ]);
-    if (sRes?.students)  setStudents(sRes.students);
-    if (pRes?.professors) setProfs(pRes.professors);
-    if (dRes?.drives)    setDrives(dRes.drives);
-    setLoading(false);
+    try {
+      const [sRes, pRes, dRes] = await Promise.all([
+        studentsApi.list({ per_page: 100 }),
+        professorsApi.list({ per_page: 100 }),
+        placementApi.listDrives(),
+      ]);
+      if (sRes?.students)   setStudents(sRes.students);
+      if (pRes?.professors) setProfs(pRes.professors);
+      if (dRes?.drives)     setDrives(dRes.drives);
+    } catch (err) {
+      console.error('Error loading data manager:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleCsvUpload(e) {

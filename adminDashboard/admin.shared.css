@@ -5,6 +5,29 @@
 /* Root */
 .ad-root { display: flex; flex-direction: column; gap: 1.75rem; }
 
+/* ── Page Header ── */
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+}
+.page-title {
+  font-size: 1.45rem; font-weight: 800; color: var(--text-primary);
+  letter-spacing: -.03em; margin: 0;
+}
+.page-sub {
+  font-size: .82rem; color: var(--text-secondary); margin: .2rem 0 0;
+}
+.ad-header-actions { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
+
+/* ── Loading Spinner ── */
+.ad-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: #6366f1;
+  animation: ad-spin .7s linear infinite;
+}
+@keyframes ad-spin { to { transform: rotate(360deg); } }
+
 /* ── Stat Cards ── */
 .ad-stats-grid {
   display: grid;

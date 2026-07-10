@@ -33,6 +33,16 @@ const PATH_TO_PAGE = {
   '/offers':       'offers',
   '/plreports':    'plreports',
   '/plnotices':    'plnotices',
+  // Admin routes
+  '/admin':              'admin',
+  '/admin/analytics':    'analytics',
+  '/admin/users':        'adminusers',
+  '/admin/audit':        'audit',
+  '/admin/rules':        'rules',
+  '/admin/announcements':'adminann',
+  '/admin/datahealth':   'datahealth',
+  '/admin/branches':     'branches',
+  '/admin/data':         'datamanager',
 };
 
 export default function DashboardLayout() {

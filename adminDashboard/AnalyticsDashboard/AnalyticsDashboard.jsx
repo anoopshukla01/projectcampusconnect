@@ -37,13 +37,18 @@ export default function AnalyticsDashboard() {
 
   async function fetchAnalytics() {
     setLoading(true);
-    const [pRes, prRes] = await Promise.all([
-      adminApi.getAnalytics(),          // /admin/analytics/placement
-      adminApi.getProfileAnalytics(),   // /admin/analytics/profiles
-    ]);
-    if (pRes && !pRes.error) setData(pRes);
-    if (prRes && !prRes.error) setProfiles(prRes);
-    setLoading(false);
+    try {
+      const [pRes, prRes] = await Promise.all([
+        adminApi.getAnalytics(),          // /admin/analytics/placement
+        adminApi.getProfileAnalytics(),   // /admin/analytics/profiles
+      ]);
+      if (pRes && !pRes.error) setData(pRes);
+      if (prRes && !prRes.error) setProfiles(prRes);
+    } catch (err) {
+      console.error('Error loading analytics:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleAddBranch(e) {
