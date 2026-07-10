@@ -167,11 +167,11 @@ export const USERS = [
     ]
   },
   {
-    email: 'sneha.patel@college.edu.in',
+    email: 'professor@college.edu.in',  // canonical demo alias
     id: 'PROF001',
-    password: 'sneha123',
+    password: 'Demo@1234',
     role: 'professor',
-    name: 'Dr. Sneha Patel',
+    name: 'Dr. Priya Sharma',
     initials: 'SP',
     branch: 'Computer Science',
     department: 'Computer Science & Engineering',
@@ -194,7 +194,7 @@ export const USERS = [
   {
     email: 'tpo@college.edu.in',
     id: 'TPO001',
-    password: 'tpo123',
+    password: 'Demo@1234',
     role: 'tpo',
     name: 'Dr. Ramesh Nair',
     initials: 'RN',
@@ -216,12 +216,26 @@ export const USERS = [
   {
     email:    'admin@college.edu.in',
     id:       'ADMIN001',
-    password: 'admin123',
+    password: 'Demo@1234',
     role:     'admin',
-    name:     'Dr. Principal',
-    initials: 'DP',
+    name:     'Sanjay Kumar (Admin)',
+    initials: 'SK',
     title:    'Principal',
     institution: 'National Institute of Technology',
+  },
+  // ── Demo student with roll-no login (CS21DEMO01) ───────────────────
+  {
+    email:    'demo.student@college.edu.in',
+    id:       'CS21DEMO01',
+    password: 'Demo@1234',
+    roll_no:  'CS21DEMO01',
+    role:     'student',
+    name:     'Arjun Mehta',
+    initials: 'AM',
+    branch:   'Computer Science',
+    semester: 6,
+    cgpa:     '8.5',
+    attendance: '85%',
   }
 ];
 
