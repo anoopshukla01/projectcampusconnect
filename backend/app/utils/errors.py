@@ -55,18 +55,13 @@ def internal_error_response(exc: Exception, context: str = "") -> tuple:
         exc:     The caught exception (logged internally).
         context: Optional hint for the log message (e.g. endpoint name).
     """
-    tb = traceback.format_exc()
     logger.error(
         "Internal server error%s: %s\n%s",
         f" in {context}" if context else "",
         exc,
-        tb,
+        traceback.format_exc(),
     )
-    return jsonify({
-        "error": "An internal server error occurred. Please try again later.",
-        "message": str(exc),
-        "traceback": tb
-    }), 500
+    return jsonify({"error": "An internal server error occurred. Please try again later."}), 500
 
 
 # ── Flask global error handlers ───────────────────────────────────────────────
@@ -111,16 +106,9 @@ def register_error_handlers(app) -> None:
 
     @app.errorhandler(500)
     def server_error(e):
-        # Log the real error; return traceback to the client for debugging.
-        tb = traceback.format_exc()
-        logger.error("Unhandled 500: %s\n%s", e, tb)
-        original = getattr(e, "original_exception", None)
-        orig_msg = str(original) if original else str(e)
-        return jsonify({
-            "error": "An internal server error occurred.",
-            "message": orig_msg,
-            "traceback": tb
-        }), 500
+        # Log the real error; return nothing useful to the client.
+        logger.error("Unhandled 500: %s\n%s", e, traceback.format_exc())
+        return jsonify({"error": "An internal server error occurred."}), 500
 
     # ── Flask-JWT-Extended callbacks ───────────────────────────────────────────
     # Flask-JWT-Extended 4.x fires these loader callbacks rather than raising
