@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: campusconnect-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "app:create_app('production')" --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    plan: free
+    region: oregon
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false   # Set this manually in Render dashboard (your Supabase URL)
+      - key: REDIS_URL
+        value: memory://
+      - key: ALLOWED_EMAIL_DOMAIN
+        value: college.edu.in
+      - key: COLLEGE_NAME
+        value: Campus Connect College
+      - key: MOCK_OTP
+        value: "true"
+      - key: CORS_ORIGINS
+        value: https://projectcampusconnect.vercel.app,http://localhost:5173,http://localhost:3000
+      - key: PYTHON_VERSION
+        value: "3.11.0"
