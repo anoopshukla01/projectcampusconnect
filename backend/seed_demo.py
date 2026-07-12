@@ -74,8 +74,10 @@ DEMO_USERS = [
 
 
 def seed():
-    app = create_app("development")
+    env = os.environ.get("FLASK_ENV", "development")
+    app = create_app(env)
     with app.app_context():
+        db.create_all()
         created = []
         skipped = []
 
