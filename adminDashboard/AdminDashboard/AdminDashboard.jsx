@@ -125,8 +125,8 @@ export default function AdminDashboard() {
     try {
       const approvalsRes = await adminApi.getPendingApprovals();
       setApprovals({
-        faculty: approvalsRes?.pending_faculty || [],
-        tpo: approvalsRes?.pending_tpo || [],
+        faculty: approvalsRes?.professors || approvalsRes?.pending_faculty || [],
+        tpo: approvalsRes?.tpos || approvalsRes?.pending_tpo || [],
       });
     } catch (err) {
       console.error(err);
