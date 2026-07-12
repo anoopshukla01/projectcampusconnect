@@ -34,9 +34,11 @@
 // 0.  Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api/v1`
-  : '/api/v1';
+let apiURL = import.meta.env.VITE_API_URL || '';
+if (apiURL.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
+  apiURL = '';
+}
+const BASE = apiURL ? `${apiURL}/api/v1` : '/api/v1';
 
 /** localStorage keys (must stay in sync with AuthContext) */
 const KEYS = {

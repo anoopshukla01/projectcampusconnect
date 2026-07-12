@@ -11,7 +11,11 @@ import App from './App'
 // Redirect API requests to the deployed Railway backend when on Vercel.
 // VITE_API_BASE is set in Vercel env vars.
 // In local dev, Vite's proxy handles /api → localhost:5001 so API_BASE stays empty.
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+let API_BASE = import.meta.env.VITE_API_BASE || '';
+
+if (API_BASE.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
+  API_BASE = '';
+}
 
 if (API_BASE) {
   const _orig = window.fetch;

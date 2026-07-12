@@ -31,7 +31,13 @@ const WEEK_DAYS = [
 const EMPTY_TT = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
 const SLOT_TYPES = ['lecture', 'lab', 'seminar', 'extra'];
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+let API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+if (API_BASE.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
+  API_BASE = '';
+}
+if (!API_BASE) {
+  API_BASE = '/api/v1';
+}
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');
   return fetch(`${API_BASE}${endpoint}`, {
