@@ -1,9 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi, placementApi } from '@/services/api';
-import { useApiData } from '@/hooks/useApiData';
 import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
+
+// Error boundary to catch any rendering crash
+class AdminErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(err) { return { error: err }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:'2rem',color:'#ef4444',fontFamily:'monospace',background:'#1e1e1e',borderRadius:'8px',margin:'1rem'}}>
+          <strong>Admin Dashboard Error:</strong><br/>
+          {this.state.error?.message || String(this.state.error)}<br/>
+          <pre style={{fontSize:'0.75rem',marginTop:'1rem',opacity:0.7,whiteSpace:'pre-wrap'}}>{this.state.error?.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const IconStudents = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IconFaculty  = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>;
@@ -92,8 +109,8 @@ export default function AdminDashboard() {
         }));
 
         setApprovals({
-          faculty: approvalsRes?.pending_faculty || [],
-          tpo: approvalsRes?.pending_tpo || [],
+          faculty: approvalsRes?.professors || approvalsRes?.pending_faculty || [],
+          tpo: approvalsRes?.tpos || approvalsRes?.pending_tpo || [],
         });
       } catch (err) {
         console.error('Error loading admin dashboard stats:', err);
@@ -177,6 +194,7 @@ export default function AdminDashboard() {
   ];
 
   return (
+    <AdminErrorBoundary>
     <div className="ad-root">
       {/* Header */}
       <div className="page-header">
@@ -358,5 +376,6 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+    </AdminErrorBoundary>
   );
 }

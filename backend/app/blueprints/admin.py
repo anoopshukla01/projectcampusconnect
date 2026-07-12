@@ -1292,14 +1292,15 @@ def get_data_health():
         reported_list = []
         for cr in chat_reports:
             reporter = db.session.get(User, cr.reporter_id)
-            reported = db.session.get(User, cr.student_id)
+            # The column is reported_user_id (not student_id)
+            reported = db.session.get(User, cr.reported_user_id)
             reported_profile = reported.student_profile if reported else None
             
             reported_list.append({
                 "id": str(cr.id),
                 "type": "chat_report",
                 "reporter_name": reporter.email if reporter else "Unknown",
-                "target_user_id": str(cr.student_id),
+                "target_user_id": str(cr.reported_user_id),
                 "target_name": reported_profile.full_name if reported_profile else (reported.email if reported else "Unknown"),
                 "reason": cr.reason or "Reported in class chat",
                 "status": "pending",
@@ -1367,7 +1368,7 @@ def get_data_health():
         # B. Behavioral: reports count >= limit
         from sqlalchemy import text
         reports_count_query = db.session.execute(
-            text("select student_id, count(*) as cnt from student_reports group by student_id")
+            text("select reported_user_id, count(*) as cnt from student_reports group by reported_user_id")
         ).fetchall()
         for row in reports_count_query:
             target_id = row[0]
