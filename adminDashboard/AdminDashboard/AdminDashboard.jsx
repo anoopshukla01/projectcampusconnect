@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi, placementApi } from '@/services/api';
 import { useApiData } from '@/hooks/useApiData';
+import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
 
 const IconStudents = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
@@ -18,6 +19,7 @@ const statusPill = (s) => {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const showToast = useToast();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     totalStudents: 0,
@@ -41,15 +43,17 @@ export default function AdminDashboard() {
       { label: 'SMS Alerts',         status: 'up'   },
     ]
   });
+  const [approvals, setApprovals] = useState({ faculty: [], tpo: [] });
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [usersRes, placementRes, drivesRes, auditRes] = await Promise.all([
+        const [usersRes, placementRes, drivesRes, auditRes, approvalsRes] = await Promise.all([
           adminApi.listUsers({ per_page: 100 }),
           adminApi.getAnalytics(),
           placementApi.listDrives(),
           adminApi.getAuditLog({ per_page: 6 }),
+          adminApi.getPendingApprovals(),
         ]);
 
         const users = usersRes?.users || [];
@@ -81,11 +85,16 @@ export default function AdminDashboard() {
           roleOverview: [
             { role: 'Students',       total: students.length, active: students.filter(u => u.is_active).length, pending: pendingStudents },
             { role: 'Faculty',        total: faculty.length,  active: faculty.filter(u => u.is_active).length,  pending: pendingFaculty  },
-            { role: 'Placement Cell', total: tpo.length,      active: tpo.filter(u => u.is_active).length,      pending: 0               },
+            { role: 'Placement Cell', total: tpo.length,      active: tpo.filter(u => u.is_active).length,      pending: tpo.filter(u => !u.is_active).length },
             { role: 'Admins',         total: admins.length,   active: admins.filter(u => u.is_active).length,   pending: 0               },
           ],
           activity: activityLogs,
         }));
+
+        setApprovals({
+          faculty: approvalsRes?.pending_faculty || [],
+          tpo: approvalsRes?.pending_tpo || [],
+        });
       } catch (err) {
         console.error('Error loading admin dashboard stats:', err);
       } finally {
@@ -94,6 +103,60 @@ export default function AdminDashboard() {
     }
     loadData();
   }, []);
+
+  async function refreshApprovals() {
+    try {
+      const approvalsRes = await adminApi.getPendingApprovals();
+      setApprovals({
+        faculty: approvalsRes?.pending_faculty || [],
+        tpo: approvalsRes?.pending_tpo || [],
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleApproveTpo(id) {
+    try {
+      await adminApi.approveTpo(id);
+      showToast('TPO registration request approved.', 'success', 3000);
+      refreshApprovals();
+    } catch (err) {
+      showToast(err.message || 'Approval failed', 'error', 3000);
+    }
+  }
+
+  async function handleRejectTpo(id) {
+    if (!window.confirm('Are you sure you want to reject this TPO request? Account row will be deleted.')) return;
+    try {
+      await adminApi.rejectTpo(id);
+      showToast('TPO registration request rejected.', 'success', 3000);
+      refreshApprovals();
+    } catch (err) {
+      showToast(err.message || 'Rejection failed', 'error', 3000);
+    }
+  }
+
+  async function handleApproveFaculty(id) {
+    try {
+      await adminApi.approveFaculty(id);
+      showToast('Faculty registration request approved.', 'success', 3000);
+      refreshApprovals();
+    } catch (err) {
+      showToast(err.message || 'Approval failed', 'error', 3000);
+    }
+  }
+
+  async function handleRejectFaculty(id) {
+    if (!window.confirm('Are you sure you want to reject this faculty request? Account row will be deleted.')) return;
+    try {
+      await adminApi.rejectFaculty(id);
+      showToast('Faculty registration request rejected.', 'success', 3000);
+      refreshApprovals();
+    } catch (err) {
+      showToast(err.message || 'Rejection failed', 'error', 3000);
+    }
+  }
 
   const STATS = [
     { label: 'Total Students', value: loading ? '...' : data.totalStudents, sub: `${data.pendingStudents} pending approvals`, icon: 'students', color: 'blue',   badge: 'Registered' },
@@ -163,6 +226,70 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Signup Approvals Queue */}
+      <div className="ad-card" style={{ marginTop: '1.25rem' }}>
+        <div className="ad-card-header">
+          <h2 className="ad-card-title">Pending Faculty & TPO Signups Approvals Queue</h2>
+        </div>
+        {approvals.faculty.length === 0 && approvals.tpo.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+            No pending signup approval requests.
+          </p>
+        ) : (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Contact Info / Dept</th>
+                  <th>Identifier / Employee ID</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvals.tpo.map(t => (
+                  <tr key={t.id}>
+                    <td><strong>{t.full_name}</strong></td>
+                    <td><span className="ad-status-pill ad-pill-warn" style={{color:'#f59e0b'}}>TPO</span></td>
+                    <td>{t.email} {t.phone ? `(${t.phone})` : ''}</td>
+                    <td><code>{t.employee_id}</code></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button className="pd-btn pd-btn-sm pd-btn-success" onClick={() => handleApproveTpo(t.id)}>
+                          Approve
+                        </button>
+                        <button className="pd-btn pd-btn-sm pd-btn-outline-danger" onClick={() => handleRejectTpo(t.id)}>
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {approvals.faculty.map(f => (
+                  <tr key={f.id}>
+                    <td><strong>{f.full_name}</strong></td>
+                    <td><span className="ad-status-pill ad-pill-blue" style={{color:'#60a5fa'}}>Faculty</span></td>
+                    <td>{f.email} <br /><small style={{color:'var(--text-secondary)'}}>{f.department} / {f.designation}</small></td>
+                    <td><code>{f.employee_id}</code></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button className="pd-btn pd-btn-sm pd-btn-success" onClick={() => handleApproveFaculty(f.id)}>
+                          Approve
+                        </button>
+                        <button className="pd-btn pd-btn-sm pd-btn-outline-danger" onClick={() => handleRejectFaculty(f.id)}>
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Main Grid */}

@@ -16,7 +16,13 @@ class StudentProfile(db.Model):
     attendance_pct = db.Column(db.Numeric(5, 2), nullable=True)
     active_backlogs = db.Column(db.Integer, default=0, nullable=False)
     hostel_address = db.Column(db.Text, nullable=True)
+    home_address = db.Column(db.Text, nullable=True)
+    parent_contact = db.Column(db.String(50), nullable=True)
+    fees_submitted = db.Column(db.Numeric(10, 2), nullable=True, default=0.0)
+    scholarship_details = db.Column(db.String(255), nullable=True)
     linkedin_url = db.Column(db.String(500), nullable=True)
+    github_url = db.Column(db.String(500), nullable=True)
+    social_links_visibility = db.Column(db.JSON, nullable=True) # e.g. {"github": true, "linkedin": true}
     resume_url = db.Column(db.String(1000), nullable=True)
     dpdp_consent_given = db.Column(db.Boolean, default=False, nullable=False)
     dpdp_consent_at = db.Column(db.DateTime, nullable=True)
@@ -25,5 +31,21 @@ class StudentProfile(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+
     # Relationships
     user = db.relationship("User", back_populates="student_profile")
+
+
+class StudentResume(db.Model):
+    __tablename__ = "student_resumes"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("student_profiles.id"), nullable=False)
+    version = db.Column(db.Integer, nullable=False) # 1, 2, or 3
+    raw_json = db.Column(db.JSON, nullable=True)
+    pdf_url = db.Column(db.String(1000), nullable=True)
+    is_active = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    student = db.relationship("StudentProfile", backref="resumes")

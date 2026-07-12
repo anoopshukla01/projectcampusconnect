@@ -97,7 +97,7 @@ async function _request(path, opts = {}, _isRetry = false) {
   const token = getAccessToken();
 
   const headers = {
-    'Content-Type': 'application/json',
+    ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(opts.headers ?? {}),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -498,6 +498,9 @@ export const careerApi = {
   /** Mock interviews */
   getMockInterviews: () => apiGet('/career/mock-interviews'),
   bookMockInterview: (sessionId) => apiPost(`/career/mock-interviews/${sessionId}/book`, {}),
+  getMyMockBookings: () => apiGet('/career/mock-interviews/me'),
+  submitMockFeedback: (bookingId, payload) => apiPost(`/career/mock-interviews/${bookingId}/feedback`, payload),
+  approveMockSession: (sessionId, payload) => apiPatch(`/career/mock-interviews/${sessionId}/approve`, payload),
 
   /** Mentorship */
   getMentors: () => apiGet('/career/mentors'),
@@ -506,9 +509,15 @@ export const careerApi = {
   getMentorRequests: () => apiGet('/career/mentors/requests'),
   respondToMentorshipRequest: (requestId, action) =>
     apiPatch(`/career/mentors/requests/${requestId}`, { action }),
+  completeMentorshipSession: (requestId, payload) =>
+    apiPost(`/career/mentors/requests/${requestId}/complete`, payload),
 
-  /** Resume builder — profile data */
+  /** Resume builder — profile data + versioning */
   getResumeData: () => apiGet('/students/me'),
+  saveResume: (payload) => apiPost('/students/me/resume', payload),
+  listResumeVersions: () => apiGet('/students/me/resume'),
+  getResumeVersion: (version) => apiGet(`/students/me/resume/${version}`),
+  getResumeSuggestions: () => apiGet('/students/me/resume/suggestions'),
 };
 
 // ── 4h. Chats ─────────────────────────────────────────────────────────────────
@@ -537,6 +546,14 @@ export const chatsApi = {
   joinGroup: (conversationId) =>
     apiPost('/career/chats/join', { conversation_id: conversationId }),
 
+  /** Accept a DM request (admin/TPO accepting a student request) */
+  acceptDmRequest: (conversationId) =>
+    apiPost(`/career/chats/${conversationId}/accept`, {}),
+
+  /** Respond to a group invite (student: accept or decline) */
+  respondToInvite: (conversationId, action) =>
+    apiPost(`/career/chats/${conversationId}/invite/respond`, { action }),
+
   /** Member management */
   addMember: (conversationId, userId) =>
     apiPost('/career/chats/members/add', { conversation_id: conversationId, user_id: userId }),
@@ -560,7 +577,10 @@ export const adminApi = {
   deleteUser: (userId) => apiDelete(`/admin/users/${userId}`),
 
   /** Bulk student import */
-  bulkImportStudents: (formData) => apiUpload('/admin/students/bulk-import', formData),
+  bulkImportStudents: (formData) => apiUpload('/admin/students/import-csv', formData),
+
+  /** Manual user creation */
+  createUserManually: (payload) => apiPost('/admin/users', payload),
 
   /** Invite tokens */
   createInvite: (payload) => apiPost('/admin/invites', payload),
@@ -587,6 +607,50 @@ export const adminApi = {
   /** Announcements (admin tier) */
   getAnnouncements: (params) => apiGet('/admin/announcements', params),
   createAnnouncement: (payload) => apiPost('/admin/announcements', payload),
+
+  // Control Panel Approvals
+  getPendingApprovals: () => apiGet('/admin/pending-approvals'),
+  approveTpo: (userId) => apiPost(`/admin/tpo/approve/${userId}`),
+  rejectTpo: (userId) => apiPost(`/admin/tpo/reject/${userId}`),
+  approveFaculty: (profId) => apiPost(`/admin/faculty/approve/${profId}`),
+  rejectFaculty: (profId) => apiPost(`/admin/faculty/reject/${profId}`),
+
+  // Detail Access Requests
+  getDetailRequests: () => apiGet('/admin/detail-requests'),
+  approveDetailRequest: (reqId) => apiPost(`/admin/detail-requests/${reqId}/approve`),
+  rejectDetailRequest: (reqId) => apiPost(`/admin/detail-requests/${reqId}/reject`),
+
+  // TPO Booking Approvals
+  getTimetableBookings: () => apiGet('/admin/timetable-bookings'),
+  approveTimetableBooking: (bookingId) => apiPost(`/admin/timetable-bookings/${bookingId}/approve`),
+  rejectTimetableBooking: (bookingId) => apiPost(`/admin/timetable-bookings/${bookingId}/reject`),
+
+  // Moderation Reports Actions
+  resolveReport: (reportId) => apiPost(`/admin/reports/${reportId}/resolve`),
+  dismissReport: (reportId) => apiPost(`/admin/reports/${reportId}/dismiss`),
+
+  // Merchandise Store
+  createMerchandise: (payload) => apiPost('/admin/merchandise', payload),
+  getMerchandise: () => apiGet('/admin/merchandise'),
+  purchaseMerchandise: (payload) => apiPost('/admin/merchandise/purchase', payload),
+  getMerchandiseOrders: () => apiGet('/admin/merchandise/orders'),
+  updateMerchandiseOrder: (orderId, payload) => apiPatch(`/admin/merchandise/orders/${orderId}`, payload),
+
+  // Pending Events Approvals & Allotment
+  getPendingEvents: () => apiGet('/admin/events/pending'),
+  approveEvent: (eventId) => apiPost(`/admin/events/${eventId}/approve`),
+  rejectEvent: (eventId) => apiPost(`/admin/events/${eventId}/reject`),
+  getEventRegistrations: (eventId) => apiGet(`/admin/events/${eventId}/registrations`),
+  allotEventTicket: (eventId, payload) => apiPost(`/admin/events/${eventId}/allot-ticket`, payload),
+
+  // Master Timetable Slot CRUD
+  createTimetableSlot: (payload) => apiPost('/academics/timetable/slots', payload),
+  updateTimetableSlot: (slotId, payload) => apiPatch(`/academics/timetable/slots/${slotId}`, payload),
+  deleteTimetableSlot: (slotId) => apiDelete(`/academics/timetable/slots/${slotId}`),
+
+  // Professor Attendance Check-ins
+  getProfessorAttendance: () => apiGet('/admin/attendance/professors'),
+  markProfessorCheckin: (payload) => apiPost('/admin/attendance/professors/check-in', payload),
 };
 
 // ── 4j. Professors ────────────────────────────────────────────────────────────

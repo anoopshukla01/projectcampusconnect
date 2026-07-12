@@ -72,6 +72,8 @@ export default function Topbar({ onMenuToggle }) {
   // Profile Form
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [socialVisibility, setSocialVisibility] = useState(true);
   
   // Security Form
   const [oldPw, setOldPw] = useState('');
@@ -90,6 +92,19 @@ export default function Topbar({ onMenuToggle }) {
       setFormEmail(user.email || '');
     }
   }, [user]);
+
+  useEffect(() => {
+    if (modalOpen && user?.role === 'student') {
+      import('../services/api').then(({ studentsApi }) => {
+        studentsApi.getMe().then(res => {
+          if (res && !res.error) {
+            setGithubUrl(res.github_url || '');
+            setSocialVisibility(res.social_links_visibility !== false);
+          }
+        });
+      });
+    }
+  }, [modalOpen, user]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -113,6 +128,20 @@ export default function Topbar({ onMenuToggle }) {
       return;
     }
     updateUser({ name: formName, email: formEmail });
+
+    if (user?.role === 'student') {
+      import('../services/api').then(({ studentsApi }) => {
+        studentsApi.updateMe({
+          github_url: githubUrl,
+          social_links_visibility: socialVisibility
+        }).then(res => {
+          if (res?.error) {
+            showToast(res.error, 'error');
+          }
+        });
+      });
+    }
+
     showToast('Profile updated successfully!', 'success');
     setModalOpen(false);
   }
@@ -263,10 +292,22 @@ export default function Topbar({ onMenuToggle }) {
                       <label className="co-label">Role</label>
                       <input className="co-input" value={roleLabel} disabled style={{ opacity: 0.6 }} />
                     </div>
-                    <div className="co-field">
-                      <label className="co-label">User ID / Roll No.</label>
-                      <input className="co-input" value={user?.id || 'N/A'} disabled style={{ opacity: 0.6 }} />
-                    </div>
+                    {user?.role === 'student' && (
+                      <>
+                        <div className="co-field">
+                          <label className="co-label">GitHub URL</label>
+                          <input className="co-input" placeholder="https://github.com/username"
+                            value={githubUrl} onChange={e => setGithubUrl(e.target.value)} />
+                        </div>
+                        <div className="co-field" style={{ marginTop: '0.5rem' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#cbd5e1', fontSize: '0.85rem' }}>
+                            <input type="checkbox" checked={socialVisibility}
+                              onChange={e => setSocialVisibility(e.target.checked)} />
+                            Make resume and social links visible to recruiters
+                          </label>
+                        </div>
+                      </>
+                    )}
                     <button className="pd-btn pd-btn-primary" style={{ marginTop: '0.5rem' }} onClick={handleSaveProfile}>
                       Save Profile
                     </button>

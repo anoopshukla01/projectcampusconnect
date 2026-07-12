@@ -124,6 +124,22 @@ def seed():
                     approval_status=prof["approval_status"],
                 )
                 db.session.add(pp)
+                db.session.flush()
+
+                # Seed class assignments for the demo professor (IDOR anchor)
+                from app.models.academic import ProfessorClassAssignment
+                demo_classes = [
+                    dict(course_name="Data Structures", course_code="CS301",
+                         branch="Computer Science", semester=3, academic_year="2025-26"),
+                    dict(course_name="Database Management Systems", course_code="CS401",
+                         branch="Computer Science", semester=4, academic_year="2025-26"),
+                    dict(course_name="Computer Networks", course_code="CS501",
+                         branch="Computer Science", semester=5, academic_year="2025-26"),
+                ]
+                for cls in demo_classes:
+                    db.session.add(ProfessorClassAssignment(
+                        professor_user_id=user.id, **cls
+                    ))
 
             created.append(email)
 

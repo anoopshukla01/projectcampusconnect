@@ -68,9 +68,17 @@ export default function Companies() {
     setShowModal(false);
   }
 
-  function deleteCompany(id, name) {
+  async function deleteCompany(id, name) {
+    if (id && typeof id === 'string') {
+      const res = await placementApi.deleteCompany(id);
+      if (res?.error) {
+        showToast(res.error, 'error');
+        return;
+      }
+    }
     setLocalCompanies(prev => prev.filter(c => (c.id || c._local_id) !== id));
     showToast(`${name} removed.`, 'info');
+    refetch();
   }
 
   return (
@@ -121,8 +129,8 @@ export default function Companies() {
             <table className="pd-table co-table">
               <thead>
                 <tr>
-                  <th>Company</th><th>Sector</th><th>Contact</th><th>Email</th>
-                  <th>Last Visit</th><th>Best Package</th><th>Status</th><th>Actions</th>
+                  <th>Company</th><th>Sector</th><th>Rolling Placed</th><th>Rolling Avg CTC</th>
+                  <th>Website</th><th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,14 +139,16 @@ export default function Companies() {
                     <td>
                       <div className="co-company-cell">
                         <div className="co-logo">{(c.name||'NA').slice(0,2).toUpperCase()}</div>
-                        <strong>{c.name}</strong>
+                        <div>
+                          <strong>{c.name}</strong>
+                          {c.description && <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>{c.description}</p>}
+                        </div>
                       </div>
                     </td>
                     <td><span className="co-sector-badge">{c.sector}</span></td>
-                    <td>{c.contact || c.contact_person || '—'}</td>
-                    <td className="co-email">{c.email || c.contact_email || '—'}</td>
-                    <td>{c.lastVisit || c.last_visit || '—'}</td>
-                    <td className="pd-ctc">{c.package || c.best_package || '—'}</td>
+                    <td>{c.rolling_placed_count !== undefined ? c.rolling_placed_count : 0} students</td>
+                    <td className="pd-ctc">{c.rolling_avg_ctc ? `${c.rolling_avg_ctc} LPA` : '—'}</td>
+                    <td>{c.website ? <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer" className="co-link">{c.website}</a> : '—'}</td>
                     <td>
                       <span className={`pd-badge ${c.status === 'Active' ? 'pd-badge-completed' : 'pd-badge-inactive'}`}>
                         {c.status}
@@ -166,7 +176,7 @@ export default function Companies() {
                   </tr>
                 ))}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="co-empty">No companies match your search.</td></tr>
+                  <tr><td colSpan={7} className="co-empty">No companies match your search.</td></tr>
                 )}
               </tbody>
             </table>

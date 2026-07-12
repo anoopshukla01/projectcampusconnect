@@ -25,6 +25,8 @@ class StudentResponseSchema(Schema):
     active_backlogs = fields.Int()
     hostel_address = fields.Str()
     linkedin_url = fields.Str()
+    github_url = fields.Str()
+    social_links_visibility = fields.Dict()
     resume_url = fields.Str()
     dpdp_consent_given = fields.Bool()
     profile_complete = fields.Bool()
@@ -77,6 +79,8 @@ class StudentUpdateSchema(Schema):
     semester = fields.Int(validate=validate.Range(min=1, max=10))
     hostel_address = fields.Str(allow_none=True)
     linkedin_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
+    github_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
+    social_links_visibility = fields.Dict(allow_none=True)
     resume_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
 
 

@@ -265,3 +265,157 @@ def get_student_offers(student_id):
         })
 
     return jsonify(result), 200
+
+
+# ── Resume Builder: Save, List, & Get Versions ───────────────────────────────
+
+@students_bp.post("/me/resume")
+@require_auth
+@require_roles("student")
+def save_resume():
+    """Student: save/update resume JSON. Maximum 3 saved versions."""
+    from app.models.student import StudentResume
+
+    user = get_current_user()
+    profile = user.student_profile
+    if not profile or profile.is_deleted:
+        return error_response("Student profile not found.", 404)
+
+    data = request.get_json(force=True) or {}
+    raw_json = data.get("resume_json")
+    pdf_url = data.get("pdf_url")
+
+    if not raw_json:
+        return error_response("resume_json is required.", 400)
+
+    # Check version count — max 3
+    versions = StudentResume.query.filter_by(student_id=profile.id).all()
+    if len(versions) >= 3:
+        return error_response("You have reached the maximum limit of 3 saved resumes. Please delete an old version before saving a new one.", 400)
+
+    # Get next version number
+    latest = StudentResume.query.filter_by(student_id=profile.id).order_by(
+        StudentResume.version.desc()
+    ).first()
+    next_version = (latest.version + 1) if latest else 1
+
+    try:
+        rev = StudentResume(
+            student_id=profile.id,
+            version=next_version,
+            raw_json=raw_json,
+            pdf_url=pdf_url
+        )
+        db.session.add(rev)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "save_resume")
+
+    return jsonify({
+        "message": "Resume saved successfully.",
+        "version_number": next_version,
+        "id": str(rev.id)
+    }), 201
+
+
+@students_bp.get("/me/resume")
+@require_auth
+@require_roles("student")
+def list_resume_versions():
+    """Student: list all resume versions (max 3)."""
+    from app.models.student import StudentResume
+
+    user = get_current_user()
+    profile = user.student_profile
+    if not profile or profile.is_deleted:
+        return error_response("Student profile not found.", 404)
+
+    versions = StudentResume.query.filter_by(student_id=profile.id).order_by(
+        StudentResume.version.desc()
+    ).all()
+
+    return jsonify({
+        "versions": [{
+            "id": str(v.id),
+            "version_number": v.version,
+            "pdf_url": v.pdf_url,
+            "created_at": v.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        } for v in versions]
+    }), 200
+
+
+@students_bp.get("/me/resume/<int:version_number>")
+@require_auth
+@require_roles("student")
+def get_resume_version(version_number):
+    """Student: get a specific resume version's JSON."""
+    from app.models.student import StudentResume
+
+    user = get_current_user()
+    profile = user.student_profile
+    if not profile or profile.is_deleted:
+        return error_response("Student profile not found.", 404)
+
+    rev = StudentResume.query.filter_by(
+        student_id=profile.id,
+        version=version_number
+    ).first()
+
+    if not rev:
+        return error_response(f"Resume version {version_number} not found.", 404)
+
+    return jsonify({
+        "id": str(rev.id),
+        "version_number": rev.version,
+        "resume_json": rev.raw_json,
+        "pdf_url": rev.pdf_url,
+        "created_at": rev.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    }), 200
+
+
+@students_bp.get("/me/resume/suggestions")
+@require_auth
+@require_roles("student")
+def resume_suggestions():
+    """Student: get AI-powered resume improvement suggestions based on their profile."""
+    user = get_current_user()
+    profile = user.student_profile
+    if not profile or profile.is_deleted:
+        return error_response("Student profile not found.", 404)
+
+    suggestions = []
+
+    if not profile.skills or not profile.skills.strip():
+        suggestions.append({
+            "field": "skills",
+            "tip": "Add your technical and soft skills to improve placement eligibility visibility."
+        })
+    if not getattr(profile, "linkedin_url", None):
+        suggestions.append({
+            "field": "linkedin_url",
+            "tip": "Add a LinkedIn profile URL to strengthen your professional credibility."
+        })
+    if not getattr(profile, "github_url", None):
+        suggestions.append({
+            "field": "github_url",
+            "tip": "Add a GitHub profile to showcase your project portfolio to recruiters."
+        })
+    if profile.cgpa and float(profile.cgpa) < 7.0:
+        suggestions.append({
+            "field": "cgpa",
+            "tip": "Your CGPA is below 7.0. Focus on improving grades to unlock more placement drives."
+        })
+    if profile.active_backlogs and int(profile.active_backlogs) > 0:
+        suggestions.append({
+            "field": "active_backlogs",
+            "tip": f"You have {profile.active_backlogs} active backlog(s). Clearing them will improve your eligibility."
+        })
+    if not suggestions:
+        suggestions.append({
+            "field": "general",
+            "tip": "Your profile looks great! Keep it up-to-date before each placement season."
+        })
+
+    return jsonify({"suggestions": suggestions}), 200
+

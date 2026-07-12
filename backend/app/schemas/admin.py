@@ -16,7 +16,28 @@ class AdminUserResponseSchema(Schema):
     role = fields.Str(attribute="role.value")
     is_active = fields.Bool()
     is_deleted = fields.Bool()
+    suspended_features = fields.List(fields.Str())
+    tags = fields.List(fields.Str())
     created_at = fields.DateTime()
+
+    # Profile fields (Student)
+    roll_no = fields.Str()
+    full_name = fields.Str()
+    branch = fields.Str()
+    batch_year = fields.Int()
+    semester = fields.Int()
+    cgpa = fields.Float()
+    attendance_pct = fields.Float()
+    fees_submitted = fields.Float()
+    scholarship_details = fields.Str()
+    parent_contact = fields.Str()
+    home_address = fields.Str()
+
+    # Profile fields (Professor)
+    employee_id = fields.Str()
+    monthly_salary = fields.Float()
+    department = fields.Str()
+    designation = fields.Str()
 
 
 class AdminUserUpdateSchema(Schema):
@@ -27,6 +48,23 @@ class AdminUserUpdateSchema(Schema):
     is_active = fields.Bool()
     email = fields.Email(allow_none=True)
     phone = fields.Str(allow_none=True)
+    suspended_features = fields.List(fields.Str(), allow_none=True)
+    tags = fields.List(fields.Str(), allow_none=True)
+
+    # Profile fields (Student/Professor)
+    full_name = fields.Str(allow_none=True)
+    branch = fields.Str(allow_none=True)
+    batch_year = fields.Int(allow_none=True)
+    semester = fields.Int(allow_none=True)
+    cgpa = fields.Float(allow_none=True)
+    fees_submitted = fields.Float(allow_none=True)
+    scholarship_details = fields.Str(allow_none=True)
+    parent_contact = fields.Str(allow_none=True)
+    home_address = fields.Str(allow_none=True)
+
+    monthly_salary = fields.Float(allow_none=True)
+    department = fields.Str(allow_none=True)
+    designation = fields.Str(allow_none=True)
 
 
 class AdminInviteCreateSchema(Schema):

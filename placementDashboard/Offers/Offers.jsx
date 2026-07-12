@@ -1,19 +1,23 @@
 /**
- * Offers — TPO Portal  (PL13)
+ * Offers — TPO Portal (PL13)
  * View all offers per drive. Student accept/decline is PL14 (student portal).
+ * Displays contact details and direct chat bypass links for accepted/extended offers.
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@ctx/ToastContext';
 import { placementApi } from '@/services/api';
 import './Offers.css';
 
 export default function Offers() {
   const showToast = useToast();
+  const navigate = useNavigate();
   const [drives,          setDrives]          = useState([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
   const [offers,          setOffers]          = useState([]);
   const [loading,         setLoading]         = useState(true);
+  const [initiatingChat,  setInitiatingChat]  = useState({});
 
   const fetchDrives = useCallback(async () => {
     const res = await placementApi.listDrives();
@@ -29,7 +33,7 @@ export default function Offers() {
     setLoading(false);
     if (res?.error) { showToast(res.error, 'error'); return; }
     setOffers(res || []);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => { fetchDrives(); }, [fetchDrives]);
   useEffect(() => {
@@ -38,15 +42,39 @@ export default function Offers() {
   }, [selectedDriveId, fetchOffers]);
 
   const accepted  = offers.filter(o => o.status === 'accepted').length;
-  const pending   = offers.filter(o => o.status === 'issued').length;
+  const pending   = offers.filter(o => o.status === 'extended').length; // extended in backend is "pending" / issued status
   const declined  = offers.filter(o => o.status === 'declined').length;
+
+  async function startChat(studentId, studentName) {
+    setInitiatingChat(prev => ({ ...prev, [studentId]: true }));
+    try {
+      const res = await fetch('/api/v1/career/chats/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ recipient_id: studentId, type: 'direct' })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Chat started with ${studentName}!`, 'success');
+        navigate('/chats');
+      } else {
+        showToast(data.error || 'Failed to start chat.', 'error');
+      }
+    } catch (e) {
+      showToast('Network error starting chat.', 'error');
+    }
+    setInitiatingChat(prev => ({ ...prev, [studentId]: false }));
+  }
 
   return (
     <div className="of-root">
       <div className="page-header">
         <div>
           <h1 className="page-title">Offer Management</h1>
-          <p className="page-sub">Track official job offers and One-Student One-Offer policy status</p>
+          <p className="page-sub">Track official job offers, unmask offered student details, and chat directly</p>
         </div>
       </div>
 
@@ -95,22 +123,32 @@ export default function Offers() {
               <thead>
                 <tr>
                   <th>Student Name</th><th>Roll No</th><th>Branch</th>
-                  <th>CTC (LPA)</th><th>Status</th><th>Issued On</th>
+                  <th>Email</th><th>Phone</th>
+                  <th>CTC (LPA)</th><th>Status</th><th>Direct Chat</th><th>Issued On</th>
                 </tr>
               </thead>
               <tbody>
                 {offers.map(o => (
-                  <tr key={o.id}>
-                    <td style={{ fontWeight: 600, color: '#f8fafc' }}>{o.student_name || '—'}</td>
+                  <tr key={o.offer_id}>
+                    <td style={{ fontWeight: 600, color: '#f8fafc' }}>{o.full_name || o.student_name || '—'}</td>
                     <td><code>{o.roll_no || '—'}</code></td>
                     <td>{o.branch || '—'}</td>
-                    <td><strong style={{ color: '#10b981' }}>₹{o.ctc_offered} LPA</strong></td>
+                    <td style={{ fontSize: '0.8rem' }}>{o.email || '—'}</td>
+                    <td style={{ fontSize: '0.8rem' }}>{o.phone || '—'}</td>
+                    <td><strong style={{ color: '#10b981' }}>{o.ctc_offered}</strong></td>
                     <td>
                       <span className={`ad-badge ${
                         o.status === 'accepted' ? 'ad-badge-success'
                         : o.status === 'declined' ? 'ad-badge-error'
                         : 'ad-badge-info'
                       }`}>{o.status}</span>
+                    </td>
+                    <td>
+                      <button className="pd-btn pd-btn-outline" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                        disabled={initiatingChat[o.student_id]}
+                        onClick={() => startChat(o.student_id, o.full_name || o.student_name)}>
+                        {initiatingChat[o.student_id] ? 'Connecting…' : 'Chat Bypass'}
+                      </button>
                     </td>
                     <td style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
                       {o.offer_date ? new Date(o.offer_date).toLocaleDateString() : '—'}

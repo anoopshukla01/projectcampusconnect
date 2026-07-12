@@ -64,7 +64,7 @@ export default function Attendance() {
     if (max > 0) {
       setCalcResult({ ok: true, text: `Can skip up to ${max} class(es). → ${Math.round((sub.attended / (sub.total + max)) * 100)}%.` });
     } else {
-      const needed = Math.ceil(0.75 * sub.total - sub.attended);
+      const needed = Math.ceil((0.75 * sub.total - sub.attended) / 0.25);
       setCalcResult({ ok: false, text: `Can't skip any. Attend ${needed} more to reach 75%.` });
     }
   }

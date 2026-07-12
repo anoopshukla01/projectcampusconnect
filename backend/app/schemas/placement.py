@@ -11,22 +11,26 @@ class PlacementDriveCreateSchema(Schema):
         unknown = RAISE
 
     company_name = fields.Str(required=True, validate=validate.Length(min=2, max=255))
+    company_id = fields.UUID(allow_none=True)
     role_title = fields.Str(required=True, validate=validate.Length(min=2, max=255))
     drive_type = fields.Str(required=True, validate=validate.OneOf(["full_time", "internship", "contract"]))
     batch_year = fields.Int(required=True, validate=validate.Range(min=2000, max=2100))
     cgpa_cutoff = fields.Float(required=True, validate=validate.Range(min=0.0, max=10.0))
     backlog_cutoff = fields.Int(load_default=0, validate=validate.Range(min=0))
     attendance_cutoff = fields.Float(allow_none=True, validate=validate.Range(min=0.0, max=100.0))
+    target_branches = fields.Str(allow_none=True)
     drive_date = fields.Date(required=True)
     registration_deadline = fields.DateTime(required=True)
     ctc_offered = fields.Str(required=True, validate=validate.Length(min=1, max=50))
     description = fields.Str(allow_none=True)
     one_offer_lock = fields.Bool(load_default=True)
+    rounds = fields.Raw(allow_none=True)
 
 
 class PlacementDriveResponseSchema(Schema):
     """PL2, PL3 — Drive response serialization."""
     id = fields.UUID()
+    company_id = fields.UUID()
     company_name = fields.Str()
     role_title = fields.Str()
     drive_type = fields.Str(attribute="drive_type.value")
@@ -34,14 +38,17 @@ class PlacementDriveResponseSchema(Schema):
     cgpa_cutoff = fields.Float()
     backlog_cutoff = fields.Int()
     attendance_cutoff = fields.Float()
+    target_branches = fields.Str()
     drive_date = fields.Date()
     registration_deadline = fields.DateTime()
     ctc_offered = fields.Str()
     description = fields.Str()
     status = fields.Str(attribute="status.value")
     one_offer_lock = fields.Bool()
+    rounds = fields.Raw()
     created_by = fields.UUID()
     created_at = fields.DateTime()
+
 
 
 class BulkShortlistSchema(Schema):

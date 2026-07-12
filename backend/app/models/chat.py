@@ -28,6 +28,7 @@ class Conversation(db.Model):
     branch = db.Column(db.String(50), nullable=True)
     semester = db.Column(db.Integer, nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    is_accepted = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -43,6 +44,7 @@ class GroupMembership(db.Model):
     role = db.Column(db.Enum(GroupRole), default=GroupRole.MEMBER, nullable=False)
     joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     is_muted = db.Column(db.Boolean, default=False, nullable=False)
+    is_invite_pending = db.Column(db.Boolean, default=False, nullable=False)
 
     conversation = db.relationship("Conversation", back_populates="memberships")
     user = db.relationship("User", backref=db.backref("chat_memberships", cascade="all, delete-orphan"))
@@ -176,5 +178,30 @@ def chat_before_flush(session, flush_context, instances):
             reconcile_professor_chat_memberships(session, obj)
 
 event.listen(db.session, "before_flush", chat_before_flush)
+
+
+class StudentBlock(db.Model):
+    __tablename__ = "student_blocks"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False) # blocker
+    blocked_user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False) # blocked
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    blocked_user = db.relationship("User", foreign_keys=[blocked_user_id])
+
+
+class StudentReport(db.Model):
+    __tablename__ = "student_reports"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reporter_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    reported_user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    reporter = db.relationship("User", foreign_keys=[reporter_id])
+    reported_user = db.relationship("User", foreign_keys=[reported_user_id])
 
 

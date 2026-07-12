@@ -19,6 +19,8 @@ class ProfessorProfile(db.Model):
     designation = db.Column(db.String(100), nullable=False)
     joined_date = db.Column(db.Date, nullable=True)
     publications_count = db.Column(db.Integer, default=0, nullable=False)
+    monthly_salary = db.Column(db.Numeric(10, 2), nullable=True, default=0.0)
+    home_address = db.Column(db.Text, nullable=True)
     approval_status = db.Column(db.Enum(ApprovalStatus), default=ApprovalStatus.PENDING, nullable=False)
     approved_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     approved_at = db.Column(db.DateTime, nullable=True)

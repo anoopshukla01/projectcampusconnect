@@ -8,6 +8,8 @@ export default function AnalyticsDashboard() {
   const [data, setData]       = useState(null);
   const [profiles, setProfiles] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('student');
 
   // Modals state
   const [showBranchModal, setShowBranchModal]       = useState(false);
@@ -38,12 +40,14 @@ export default function AnalyticsDashboard() {
   async function fetchAnalytics() {
     setLoading(true);
     try {
-      const [pRes, prRes] = await Promise.all([
+      const [pRes, prRes, usersRes] = await Promise.all([
         adminApi.getAnalytics(),          // /admin/analytics/placement
         adminApi.getProfileAnalytics(),   // /admin/analytics/profiles
+        adminApi.listUsers({ per_page: 500 }),
       ]);
       if (pRes && !pRes.error) setData(pRes);
       if (prRes && !prRes.error) setProfiles(prRes);
+      if (usersRes && !usersRes.error) setUsers(usersRes.users || []);
     } catch (err) {
       console.error('Error loading analytics:', err);
     } finally {
@@ -86,6 +90,20 @@ export default function AnalyticsDashboard() {
     );
   }
 
+  const roleStats = useMemo(() => {
+    const roleUsers = users.filter(u => {
+      if (selectedRole === 'student') return u.role === 'student';
+      if (selectedRole === 'professor') return u.role === 'professor';
+      return u.role === 'placement_cell';
+    });
+
+    const total = roleUsers.length;
+    const active = roleUsers.filter(u => u.is_active).length;
+    const pending = roleUsers.filter(u => !u.is_active).length;
+
+    return { total, active, pending };
+  }, [users, selectedRole]);
+
   return (
     <div className="ad-root">
       <div className="page-header">
@@ -103,11 +121,68 @@ export default function AnalyticsDashboard() {
         </div>
       </div>
 
+      {/* Role Toggle Selector */}
+      <div className="tab-nav-wrapper" style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--border)' }}>
+        <button
+          className={`tab-nav-btn ${selectedRole === 'student' ? 'active' : ''}`}
+          onClick={() => setSelectedRole('student')}
+        >
+          🎓 Student Metrics
+        </button>
+        <button
+          className={`tab-nav-btn ${selectedRole === 'professor' ? 'active' : ''}`}
+          onClick={() => setSelectedRole('professor')}
+        >
+          👤 Professor Metrics
+        </button>
+        <button
+          className={`tab-nav-btn ${selectedRole === 'tpo' ? 'active' : ''}`}
+          onClick={() => setSelectedRole('tpo')}
+        >
+          💼 TPO Metrics
+        </button>
+      </div>
+
+      {/* Role-Specific Metrics Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
+        <div className="ad-card" style={{ padding: '1.25rem', borderLeft: '4px solid #3b82f6' }}>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total {selectedRole.toUpperCase()}s</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+            {roleStats.total}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+            Registered accounts
+          </div>
+        </div>
+
+        <div className="ad-card" style={{ padding: '1.25rem', borderLeft: '4px solid #10b981' }}>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active {selectedRole.toUpperCase()}s</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+            {roleStats.active}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '0.35rem' }}>
+            Approved and operational
+          </div>
+        </div>
+
+        <div className="ad-card" style={{ padding: '1.25rem', borderLeft: '4px solid #ef4444' }}>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending / Inactive</div>
+          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+            {roleStats.pending}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#ef4444', marginTop: '0.35rem' }}>
+            Awaiting signup approval
+          </div>
+        </div>
+      </div>
+
+      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>General Institutional Analytics</h3>
+
       {/* Metric Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
         <div className="ad-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Placements (This Year)</div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#f8fafc', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
             {data?.placements_this_year ?? 0}
           </div>
           <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '0.35rem' }}>
@@ -117,7 +192,7 @@ export default function AnalyticsDashboard() {
 
         <div className="ad-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Average Package</div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#f8fafc', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
             ₹{data?.avg_package_lpa ?? 0} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#94a3b8' }}>LPA</span>
           </div>
           <div style={{ fontSize: '0.78rem', color: '#6366f1', marginTop: '0.35rem' }}>
@@ -127,7 +202,7 @@ export default function AnalyticsDashboard() {
 
         <div className="ad-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student Roster</div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#f8fafc', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
             {profiles?.total_students ?? 0}
           </div>
           <div style={{ fontSize: '0.78rem', color: '#38bdf8', marginTop: '0.35rem' }}>
@@ -137,7 +212,7 @@ export default function AnalyticsDashboard() {
 
         <div className="ad-card" style={{ padding: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DPDP Act Compliance</div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#f8fafc', marginTop: '0.2rem' }}>
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
             {profiles?.dpdp_compliance?.consent_pct ?? 0}%
           </div>
           <div style={{ fontSize: '0.78rem', color: '#34d399', marginTop: '0.35rem' }}>
@@ -148,7 +223,7 @@ export default function AnalyticsDashboard() {
 
       {/* Branch Performance Table */}
       <div className="ad-card">
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>Branch-wise Performance Breakdown</h2>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>Branch-wise Performance Breakdown</h2>
         {!data?.branch_performance || data.branch_performance.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
             No branch placement data recorded in database.
@@ -179,15 +254,15 @@ export default function AnalyticsDashboard() {
             
             <form onSubmit={handleAddBranch}>
               <div className="ad-modal-fields">
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Branch Name</label>
+                <div className="ad-field">
+                  <label>Branch Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Civil Engineering"
                     value={branchForm.branch}
                     onChange={e => setBranchForm({ branch: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                    className="ad-input"
                   />
                 </div>
               </div>
@@ -210,12 +285,12 @@ export default function AnalyticsDashboard() {
             
             <form onSubmit={handleUpdatePlacement}>
               <div className="ad-modal-fields">
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Select Branch</label>
+                <div className="ad-field">
+                  <label>Select Branch</label>
                   <select
                     value={placementForm.branch}
                     onChange={e => setPlacementForm({ ...placementForm, branch: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                    className="ad-select"
                   >
                     {availableBranches.map(bName => (
                       <option key={bName} value={bName}>{bName}</option>
@@ -223,8 +298,8 @@ export default function AnalyticsDashboard() {
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Placed Count (Students Placed)</label>
+                <div className="ad-field">
+                  <label>Placed Count (Students Placed)</label>
                   <input
                     type="number"
                     required
@@ -232,12 +307,12 @@ export default function AnalyticsDashboard() {
                     placeholder="e.g. 45"
                     value={placementForm.placed_count}
                     onChange={e => setPlacementForm({ ...placementForm, placed_count: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                    className="ad-input"
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>Total Students in Batch</label>
+                <div className="ad-field">
+                  <label>Total Students in Batch</label>
                   <input
                     type="number"
                     required
@@ -245,7 +320,7 @@ export default function AnalyticsDashboard() {
                     placeholder="e.g. 60"
                     value={placementForm.total_count}
                     onChange={e => setPlacementForm({ ...placementForm, total_count: e.target.value })}
-                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                    className="ad-input"
                   />
                 </div>
               </div>

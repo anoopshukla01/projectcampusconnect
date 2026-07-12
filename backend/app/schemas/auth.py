@@ -104,6 +104,17 @@ class FacultyRegisterSchema(Schema):
     password    = fields.Str(required=True, validate=validate.Length(min=8, max=128))
 
 
+class TPORegisterSchema(Schema):
+    class Meta:
+        unknown = RAISE
+
+    email     = fields.Email(required=True)
+    full_name = fields.Str(required=True, validate=validate.Length(min=2, max=255))
+    phone     = fields.Str(allow_none=True)
+    password  = fields.Str(required=True, validate=validate.Length(min=8, max=128))
+
+
+
 # ── Invite accept ─────────────────────────────────────────────────────────────
 
 class InviteAcceptSchema(Schema):

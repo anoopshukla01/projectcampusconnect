@@ -45,6 +45,9 @@ import AdminAnnouncements from '@admin/Announcements/Announcements';
 import DataHealth         from '@admin/DataHealth/DataHealth';
 import BranchComparison   from '@admin/BranchComparison/BranchComparison';
 import DataManager        from '@admin/DataManager/DataManager';
+import AttendanceTimetableOversight from '@admin/AttendanceTimetableOversight/AttendanceTimetableOversight';
+import MarketplaceManager from '@admin/Marketplace/MarketplaceManager';
+import Settings from './pages/Settings/Settings';
 
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
 
@@ -85,7 +88,7 @@ export default function App() {
           <Route path="/elibrary"      element={notTPO(<ELibrary />)} />
           <Route path="/notes"         element={notTPO(<Notes />)} />
           <Route path="/grades"        element={notTPO(<GradeBook />)} />
-          <Route path="/chats"         element={notTPO(<Chats />)} />
+          <Route path="/chats"         element={<Chats />} />
           <Route path="/events"        element={notTPO(<Events />)} />
           <Route path="/mentorship"    element={notTPO(<Mentorship />)} />
 
@@ -95,6 +98,7 @@ export default function App() {
           <Route path="/internships"   element={onlyStudent(<Internships />)} />
           <Route path="/resume"        element={onlyStudent(<ResumeBuilder />)} />
           <Route path="/mock"          element={onlyStudent(<MockInterviews />)} />
+          <Route path="/settings"      element={onlyStudent(<Settings />)} />
 
           {/* ── Professor-only ── */}
           <Route path="/classes"       element={onlyProf(<Classes />)} />
@@ -121,6 +125,8 @@ export default function App() {
           <Route path="/admin/datahealth" element={onlyAdmin(<DataHealth />)} />
           <Route path="/admin/branches"   element={onlyAdmin(<BranchComparison />)} />
           <Route path="/admin/data"       element={onlyAdmin(<DataManager />)} />
+          <Route path="/admin/timetable-attendance" element={onlyAdmin(<AttendanceTimetableOversight />)} />
+          <Route path="/admin/marketplace" element={onlyAdmin(<MarketplaceManager />)} />
 
         </Route>
 

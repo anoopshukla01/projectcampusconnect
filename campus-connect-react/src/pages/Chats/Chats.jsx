@@ -81,6 +81,10 @@ export default function Chats() {
   const [adminAction,       setAdminAction]       = useState(null);
   const [adminTargetUserId, setAdminTargetUserId] = useState('');
 
+  // ── Pending invites (invite_pending = true on membership) ──────────────────
+  const pendingInvites = rooms.filter(r => r.invite_pending);
+  const [respondingInvite, setRespondingInvite] = useState({});
+
   const openModal = () => {
     setStartStep('menu');
     setSearchQuery('');
@@ -169,6 +173,19 @@ export default function Chats() {
     refetchRooms();
   }
 
+  // ── Respond to group invite ───────────────────────────────────────────────
+  async function handleRespondInvite(convId, action) {
+    setRespondingInvite(p => ({ ...p, [convId]: action }));
+    const res = await chatsApi.respondToInvite(convId, action);
+    setRespondingInvite(p => ({ ...p, [convId]: null }));
+    if (res?.error) { showToast(res.error, 'error'); return; }
+    showToast(
+      action === 'accept' ? 'You joined the group!' : 'Invite declined.',
+      action === 'accept' ? 'success' : 'info',
+    );
+    refetchRooms();
+  }
+
   // ── Add / promote member ───────────────────────────────────────────────────
   async function handleAdminAction(e) {
     e.preventDefault();
@@ -206,11 +223,48 @@ export default function Chats() {
         </div>
         <StateContainer loading={loading} error={error} isEmpty={isEmpty}
           emptyMessage="No active chats. Start one below!">
+          {/* Pending Group Invites */}
+          {pendingInvites.length > 0 && (
+            <div style={{
+              margin: '0 0 0.5rem',
+              borderRadius: '8px',
+              background: 'var(--clr-warning-bg, #fef3c7)',
+              border: '1px solid var(--clr-warning, #f59e0b)',
+              padding: '0.5rem 0.75rem',
+            }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#92400e', margin: '0 0 0.4rem' }}>
+                📬 {pendingInvites.length} Pending Group Invite{pendingInvites.length > 1 ? 's' : ''}
+              </p>
+              {pendingInvites.map(r => (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#78350f' }}>
+                    👥 {r.name}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.3rem' }}>
+                    <button
+                      className="action-btn"
+                      style={{ fontSize: '0.73rem', padding: '0.18rem 0.5rem' }}
+                      disabled={!!respondingInvite[r.id]}
+                      onClick={() => handleRespondInvite(r.id, 'accept')}>
+                      {respondingInvite[r.id] === 'accept' ? '…' : '✓ Join'}
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      style={{ fontSize: '0.73rem', padding: '0.18rem 0.5rem' }}
+                      disabled={!!respondingInvite[r.id]}
+                      onClick={() => handleRespondInvite(r.id, 'decline')}>
+                      {respondingInvite[r.id] === 'decline' ? '…' : '✕ Decline'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {rooms.map(r => (
+            {rooms.filter(r => !r.invite_pending).map(r => (
               <li key={r.id}>
                 <button
-                  className={`chat-item${activeId === r.id ? ' active' : ''}`}
+                  className={`chat-item${activeId === r.id ? ' active' : ''}${!r.is_accepted ? ' pending-dm' : ''}`}
                   onClick={() => setActiveId(r.id)}>
                   <div className="chat-avatar">{CATEGORY_ICONS[r.type] || '💬'}</div>
                   <div className="chat-item-body">
@@ -218,7 +272,11 @@ export default function Chats() {
                       <span className="chat-name">{r.name}</span>
                       <span className="chat-time">{r.lastTime || ''}</span>
                     </div>
-                    <span className="chat-preview">{r.lastMessage || 'No messages yet'}</span>
+                    <span className="chat-preview">
+                      {!r.is_accepted
+                        ? <em style={{ color: 'var(--clr-muted)', fontSize: '0.78rem' }}>⏳ Awaiting approval</em>
+                        : (r.lastMessage || 'No messages yet')}
+                    </span>
                   </div>
                   {r.unread && <span className="chat-dot" aria-hidden="true" />}
                 </button>
@@ -227,6 +285,7 @@ export default function Chats() {
           </ul>
         </StateContainer>
       </aside>
+
 
       {/* Chat window */}
       <section className="chat-window panel" aria-label="Active chat messages">

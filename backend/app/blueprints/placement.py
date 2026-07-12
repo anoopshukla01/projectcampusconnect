@@ -77,6 +77,12 @@ def _check_student_eligible(profile: StudentProfile, drive: PlacementDrive) -> t
     if drive.attendance_cutoff and profile.attendance_pct is not None:
         if profile.attendance_pct < drive.attendance_cutoff:
             return False, f"Attendance {profile.attendance_pct}% below cutoff {drive.attendance_cutoff}%."
+    
+    if hasattr(drive, "target_branches") and drive.target_branches:
+        branches = [b.strip().upper() for b in drive.target_branches.split(",") if b.strip()]
+        if branches and profile.branch.strip().upper() not in branches:
+            return False, f"Drive is only open to branches: {drive.target_branches}."
+
     return True, ""
 
 
@@ -84,28 +90,50 @@ def _check_student_eligible(profile: StudentProfile, drive: PlacementDrive) -> t
 
 @placement_bp.post("/drives")
 @require_auth
-@require_roles("admin", "placement_cell")
+@require_roles("placement_cell")
 def create_drive():
     try:
         data = PlacementDriveCreateSchema().load(request.get_json(force=True) or {})
     except ValidationError as e:
         return validation_error_response(e.messages)
 
+    from app.models.placement import Company
+    company_id = data.get("company_id")
+    company_name = data["company_name"]
+
+    # Link to existing company or create a new one
+    company = None
+    if company_id:
+        company = Company.query.filter_by(id=company_id, is_deleted=False).first()
+    if not company:
+        company = Company.query.filter_by(name=company_name, is_deleted=False).first()
+    if not company:
+        try:
+            company = Company(name=company_name, sector="Tech")
+            db.session.add(company)
+            db.session.flush()
+        except Exception as exc:
+            db.session.rollback()
+            return internal_error_response(exc, "create_company_on_the_fly")
+
     try:
         drive = PlacementDrive(
-            company_name=data["company_name"],
+            company_id=company.id,
+            company_name=company.name,
             role_title=data["role_title"],
             drive_type=DriveType(data["drive_type"]),
             batch_year=data["batch_year"],
             cgpa_cutoff=data["cgpa_cutoff"],
             backlog_cutoff=data.get("backlog_cutoff", 0),
             attendance_cutoff=data.get("attendance_cutoff"),
+            target_branches=data.get("target_branches"),
             drive_date=data["drive_date"],
             registration_deadline=data["registration_deadline"],
             ctc_offered=data["ctc_offered"],
             description=data.get("description"),
             one_offer_lock=data.get("one_offer_lock", True),
             status=DriveStatus.ACTIVE,
+            rounds=data.get("rounds"),
             created_by=get_current_user().id,
         )
         db.session.add(drive)
@@ -136,6 +164,27 @@ def list_drives():
         profile = user.student_profile
         if profile:
             query = query.filter(PlacementDrive.batch_year == profile.batch_year)
+            all_items = query.all()
+            filtered_items = []
+            for drive in all_items:
+                if drive.target_branches:
+                    branches = [b.strip().upper() for b in drive.target_branches.split(",") if b.strip()]
+                    if profile.branch.strip().upper() not in branches:
+                        continue
+                filtered_items.append(drive)
+            
+            total = len(filtered_items)
+            start = (page - 1) * per_page
+            end = start + per_page
+            paginated_items = filtered_items[start:end]
+            pages = (total + per_page - 1) // per_page if per_page > 0 else 1
+
+            return jsonify({
+                "drives": PlacementDriveResponseSchema(many=True).dump(paginated_items),
+                "total": total,
+                "page": page,
+                "pages": pages,
+            }), 200
 
     paginated = query.order_by(PlacementDrive.drive_date.asc()).paginate(
         page=page, per_page=per_page, error_out=False
@@ -233,29 +282,177 @@ def delete_drive(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def get_eligible_students(drive_id):
+    """
+    PL6 — List and rank eligible students using weighted scoring formula
+    and TPO overrides.
+    """
+    from app.models.placement import PlacementDrive, EligibilityOverride, DriveType
+    from app.models.student import StudentProfile, StudentResume
+    from app.models.academic import Grade
+    from app.models.community import EventRegistration
+
     drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
-    profiles = db.session.query(StudentProfile).filter(
-        StudentProfile.is_deleted == False,  # noqa: E712
+    # 1. Base Cutoff Filtering
+    # Semesters passed hard filter:
+    # Internship drives require passing 4 semesters (current sem >= 5)
+    # Full-time job drives require passing 5 semesters (current sem >= 6)
+    min_sem = 5 if drive.drive_type == DriveType.FULL_TIME else 4
+
+    query = db.session.query(StudentProfile).filter(
+        StudentProfile.is_deleted == False,
         StudentProfile.batch_year == drive.batch_year,
         StudentProfile.cgpa >= drive.cgpa_cutoff,
         StudentProfile.active_backlogs <= drive.backlog_cutoff,
-    ).all()
+        StudentProfile.semester >= min_sem
+    )
 
-    result = [
-        {
-            "user_id": str(p.user_id),
-            "roll_no": p.roll_no,
-            "full_name": p.full_name,
-            "branch": p.branch,
-            "cgpa": p.cgpa,
-            "active_backlogs": p.active_backlogs,
-        }
-        for p in profiles
-    ]
-    return jsonify(result), 200
+    all_profiles = query.all()
+
+    # Filter branches in Python to handle case-insensitivity/lists
+    target_branches = []
+    if drive.target_branches:
+        target_branches = [b.strip().upper() for b in drive.target_branches.split(",") if b.strip()]
+
+    filtered_profiles = []
+    for p in all_profiles:
+        if target_branches:
+            if not p.branch or p.branch.strip().upper() not in target_branches:
+                continue
+        filtered_profiles.append(p)
+
+    # Get TPO overrides for this drive
+    overrides = {
+        str(o.student_id): o
+        for o in EligibilityOverride.query.filter_by(drive_id=drive_id).all()
+    }
+
+    students_list = []
+    for p in filtered_profiles:
+        sid_str = str(p.user_id)
+        override = overrides.get(sid_str)
+
+        # Skip if TPO excluded them
+        is_excluded = override.excluded if override else False
+
+        # Compute Weighted Score
+        # (1) CGPA (40%)
+        cgpa_score = (float(p.cgpa) / 10.0) * 100 * 0.40
+
+        # (2) Assignment/grade performance (20%)
+        grades = Grade.query.filter_by(student_id=p.user_id).all()
+        avg_gp = sum(g.grade_point for g in grades) / len(grades) if grades else 0.0
+        grade_score = (avg_gp / 10.0) * 100 * 0.20
+
+        # (3) Resume content (15%)
+        resume = StudentResume.query.filter_by(student_id=p.id, is_active=True).first()
+        resume_score = 0.0
+        skills_text = ""
+        if resume and resume.raw_json:
+            skills = resume.raw_json.get("skills", [])
+            skills_text = ", ".join(skills) if isinstance(skills, list) else str(skills)
+            # Simple keyword matching with drive description/role/name
+            match_keywords = [
+                k.strip().lower() for k in
+                ((drive.description or "") + " " + drive.role_title + " " + drive.company_name).split()
+                if len(k.strip()) > 2
+            ]
+            matches = sum(1 for s in skills if any(k in s.lower() for k in match_keywords))
+            overlap_ratio = matches / len(skills) if skills else 0.0
+            resume_score = 5.0 + (overlap_ratio * 10.0)
+        elif resume:
+            resume_score = 5.0
+
+        # (4) Real-time events/fests participation (15%)
+        event_count = EventRegistration.query.filter_by(user_id=p.user_id).count()
+        events_score = min(event_count * 5.0, 15.0)
+
+        # (5) GitHub activity (10%)
+        github_score = 10.0 if p.github_url else 0.0
+
+        total_score = round(cgpa_score + grade_score + resume_score + events_score + github_score, 2)
+
+        students_list.append({
+            "student_id":      sid_str,
+            "roll_no":         p.roll_no,
+            "full_name":       p.full_name,
+            "branch":          p.branch,
+            "cgpa":            float(p.cgpa),
+            "backlogs":        p.active_backlogs,
+            "semester":        p.semester,
+            "github_url":      p.github_url or "",
+            "linkedin_url":    p.linkedin_url or "",
+            "skills":          skills_text,
+            "score":           total_score,
+            "is_excluded":     is_excluded,
+            "override_rank":   override.rank if override else None,
+            "notes":           override.notes if override else "",
+        })
+
+    # Sort the ranked list
+    # Manual rank overrides first, then score descending
+    def sort_key(s):
+        # Excluded go to the very bottom
+        if s["is_excluded"]:
+            return (2, 0, 0)
+        # If manual rank is set, use it (we want smaller ranks first)
+        if s["override_rank"] is not None:
+            return (0, s["override_rank"], -s["score"])
+        # Default order by score descending
+        return (1, 0, -s["score"])
+
+    sorted_students = sorted(students_list, key=sort_key)
+
+    # Assign final ranks
+    for index, s in enumerate(sorted_students):
+        s["rank"] = index + 1
+
+    return jsonify({"students": sorted_students}), 200
+
+
+@placement_bp.post("/drives/<uuid:drive_id>/override")
+@require_auth
+@require_roles("admin", "placement_cell")
+def override_eligibility(drive_id):
+    """
+    TPO manually overrides rank, excludes or adds notes to a student's eligibility.
+    """
+    from app.models.placement import PlacementDrive, EligibilityOverride
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    if not drive:
+        return error_response("Drive not found.", 404)
+
+    data = request.get_json() or {}
+    student_id_str = data.get("student_id")
+    if not student_id_str:
+        return error_response("student_id is required.", 400)
+    try:
+        student_id = uuid_lib.UUID(str(student_id_str))
+    except ValueError:
+        return error_response("Invalid student_id format.", 400)
+
+    override = EligibilityOverride.query.filter_by(drive_id=drive_id, student_id=student_id).first()
+    if not override:
+        override = EligibilityOverride(drive_id=drive_id, student_id=student_id)
+        db.session.add(override)
+
+    if "rank" in data:
+        override.rank = data["rank"]
+    if "excluded" in data:
+        override.excluded = bool(data["excluded"])
+    if "notes" in data:
+        override.notes = data["notes"]
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "override_eligibility")
+
+    return jsonify({"message": "Eligibility override saved.", "student_id": student_id}), 200
+
 
 
 # ── PL7: POST /placement/drives/<uuid:drive_id>/apply ───────────────────────
@@ -282,6 +479,12 @@ def apply_for_drive(drive_id):
     profile = user.student_profile
     if not profile:
         return error_response("Student profile not found.", 404)
+
+    # Check if student has at least one resume saved in the database
+    from app.models.student import StudentResume
+    resume = StudentResume.query.filter_by(student_id=profile.id).first()
+    if not resume:
+        return error_response("You must create a resume in the Resume Builder before applying to placement drives.", 400)
 
     eligible, reason = _check_student_eligible(profile, drive)
     if not eligible:
@@ -654,13 +857,38 @@ def list_drive_offers(drive_id):
     for off in offers:
         student = db.session.get(User, off.student_id)
         profile = student.student_profile if student else None
+        
+        email = student.email if student else "N/A"
+        phone = student.phone if student else "N/A"
+        branch = profile.branch if profile else "N/A"
+
+        # Mask unless status is ACCEPTED or EXTENDED
+        from app.models.placement import OfferStatus
+        if off.status not in (OfferStatus.ACCEPTED, OfferStatus.EXTENDED):
+            if "@" in email:
+                parts = email.split("@")
+                local = parts[0]
+                domain = parts[1]
+                masked_local = local[0] + "***" + local[-1] if len(local) > 2 else local[0] + "***"
+                email = masked_local + "@" + domain
+            else:
+                email = "masked@college.edu.in"
+            
+            if phone and len(phone) > 4:
+                phone = phone[:2] + "******" + phone[-2:]
+            else:
+                phone = "********"
+
         result.append({
             "offer_id": str(off.id),
             "student_id": str(off.student_id),
             "roll_no": profile.roll_no if profile else None,
             "full_name": profile.full_name if profile else None,
+            "branch": branch,
             "ctc_offered": off.ctc_offered,
             "status": off.status.value,
+            "email": email,
+            "phone": phone,
             "offer_date": off.offer_date.isoformat(),
             "acceptance_deadline": off.acceptance_deadline.isoformat() if off.acceptance_deadline else None,
         })
@@ -745,7 +973,7 @@ def get_placement_stats():
         "id":               str(d.id),
         "company_name":     d.company_name,
         "role_title":       d.role_title,
-        "ctc_lpa":          float(d.ctc_lpa) if d.ctc_lpa else 0,
+        "ctc_lpa":          d.ctc_offered,
         "status":           d.status.value if d.status else "active",
         "application_count": db.session.query(DriveApplication).filter_by(
             drive_id=d.id, is_deleted=False
@@ -763,13 +991,169 @@ def get_placement_stats():
         "recent_drives":      recent_drives,
         "pipeline":           [
             {"label": "Applied",     "count": db.session.query(DriveApplication).filter_by(is_deleted=False).count(), "color": "#6366f1"},
-            {"label": "Shortlisted", "count": db.session.query(PlacementOffer).filter_by(is_deleted=False).count(), "color": "#3b82f6"},
+            {"label": "Shortlisted", "count": db.session.query(DriveShortlist).filter_by(is_deleted=False).count(), "color": "#3b82f6"},
             {"label": "Offered",     "count": accepted_offers, "color": "#10b981"},
         ],
         "top_recruiters":     [],
         "yoy":                [],
         "recent_activity":    [],
     }), 200
+
+
+# ── Placement Drives Interview Scheduling Bookings ────────────────────────────
+
+@placement_bp.post("/drives/<uuid:drive_id>/bookings")
+@require_auth
+@require_roles("admin", "placement_cell")
+def create_interview_booking(drive_id):
+    """
+    PL17 — Create a pending interview booking slot for a student (TPO/Admin only).
+    Does NOT write directly to the student's timetable.
+    """
+    from app.models.academic import TimetableBooking
+    from app.models.placement import PlacementDrive
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    if not drive:
+        return error_response("Drive not found.", 404)
+
+    data = request.get_json() or {}
+    student_id_str = data.get("student_id")
+    day = data.get("day_of_week") or data.get("day")
+    time_slot = data.get("time_slot") or data.get("time")
+    room = data.get("room", "LH-101")
+
+    if not student_id_str or not day or not time_slot:
+        return error_response("student_id, day_of_week, and time_slot are required.", 400)
+
+    try:
+        student_id = uuid_lib.UUID(str(student_id_str))
+    except ValueError:
+        return error_response("Invalid student_id format.", 400)
+
+    try:
+        booking = TimetableBooking(
+            drive_id=drive_id,
+            student_id=student_id,
+            tpo_id=get_current_user().id,
+            day_of_week=day,
+            time_slot=time_slot,
+            room=room,
+            status="pending_admin_approval"
+        )
+        db.session.add(booking)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "create_interview_booking")
+
+    audit_action("placement.booking.created", target_type="timetable_booking", target_id=str(booking.id))
+    return jsonify({
+        "message": "Interview slot booked. Awaiting Admin approval.",
+        "id": str(booking.id),
+        "status": booking.status
+    }), 201
+
+
+@placement_bp.get("/drives/<uuid:drive_id>/bookings")
+@require_auth
+@require_roles("admin", "placement_cell")
+def get_drive_bookings(drive_id):
+    """List all interview bookings (including pending ones) for a drive."""
+    from app.models.academic import TimetableBooking
+    bookings = TimetableBooking.query.filter_by(drive_id=drive_id).all()
+    res = []
+    for b in bookings:
+        student = db.session.get(User, b.student_id)
+        res.append({
+            "id":           str(b.id),
+            "student_id":   str(b.student_id),
+            "student_name": student.student_profile.full_name if student and student.student_profile else "Student",
+            "roll_no":      student.student_profile.roll_no if student and student.student_profile else "N/A",
+            "day":          b.day_of_week,
+            "time":         b.time_slot,
+            "room":         b.room,
+            "status":       b.status,
+            "created_at":   b.created_at.isoformat()
+        })
+    return jsonify({"bookings": res}), 200
+
+
+@placement_bp.delete("/drives/bookings/<uuid:booking_id>")
+@require_auth
+@require_roles("admin", "placement_cell")
+def cancel_interview_booking(booking_id):
+    """Cancel an interview booking slot."""
+    from app.models.academic import TimetableBooking
+    booking = TimetableBooking.query.filter_by(id=booking_id).first()
+    if not booking:
+        return error_response("Booking not found.", 404)
+
+    try:
+        db.session.delete(booking)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "cancel_interview_booking")
+
+    return jsonify({"message": "Interview booking cancelled."}), 200
+
+
+# ── Moderation Queue / Reports ────────────────────────────────────────────────
+
+@placement_bp.post("/reports")
+@require_auth
+def submit_moderation_report():
+    """
+    TPO or Student reports an issue (student, company, drive, or internship).
+    """
+    from app.models.community import ModerationReport
+    data = request.get_json() or {}
+    target_type = data.get("target_type")
+    target_id = data.get("target_id")
+    reason = data.get("reason")
+
+    if not target_type or not target_id or not reason:
+        return error_response("target_type, target_id, and reason are required.", 400)
+
+    try:
+        report = ModerationReport(
+            reporter_id=get_current_user().id,
+            target_type=target_type,
+            target_id=target_id,
+            reason=reason,
+            status="pending"
+        )
+        db.session.add(report)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "submit_moderation_report")
+
+    return jsonify({"message": "Report submitted successfully.", "id": str(report.id)}), 201
+
+
+@placement_bp.get("/reports")
+@require_auth
+@require_roles("admin", "placement_cell")
+def get_moderation_reports():
+    """TPO and Admin view the unified moderation reports queue."""
+    from app.models.community import ModerationReport
+    reports = ModerationReport.query.order_by(ModerationReport.created_at.desc()).all()
+    res = []
+    for r in reports:
+        reporter = db.session.get(User, r.reporter_id)
+        res.append({
+            "id":            str(r.id),
+            "reporter_id":   str(r.reporter_id),
+            "reporter_name": reporter.email if reporter else "Unknown",
+            "target_type":   r.target_type,
+            "target_id":     r.target_id,
+            "reason":        r.reason,
+            "status":        r.status,
+            "created_at":    r.created_at.isoformat()
+        })
+    return jsonify({"reports": res}), 200
+
 
 
 # ── GET /placement/notices ────────────────────────────────────────────────────
@@ -845,32 +1229,193 @@ def delete_notice(notice_id):
 @placement_bp.get("/companies")
 @require_auth
 def get_companies():
-    """List all companies that have participated in placement drives."""
-    drives = db.session.query(PlacementDrive).filter_by(is_deleted=False).all()
-    # Deduplicate by company name
-    seen = set()
-    companies = []
-    for d in drives:
-        if d.company_name not in seen:
-            seen.add(d.company_name)
-            companies.append({
-                "id":      str(d.id),
-                "name":    d.company_name,
-                "sector":  d.drive_type or "Tech",
-                "status":  "Active",
-                "drives":  sum(1 for x in drives if x.company_name == d.company_name),
-            })
-    return jsonify({"companies": companies}), 200
+    """
+    List all companies that have participated in placement drives.
+    Visible to both students and TPO. Computes rolling stats:
+    number of students placed, average package, max package.
+    """
+    from app.models.placement import Company, PlacementDrive, PlacementOffer, OfferStatus
+    from sqlalchemy import func
+
+    companies = Company.query.filter_by(is_deleted=False).all()
+    res = []
+    for c in companies:
+        # Get all drives for this company (not deleted)
+        drives = PlacementDrive.query.filter_by(company_id=c.id, is_deleted=False).all()
+        drive_ids = [d.id for d in drives]
+
+        # Calculate placement stats
+        placed_count = 0
+        ctcs = []
+        if drive_ids:
+            offers = PlacementOffer.query.filter(
+                PlacementOffer.drive_id.in_(drive_ids),
+                PlacementOffer.status == OfferStatus.ACCEPTED,
+                PlacementOffer.is_deleted == False
+            ).all()
+            placed_count = len(offers)
+            for o in offers:
+                try:
+                    # extract digits/dot from CTC string
+                    cleaned = "".join(ch for ch in o.ctc_offered if ch.isdigit() or ch == ".")
+                    if cleaned:
+                        ctcs.append(float(cleaned))
+                except ValueError:
+                    pass
+
+        avg_ctc = round(sum(ctcs) / len(ctcs), 2) if ctcs else 0.0
+        max_ctc = round(max(ctcs), 2) if ctcs else 0.0
+
+        res.append({
+            "id":          str(c.id),
+            "name":        c.name,
+            "sector":      c.sector or "Tech",
+            "website":     c.website or "",
+            "description": c.description or "",
+            "placed":      placed_count,
+            "avg_ctc":     f"{avg_ctc} LPA" if avg_ctc else "—",
+            "highest_ctc": f"{max_ctc} LPA" if max_ctc else "—",
+            "drives_count": len(drives),
+            "years":       sorted(list(set(d.batch_year for d in drives)), reverse=True),
+        })
+
+    return jsonify({"companies": res}), 200
 
 
 @placement_bp.post("/companies")
 @require_auth
 @require_roles("admin", "placement_cell")
 def create_company():
-    """Register a new company (creates a placeholder drive entry)."""
+    """
+    Register a new company and automatically create a corresponding Drive entry.
+    """
+    from app.models.placement import Company, PlacementDrive, DriveType, DriveStatus
     data = request.get_json() or {}
     name = data.get("name") or data.get("company_name")
     if not name:
         return error_response("Company name is required.", 400)
-    # Companies are implicitly created via drives — just acknowledge
-    return jsonify({"message": f"Company '{name}' registered.", "name": name}), 201
+
+    # Check if company already exists
+    company = Company.query.filter_by(name=name, is_deleted=False).first()
+    if not company:
+        try:
+            company = Company(
+                name=name,
+                sector=data.get("sector", "Tech"),
+                website=data.get("website", ""),
+                description=data.get("description", "")
+            )
+            db.session.add(company)
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            return internal_error_response(exc, "create_company_record")
+
+    # Automatically create a corresponding Drive entry
+    role_title = data.get("role_title") or "Software Engineer Intern"
+    drive_type_str = data.get("drive_type") or "internship"
+    if drive_type_str.lower() == "full-time":
+        drive_type_val = DriveType.FULL_TIME
+    elif drive_type_str.lower() == "internship":
+        drive_type_val = DriveType.INTERNSHIP
+    else:
+        drive_type_val = DriveType.CONTRACT
+
+    from datetime import date, timedelta
+    drive_date_val = data.get("drive_date")
+    if drive_date_val:
+        drive_date_val = date.fromisoformat(drive_date_val)
+    else:
+        drive_date_val = date.today() + timedelta(days=30)
+
+    reg_deadline_val = data.get("registration_deadline")
+    if reg_deadline_val:
+        reg_deadline_val = datetime.fromisoformat(reg_deadline_val)
+    else:
+        reg_deadline_val = datetime.now() + timedelta(days=15)
+
+    try:
+        drive = PlacementDrive(
+            company_id=company.id,
+            company_name=company.name,
+            role_title=role_title,
+            drive_type=drive_type_val,
+            batch_year=data.get("batch_year") or 2026,
+            cgpa_cutoff=data.get("cgpa_cutoff") or 7.0,
+            backlog_cutoff=data.get("backlog_cutoff") or 0,
+            attendance_cutoff=data.get("attendance_cutoff") or 75.0,
+            target_branches=data.get("target_branches") or "Computer Science",
+            drive_date=drive_date_val,
+            registration_deadline=reg_deadline_val,
+            ctc_offered=data.get("ctc_offered") or "12.00",
+            description=data.get("description") or f"Recruitment drive for {company.name}",
+            status=DriveStatus.ACTIVE,
+            created_by=get_current_user().id,
+        )
+        db.session.add(drive)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "create_automatic_drive")
+
+    return jsonify({
+        "message": f"Company '{company.name}' registered and drive created.",
+        "company_id": str(company.id),
+        "drive_id": str(drive.id),
+    }), 201
+
+
+@placement_bp.delete("/companies/<uuid:company_id>")
+@require_auth
+@require_roles("admin", "placement_cell")
+def delete_company(company_id):
+    """
+    Delete a company entry.
+    Deletion rule: can only delete a company before the placement session
+    starts for that year, and only if it isn't visiting that year (soft-delete
+    the current-year link, never cascade into history).
+    """
+    from app.models.placement import Company, PlacementDrive
+    company = Company.query.filter_by(id=company_id, is_deleted=False).first()
+    if not company:
+        return error_response("Company not found.", 404)
+
+    current_year = date.today().year
+
+    # Check drives for current year
+    current_drives = PlacementDrive.query.filter_by(
+        company_id=company.id, batch_year=current_year, is_deleted=False
+    ).all()
+
+    for d in current_drives:
+        # Check if placement session/registration deadline has passed
+        now = datetime.now()
+        deadline = d.registration_deadline
+        if deadline.tzinfo is not None:
+            now = now.astimezone(deadline.tzinfo)
+        if now > deadline:
+            return error_response(
+                f"Cannot delete company. Recruitment session for {d.role_title} has already started.",
+                400
+            )
+
+    try:
+        # Soft delete current year's drives
+        for d in current_drives:
+            d.is_deleted = True
+
+        # If there are no other active drives in history, soft delete the company itself
+        active_drives = PlacementDrive.query.filter_by(
+            company_id=company.id, is_deleted=False
+        ).filter(PlacementDrive.batch_year != current_year).count()
+
+        if active_drives == 0:
+            company.is_deleted = True
+
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "delete_company")
+
+    return jsonify({"message": "Company current-year drive deleted successfully."}), 200
+

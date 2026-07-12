@@ -32,6 +32,7 @@ export default function Notes() {
   const [type,  setType]  = useState('all');
   const [modal, setModal] = useState(false);
   const [form,  setForm]  = useState(BLANK);
+  const [allBranches, setAllBranches] = useState(false);
   const [uploading,   setUploading]   = useState(false);
   const [approving,   setApproving]   = useState({});
   const [deleting,    setDeleting]    = useState({});
@@ -41,8 +42,10 @@ export default function Notes() {
   const { data: apiData, loading, error, isEmpty, refetch } = useApiData(
     '/community/notes',
     { notes: [] },
+    allBranches ? { all_branches: 'true' } : undefined,
   );
   const allNotes = useMemo(() => apiData?.notes || [], [apiData]);
+
 
   // Pending notes (professor/admin)
   const { data: pendingData, refetch: refetchPending } = useApiData(
@@ -174,8 +177,8 @@ export default function Notes() {
         </section>
       )}
 
-      {/* Type Filter */}
-      <div className="filter-row">
+      {/* Type Filter + All Branches Toggle */}
+      <div className="filter-row" style={{ flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
         {TYPES.map(t => (
           <button key={t}
             className={`filter-btn${type === t ? ' active' : ''}`}
@@ -183,6 +186,32 @@ export default function Notes() {
             {t === 'all' ? 'All' : TYPE_LABELS[t]}
           </button>
         ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <label
+            htmlFor="allBranchesToggle"
+            style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', cursor: 'pointer' }}>
+            All Branches
+          </label>
+          <button
+            id="allBranchesToggle"
+            role="switch"
+            aria-checked={allBranches}
+            onClick={() => setAllBranches(b => !b)}
+            style={{
+              width: '38px', height: '22px',
+              borderRadius: '999px', border: 'none', cursor: 'pointer',
+              background: allBranches ? 'var(--clr-primary, #7c3aed)' : 'var(--clr-border, #e2e8f0)',
+              position: 'relative', transition: 'background 0.2s',
+            }}>
+            <span style={{
+              position: 'absolute', top: '3px',
+              left: allBranches ? '19px' : '3px',
+              width: '16px', height: '16px',
+              borderRadius: '50%', background: '#fff',
+              transition: 'left 0.2s',
+            }}/>
+          </button>
+        </div>
       </div>
 
       <StateContainer loading={loading} error={error} isEmpty={isEmpty && !canManage}

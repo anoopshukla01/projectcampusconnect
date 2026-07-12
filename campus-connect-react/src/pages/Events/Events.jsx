@@ -11,7 +11,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
-import { communityApi } from '../../services/api';
+import { communityApi, adminApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Events.css';
 
@@ -38,6 +38,16 @@ export default function Events() {
   );
   const events = useMemo(() => apiData?.events || [], [apiData]);
 
+  const approvedEvents = useMemo(() =>
+    events.filter(e => e.approval_status !== 'pending'),
+    [events]
+  );
+
+  const pendingEvents = useMemo(() =>
+    events.filter(e => e.approval_status === 'pending'),
+    [events]
+  );
+
   // Local registration state (optimistic — backend just acks)
   const [registeredIds, setRegisteredIds] = useState([]);
   const [registering,   setRegistering]   = useState({});
@@ -52,8 +62,8 @@ export default function Events() {
   const canManage = isProfessor || isAdmin;
 
   const filtered = useMemo(() =>
-    cat === 'all' ? events : events.filter(e => (e.tag || e.category || e.event_type) === cat),
-    [events, cat],
+    cat === 'all' ? approvedEvents : approvedEvents.filter(e => (e.tag || e.category || e.event_type) === cat),
+    [approvedEvents, cat],
   );
 
   // ── Register / Unregister ─────────────────────────────────────────────────
@@ -114,6 +124,29 @@ export default function Events() {
     refetch();
   }
 
+  async function handleApproveEvent(eventId) {
+    try {
+      const res = await adminApi.approveEvent(eventId);
+      if (res?.error) { showToast(res.error, 'error'); return; }
+      showToast('Event approved successfully and is now live.', 'success', 3000);
+      refetch();
+    } catch (err) {
+      showToast(err.message || 'Failed to approve event.', 'error');
+    }
+  }
+
+  async function handleRejectEvent(eventId) {
+    if (!window.confirm('Are you sure you want to reject and delete this event request?')) return;
+    try {
+      const res = await adminApi.rejectEvent(eventId);
+      if (res?.error) { showToast(res.error, 'error'); return; }
+      showToast('Event request rejected.', 'info');
+      refetch();
+    } catch (err) {
+      showToast(err.message || 'Failed to reject event.', 'error');
+    }
+  }
+
   return (
     <StateContainer loading={loading} error={error} isEmpty={isEmpty && !canManage}
       emptyMessage="No campus events scheduled yet.">
@@ -127,6 +160,68 @@ export default function Events() {
           <button className="action-btn" onClick={openCreate}>+ Create Event</button>
         )}
       </div>
+
+      {isAdmin && pendingEvents.length > 0 && (
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.5rem',
+          background: 'rgba(251, 191, 36, 0.05)',
+          borderRadius: '12px',
+          border: '1px solid rgba(251, 191, 36, 0.2)'
+        }}>
+          <h2 style={{
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            marginBottom: '1rem',
+            color: '#fbbf24',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span>⏳</span> Pending Event Requests ({pendingEvents.length})
+          </h2>
+          <div className="events-grid">
+            {pendingEvents.map(ev => {
+              const typeKey = ev.tag || ev.event_type || ev.category || 'general';
+              return (
+                <div className="event-full-card" key={ev.id} style={{ border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                  <div className="event-full-header">
+                    <span className="event-tag" style={{ background: '#fbbf24', color: '#1e1b4b' }}>
+                      PENDING · {typeKey.toUpperCase()}
+                    </span>
+                  </div>
+                  <h3 className="event-full-name" style={{ fontSize: '1.15rem' }}>{ev.name || ev.title}</h3>
+                  <div className="event-details" style={{ margin: '0.4rem 0' }}>
+                    <span>📅 {ev.meta || ev.date_time}</span>
+                    <span>📍 {ev.venue || ev.location}</span>
+                  </div>
+                  {ev.desc || ev.description ? (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', margin: '0.5rem 0' }}>
+                      {ev.desc || ev.description}
+                    </p>
+                  ) : <div style={{ flex: 1 }} />}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button
+                      className="action-btn"
+                      style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }}
+                      onClick={() => handleApproveEvent(ev.id)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="action-btn btn-secondary"
+                      style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                      onClick={() => handleRejectEvent(ev.id)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Category filter */}
       <div className="filter-row">

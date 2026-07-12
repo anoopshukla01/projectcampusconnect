@@ -1,0 +1,127 @@
+/* Settings Page CSS */
+
+.settings-page-wrapper {
+  max-width: 680px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+.settings-page-header {
+  margin-bottom: 2rem;
+}
+
+.settings-page-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.settings-page-sub {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0 0;
+}
+
+.settings-card-shell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.settings-card-header {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.settings-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.dpdp-consent-notice {
+  font-size: 0.8rem;
+  color: #d97706;
+  background-color: rgba(217, 119, 6, 0.06);
+  border: 1px solid rgba(217, 119, 6, 0.15);
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.75rem;
+  line-height: 1.45;
+}
+
+.settings-form-group {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.settings-text-input {
+  padding: 0.75rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.settings-text-input:focus {
+  border-color: #6366f1;
+}
+
+/* Checkbox alignment */
+.settings-checkbox-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-checkbox-container input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.settings-checkbox-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+  margin-top: 1.75rem;
+}
+
+.settings-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+}

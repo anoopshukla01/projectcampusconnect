@@ -71,6 +71,10 @@ class MockInterviewBooking(db.Model):
     session_id = db.Column(db.UUID(as_uuid=True),
                             db.ForeignKey("mock_interview_sessions.id"), nullable=False)
     student_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    status     = db.Column(db.String(50), default="pending", nullable=False)
+    room_url   = db.Column(db.String(1000), nullable=True)
+    feedback   = db.Column(db.Text, nullable=True)
+    score      = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     session = db.relationship("MockInterviewSession", foreign_keys=[session_id])
@@ -91,6 +95,7 @@ class LectureRecording(db.Model):
     professor_name = db.Column(db.String(255), nullable=False)
     uploaded_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     branch         = db.Column(db.String(50),  nullable=True)   # NULL = broadcast all
+    semester       = db.Column(db.Integer,     nullable=True)
     video_url      = db.Column(db.String(1000), nullable=True)
     duration       = db.Column(db.String(20),  nullable=True)   # e.g. "45:30"
     created_at     = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

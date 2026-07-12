@@ -1,15 +1,10 @@
 /**
- * Internships / Placement Drives — Student Portal  (PL7, PL8, PL14)
- *
- * Shows the student:
- *   - Active placement drives they are potentially eligible for
- *   - Their own application status per drive
- *   - Any offers issued to them (with accept/decline)
- *
- * Role enforced server-side. We never send role in request body.
+ * Internships / Placement Drives — Student Portal (PL7, PL8, PL14, Student Report Addendum)
+ * Shows active drives, application statuses, and offers.
+ * Includes student-facing "Report an issue" button linking to the shared moderation queue.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -27,6 +22,13 @@ export default function Internships() {
   const [search, setSearch] = useState('');
   const [applying, setApplying] = useState({});
   const [responding, setResponding] = useState({});
+
+  // Report Issue state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTarget,    setReportTarget]    = useState(null);
+  const [reportReason,    setReportReason]    = useState('Misrepresentation of CTC');
+  const [reportDetails,   setReportDetails]   = useState('');
+  const [submittingReport,setSubmittingReport]= useState(false);
 
   // ── Drives list (active) ──────────────────────────────────────────────────
   const { data: drivesData, loading: drivesLoading, error: drivesError,
@@ -87,6 +89,36 @@ export default function Internships() {
     if (res?.error) { showToast(res.error, 'error'); return; }
     showToast(accept ? 'Offer accepted! Congratulations 🎉' : 'Offer declined.', accept ? 'success' : 'info', 3000);
     refetchOffers();
+  }
+
+  // ── Submit moderation report ───────────────────────────────────────────────
+  async function submitReport() {
+    if (!reportReason.trim()) { showToast('Please select a reason.', 'error'); return; }
+    setSubmittingReport(true);
+    try {
+      const res = await fetch('/api/v1/placement/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          target_type: 'drive',
+          target_id: reportTarget.id,
+          reason: `Reason: ${reportReason}. Details: ${reportDetails}`
+        })
+      });
+      if (res.ok) {
+        showToast('Issue reported to placement cell.', 'success');
+        setShowReportModal(false);
+        setReportDetails('');
+      } else {
+        showToast('Failed to submit report.', 'error');
+      }
+    } catch (e) {
+      showToast('Network error submitting report.', 'error');
+    }
+    setSubmittingReport(false);
   }
 
   const filteredDrives = useMemo(() => {
@@ -189,20 +221,26 @@ export default function Internships() {
                         ? `Deadline: ${new Date(d.registration_deadline).toLocaleDateString()}`
                         : 'Open registration'}
                     </span>
-                    {hasApplied ? (
-                      <button className="action-btn btn-secondary"
-                        style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem' }}
-                        onClick={() => withdraw(d.id, d.company_name)}>
-                        Withdraw
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button className="action-btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem' }}
+                        onClick={() => { setReportTarget(d); setShowReportModal(true); }}>
+                        ⚠️ Report
                       </button>
-                    ) : (
-                      <button className="action-btn"
-                        style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem' }}
-                        disabled={isApplying || d.status !== 'active'}
-                        onClick={() => apply(d.id, d.company_name)}>
-                        {isApplying ? 'Applying…' : 'Apply'}
-                      </button>
-                    )}
+                      {hasApplied ? (
+                        <button className="action-btn btn-secondary"
+                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem' }}
+                          onClick={() => withdraw(d.id, d.company_name)}>
+                          Withdraw
+                        </button>
+                      ) : (
+                        <button className="action-btn"
+                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.85rem' }}
+                          disabled={isApplying || d.status !== 'active'}
+                          onClick={() => apply(d.id, d.company_name)}>
+                          {isApplying ? 'Applying…' : 'Apply'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -295,6 +333,47 @@ export default function Internships() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Report Issue Modal */}
+      {showReportModal && reportTarget && (
+        <div className="modal-overlay" onClick={() => setShowReportModal(false)}>
+          <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Report Issue / Complaint</h2>
+              <button className="modal-close" onClick={() => setShowReportModal(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
+                Submit a complaint regarding <strong>{reportTarget.company_name} — {reportTarget.role_title}</strong>.
+              </p>
+              <label style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+                Reason *
+                <select className="co-input" style={{ background: '#1e293b', width: '100%', marginTop: '0.3rem' }}
+                  value={reportReason} onChange={e => setReportReason(e.target.value)}>
+                  <option>Misrepresentation of CTC / Role</option>
+                  <option>Unfair eligibility criteria adjustment</option>
+                  <option>Inappropriate recruiter behavior</option>
+                  <option>Delayed feedback / communications</option>
+                  <option>Other administrative grievance</option>
+                </select>
+              </label>
+
+              <label style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+                Description &amp; Details *
+                <textarea rows={4} className="co-input" style={{ width: '100%', marginTop: '0.3rem', resize: 'vertical' }}
+                  placeholder="Provide supporting details, dates, or other info…"
+                  value={reportDetails} onChange={e => setReportDetails(e.target.value)} />
+              </label>
+            </div>
+            <div className="modal-footer" style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button className="pd-btn pd-btn-outline" onClick={() => setShowReportModal(false)}>Cancel</button>
+              <button className="pd-btn pd-btn-primary" onClick={submitReport} disabled={submittingReport}>
+                {submittingReport ? 'Submitting…' : 'Submit Report'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

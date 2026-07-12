@@ -73,27 +73,20 @@ export default function Announcements() {
 
       {/* Compose */}
       <div className="ad-card">
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
           Compose Announcement
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="ad-field">
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>
-              Title
-            </label>
+            <label>Title</label>
             <input className="ad-input" placeholder="e.g. Mid-semester exam dates released"
               value={title} onChange={e => setTitle(e.target.value)} />
           </div>
           <div className="ad-field">
-            <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>
-              Message
-            </label>
+            <label>Message</label>
             <textarea className="ad-textarea" rows={4}
               placeholder="Write your announcement here…"
-              value={body} onChange={e => setBody(e.target.value)}
-              style={{ width: '100%', padding: '0.65rem', borderRadius: 8,
-                       background: 'rgba(255,255,255,0.06)',
-                       border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }} />
+              value={body} onChange={e => setBody(e.target.value)} />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -103,9 +96,9 @@ export default function Announcements() {
                   style={{
                     padding: '0.3rem 0.85rem', borderRadius: 999, border: '1.5px solid',
                     fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-                    borderColor: audience.includes(a) ? '#6366f1' : 'rgba(255,255,255,0.12)',
-                    background: audience.includes(a) ? 'rgba(99,102,241,.2)' : 'transparent',
-                    color: audience.includes(a) ? '#818cf8' : '#94a3b8',
+                    borderColor: audience.includes(a) ? '#6366f1' : 'var(--border)',
+                    background: audience.includes(a) ? 'rgba(99,102,241,.12)' : 'var(--surface)',
+                    color: audience.includes(a) ? '#6366f1' : 'var(--text-secondary)',
                   }}>
                   {a}
                 </button>
@@ -120,7 +113,7 @@ export default function Announcements() {
 
       {/* History */}
       <div className="ad-card" style={{ marginTop: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem' }}>
           Broadcast History
         </h2>
         {loading ? (
@@ -133,16 +126,16 @@ export default function Announcements() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {past.map(a => (
               <div key={a.id} style={{ padding: '1rem', borderRadius: 10,
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                background: 'var(--bg-subtle, rgba(0,0,0,.02))', border: '1px solid var(--border)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.25rem' }}>
-                    <span style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.95rem' }}>{a.title}</span>
-                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{a.title}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                       {a.time || new Date(a.created_at || Date.now()).toLocaleDateString()} · by {a.source || a.author_name || 'Admin'}
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: 0 }}>{a.content}</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>{a.content}</p>
                 </div>
                 <button onClick={() => deleteAnn(a.id)} disabled={deleting[a.id]}
                   style={{ background: 'none', border: 'none', color: '#ef4444',

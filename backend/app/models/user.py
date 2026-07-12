@@ -22,6 +22,8 @@ class User(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
+    suspended_features = db.Column(db.JSON, nullable=True, default=list)
+    tags = db.Column(db.JSON, nullable=True, default=list)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

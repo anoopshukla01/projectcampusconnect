@@ -34,6 +34,7 @@ def placement_context(db_session):
     admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     db_session.add(admin)
 
+    from app.models.student import StudentProfile, StudentResume
     # Eligible student
     student_a = User(phone="9999900001", role=UserRole.STUDENT, is_active=True)
     db_session.add(student_a)
@@ -44,6 +45,7 @@ def placement_context(db_session):
         active_backlogs=0, dpdp_consent_given=True, profile_complete=True
     )
     db_session.add(profile_a)
+    db_session.flush()
 
     # Ineligible student (low CGPA)
     student_b = User(phone="9999900002", role=UserRole.STUDENT, is_active=True)
@@ -55,6 +57,12 @@ def placement_context(db_session):
         active_backlogs=0, dpdp_consent_given=True, profile_complete=True
     )
     db_session.add(profile_b)
+    db_session.flush()
+
+    resume_a = StudentResume(student_id=profile_a.id, version=1, raw_json={"skills": ["Python"]})
+    resume_b = StudentResume(student_id=profile_b.id, version=1, raw_json={"skills": ["Java"]})
+    db_session.add(resume_a)
+    db_session.add(resume_b)
 
     db_session.commit()
 
@@ -273,4 +281,136 @@ def test_withdraw_application_nonexistent_drive(client, placement_context):
     )
     assert resp.status_code == 404
     assert "Application not found." in resp.json["error"] or "Drive not found." in resp.json["error"]
+
+
+# ── TPO Spec Unit Tests ───────────────────────────────────────────────────────
+
+def test_company_registration_creates_drive(client, placement_context):
+    tpo = placement_context["tpo"]
+    tpo_token = create_access_token(identity=str(tpo.id), additional_claims={"role": "placement_cell"})
+
+    company_payload = {
+        "company_name": "Google India Tech",
+        "sector": "Product",
+        "website": "google.co.in",
+        "description": "Google R&D Center",
+        "role_title": "SDE Intern",
+        "drive_type": "internship",
+        "batch_year": 2026,
+        "cgpa_cutoff": 8.5,
+        "backlog_cutoff": 0,
+        "ctc_offered": "30.00",
+        "target_branches": "CSE"
+    }
+
+    # Registering company automatically creates a drive
+    resp = client.post(
+        "/api/v1/placement/companies",
+        json=company_payload,
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 201
+    assert "google" in resp.json["message"].lower()
+
+    # Get companies list to verify rolling stats and listing
+    resp = client.get(
+        "/api/v1/placement/companies",
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 200
+    companies = resp.json["companies"]
+    assert any(c["name"] == "Google India Tech" for c in companies)
+
+
+def test_eligibility_engine_semester_cutoffs(client, placement_context, db_session):
+    tpo = placement_context["tpo"]
+    student_a = placement_context["student_a"]
+    profile_a = placement_context["profile_a"]
+    drive = placement_context["drive"] # full_time job drive
+
+    tpo_token = create_access_token(identity=str(tpo.id), additional_claims={"role": "placement_cell"})
+
+    # Student A currently has semester=8, which is >= 5, so eligible for job drive.
+    resp = client.get(
+        f"/api/v1/placement/drives/{drive.id}/eligible",
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 200
+    assert len(resp.json["students"]) > 0
+
+    # Let's demote student A to semester=4. Since it is a full-time job drive (needs sem >= 5), they should become ineligible!
+    profile_a.semester = 4
+    db_session.commit()
+
+    resp = client.get(
+        f"/api/v1/placement/drives/{drive.id}/eligible",
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 200
+    # Alice should be filtered out now since she has semester 4 but job drive requires 5 passed semesters
+    assert len(resp.json["students"]) == 0
+
+
+def test_tpo_eligibility_overrides(client, placement_context, db_session):
+    tpo = placement_context["tpo"]
+    student_a = placement_context["student_a"]
+    drive = placement_context["drive"]
+
+    tpo_token = create_access_token(identity=str(tpo.id), additional_claims={"role": "placement_cell"})
+
+    # Create manual override: exclude Student A
+    resp = client.post(
+        f"/api/v1/placement/drives/{drive.id}/override",
+        json={"student_id": str(student_a.id), "excluded": True, "notes": "Disciplinary issue"},
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 200
+
+    # Get eligible list and verify Alice is marked as excluded
+    resp = client.get(
+        f"/api/v1/placement/drives/{drive.id}/eligible",
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 200
+    student = resp.json["students"][0]
+    assert student["is_excluded"] is True
+    assert student["notes"] == "Disciplinary issue"
+
+
+def test_interview_scheduling_timetable_booking(client, placement_context):
+    tpo = placement_context["tpo"]
+    student_a = placement_context["student_a"]
+    drive = placement_context["drive"]
+
+    tpo_token = create_access_token(identity=str(tpo.id), additional_claims={"role": "placement_cell"})
+
+    # Schedule interview for Student A
+    resp = client.post(
+        f"/api/v1/placement/drives/{drive.id}/bookings",
+        json={"student_id": str(student_a.id), "day_of_week": "Mon", "time_slot": "09:00 - 10:30", "room": "LH-102"},
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 201
+    assert resp.json["status"] == "pending_admin_approval"
+
+
+def test_tpo_chat_scope_protection(client, placement_context, db_session):
+    tpo = placement_context["tpo"]
+    student_b = placement_context["student_b"] # Bob
+    profile_b = placement_context["profile_b"]
+
+    tpo_token = create_access_token(identity=str(tpo.id), additional_claims={"role": "placement_cell"})
+
+    # Set Bob's semester to 3. This is < 4 (no internship/job eligibility), so TPO cannot chat with him.
+    profile_b.semester = 3
+    db_session.commit()
+
+    resp = client.post(
+        "/api/v1/career/chats/create",
+        json={"recipient_id": str(student_b.id), "type": "direct"},
+        headers={"Authorization": f"Bearer {tpo_token}"}
+    )
+    assert resp.status_code == 403
+    assert "eligible placement pool" in resp.json["error"]
+
 

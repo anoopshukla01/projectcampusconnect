@@ -4,8 +4,11 @@
  * Fetches only the professor's own slots from the backend.
  * Provides full CRUD: create slot, edit/reschedule, delete, add extra class.
  *
- * All mutations hit the backend via academicsApi — no static data fallback.
- * Role enforced server-side; we never pass role in request body.
+ * SECURITY:
+ * - Uses /academics/timetable/professor (professor-scoped endpoint)
+ * - Create slot course_code dropdown is populated from /professors/me/classes
+ *   (no free-text — must be an assigned course to prevent data injection)
+ * - 409 conflict returns free-slot list shown inline in the modal
  */
 
 import { useState, useEffect } from 'react';
@@ -28,6 +31,19 @@ const WEEK_DAYS = [
 const EMPTY_TT = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
 const SLOT_TYPES = ['lecture', 'lab', 'seminar', 'extra'];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem('access_token');
+  return fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+}
+
 export default function Timetable() {
   const { user } = useAuth();
   const showToast = useToast();
@@ -35,10 +51,15 @@ export default function Timetable() {
   const [filter, setFilter]       = useState('all');
   const [mobileDay, setMobileDay] = useState('Mon');
 
+  // Use professor-specific timetable endpoint
   const { data: apiData, loading, error, refetch } = useApiData(
-    '/academics/timetable',
+    '/academics/timetable/professor',
     { timetable: EMPTY_TT },
   );
+
+  // Load assigned classes for the course_code dropdown
+  const { data: classesData } = useApiData('/professors/me/classes', { classes: [] });
+  const assignedClasses = classesData?.classes || [];
 
   const [slots, setSlots] = useState(EMPTY_TT);
   useEffect(() => {
@@ -48,34 +69,44 @@ export default function Timetable() {
   // ── Create Slot modal ──────────────────────────────────────────────────────
   const [createModal, setCreateModal] = useState(false);
   const [creating,    setCreating]    = useState(false);
+  const [conflictSlots, setConflictSlots] = useState([]); // free slots on 409
   const [createForm, setCreateForm] = useState({
-    day: 'Mon', time: '09:00 - 10:30', name: '', code: '', room: 'LH-101',
-    slot_type: 'lecture', branch: '', semester: '',
+    day: 'Mon', time: '09:00 - 10:30', course_code: '', room: 'LH-101', slot_type: 'lecture',
   });
 
   async function handleCreate(e) {
     e.preventDefault();
     setCreating(true);
-    const res = await academicsApi.saveTimetableSlot({
-      day_of_week:    createForm.day,
-      time_slot:      createForm.time,
-      course_name:    createForm.name,
-      course_code:    createForm.code || 'CS000',
-      room:           createForm.room,
-      professor_name: user?.name || '',
-      slot_type:      createForm.slot_type,
-      branch:         createForm.branch || null,
-      semester:       createForm.semester ? Number(createForm.semester) : null,
-    });
-    setCreating(false);
-    if (res?.error) {
-      showToast(res.error, 'error');
-    } else {
-      showToast('Slot created.', 'success', 2500);
-      setCreateModal(false);
-      setCreateForm({ day: 'Mon', time: '09:00 - 10:30', name: '', code: '',
-                      room: 'LH-101', slot_type: 'lecture', branch: '', semester: '' });
-      refetch();
+    setConflictSlots([]);
+    try {
+      const res = await apiFetch('/academics/timetable/professor/slots', {
+        method: 'POST',
+        body: JSON.stringify({
+          course_code: createForm.course_code,
+          day_of_week: createForm.day,
+          time_slot:   createForm.time,
+          room:        createForm.room,
+          slot_type:   createForm.slot_type,
+        }),
+      });
+      const body = await res.json();
+      if (res.status === 409) {
+        // Hard conflict — show free slots
+        setConflictSlots(body.free_slots_today || []);
+        showToast(`Slot conflict — ${body.error}`, 'error', 3000);
+      } else if (!res.ok) {
+        showToast(body.error || 'Failed to create slot', 'error');
+      } else {
+        showToast('Slot created.', 'success', 2500);
+        setCreateModal(false);
+        setCreateForm({ day: 'Mon', time: '09:00 - 10:30', course_code: assignedClasses[0]?.course_code || '', room: 'LH-101', slot_type: 'lecture' });
+        setConflictSlots([]);
+        refetch();
+      }
+    } catch {
+      showToast('Network error', 'error');
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -288,9 +319,21 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Add New Slot</h2>
-              <button className="modal-close" onClick={() => setCreateModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => { setCreateModal(false); setConflictSlots([]); }}>✕</button>
             </div>
             <form onSubmit={handleCreate} className="sell-form">
+              {/* Course selector — only assigned classes; no free-text */}
+              <label>Course
+                <select required value={createForm.course_code}
+                  onChange={e => setCreateForm(p => ({ ...p, course_code: e.target.value }))}>
+                  <option value="">Select assigned course…</option>
+                  {assignedClasses.map(c => (
+                    <option key={c.course_code} value={c.course_code}>
+                      {c.course_name} ({c.course_code})
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>Day
                 <select value={createForm.day} onChange={e => setCreateForm(p => ({ ...p, day: e.target.value }))}>
                   {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
@@ -300,14 +343,6 @@ export default function Timetable() {
                 <input required value={createForm.time}
                   onChange={e => setCreateForm(p => ({ ...p, time: e.target.value }))}
                   placeholder="09:00 - 10:30" />
-              </label>
-              <label>Course Name
-                <input required value={createForm.name}
-                  onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))} />
-              </label>
-              <label>Course Code
-                <input value={createForm.code}
-                  onChange={e => setCreateForm(p => ({ ...p, code: e.target.value }))} />
               </label>
               <label>Room
                 <input required value={createForm.room}
@@ -319,16 +354,27 @@ export default function Timetable() {
                   {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
-              <label>Branch (optional)
-                <input value={createForm.branch}
-                  onChange={e => setCreateForm(p => ({ ...p, branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
-              </label>
-              <label>Semester (optional)
-                <input type="number" min="1" max="8" value={createForm.semester}
-                  onChange={e => setCreateForm(p => ({ ...p, semester: e.target.value }))} />
-              </label>
-              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating}>
+
+              {/* Conflict feedback */}
+              {conflictSlots.length > 0 && (
+                <div style={{ background: 'var(--clr-danger-alpha, rgba(239,68,68,.12))', border: '1px solid var(--clr-danger)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.5rem' }}>
+                  <p style={{ color: 'var(--clr-danger)', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>
+                    ⚠ Conflict! Free slots today:
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {conflictSlots.map(slot => (
+                      <button key={slot} type="button"
+                        style={{ background: 'var(--clr-accent-alpha)', color: 'var(--clr-accent)', border: '1px solid var(--clr-accent)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.78rem', cursor: 'pointer' }}
+                        onClick={() => setCreateForm(p => ({ ...p, time: slot }))}>
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.4rem' }}>Click a free slot to auto-fill.</p>
+                </div>
+              )}
+
+              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating || !createForm.course_code}>
                 {creating ? 'Creating…' : 'Create Slot'}
               </button>
             </form>

@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useToast } from '@ctx/ToastContext';
 import { adminApi } from '@/services/api';
 import '@admin/admin.shared.css';
 
 export default function AuditLog() {
   const showToast = useToast();
+  const [searchParams] = useSearchParams();
+  const actorParam = searchParams.get('actor') || '';
+
   const [logs, setLogs]         = useState([]);
   const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
+  const [search, setSearch]     = useState(actorParam);
+
+  useEffect(() => {
+    if (actorParam) {
+      setSearch(actorParam);
+    }
+  }, [actorParam]);
 
   useEffect(() => {
     fetchAuditLogs();

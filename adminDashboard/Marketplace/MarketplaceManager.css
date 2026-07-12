@@ -1,0 +1,166 @@
+/* Marketplace Manager CSS */
+
+.marketplace-manager-page {
+  padding: 1rem 0;
+}
+
+/* Products Grid */
+.merch-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.merch-product-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+
+.merch-product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+}
+
+.merch-image-wrapper {
+  height: 200px;
+  background-color: var(--background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.merch-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.merch-image-placeholder {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-align: center;
+}
+
+.merch-card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.merch-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.35;
+}
+
+.merch-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0 0 1rem 0;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.merch-payment-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: auto;
+  margin-bottom: 1rem;
+}
+
+.method-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.08);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.merch-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.merch-price {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.merch-badge-role {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #10b981;
+  background-color: rgba(16, 185, 129, 0.08);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Orders view */
+.pay-ref-pill {
+  background-color: var(--background);
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.status-update-select {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.status-update-select:focus {
+  border-color: #6366f1;
+}
+
+/* Form Styles */
+.form-textarea-field {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-textarea-field:focus {
+  border-color: #6366f1;
+}

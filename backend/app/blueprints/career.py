@@ -214,6 +214,34 @@ def book_mock_interview(session_id):
     try:
         booking = MockInterviewBooking(session_id=session.id, student_id=user.id)
         db.session.add(booking)
+        
+        # Create timetable slot for student
+        from app.models.academic import TimetableSlot
+        from datetime import timedelta
+        day_map = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+        day_str = "Mon"
+        time_str = "09:00 - 09:45"
+        if session.scheduled_at:
+            day_str = day_map.get(session.scheduled_at.weekday(), "Mon")
+            duration = session.duration_minutes or 45
+            end_time = session.scheduled_at + timedelta(minutes=duration)
+            time_str = f"{session.scheduled_at.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
+            
+        slot = TimetableSlot(
+            branch=None,
+            semester=None,
+            role=None,
+            user_id=user.id,
+            day_of_week=day_str,
+            time_slot=time_str,
+            course_name=f"Mock Interview: {session.session_type}",
+            course_code="MOCK-INT",
+            room="Online (Daily.co)",
+            professor_name="Placement Panel",
+            slot_type="meeting"
+        )
+        db.session.add(slot)
+        
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
@@ -288,6 +316,14 @@ def request_mentorship(mentor_id):
         return error_response("Mentor not found.", 404)
     if not mentor.is_available:
         return error_response("This mentor is currently unavailable.", 400)
+
+    # Check if student already has an active mentorship
+    active = MentorshipRequest.query.filter_by(
+        student_id=user.id,
+        status=MentorshipRequestStatus.ACCEPTED
+    ).first()
+    if active:
+        return error_response("You already have an active mentorship. You cannot apply to a second mentor.", 400)
 
     # Idempotency: one pending request per student+mentor at a time
     existing = MentorshipRequest.query.filter_by(
@@ -379,6 +415,62 @@ def respond_to_mentor_request(request_id):
                       else MentorshipRequestStatus.DECLINED)
         if action == "accept":
             mentor.sessions_count = (mentor.sessions_count or 0) + 1
+            
+            # 1. Initialize direct chat conversation
+            from app.models.chat import Conversation, ConversationType, GroupMembership, GroupRole
+            existing_conv = db.session.query(Conversation).join(GroupMembership).filter(
+                Conversation.type == ConversationType.DIRECT,
+                GroupMembership.user_id.in_([req.student_id, mentor.user_id])
+            ).group_by(Conversation.id).having(db.func.count(GroupMembership.user_id) == 2).first()
+
+            if not existing_conv:
+                conv = Conversation(
+                    name=f"Mentorship: {mentor.name}",
+                    type=ConversationType.DIRECT,
+                    is_accepted=True
+                )
+                db.session.add(conv)
+                db.session.flush()
+
+                m1 = GroupMembership(conversation_id=conv.id, user_id=req.student_id, role=GroupRole.MEMBER)
+                m2 = GroupMembership(conversation_id=conv.id, user_id=mentor.user_id, role=GroupRole.ADMIN)
+                db.session.add(m1)
+                db.session.add(m2)
+
+            # 2. Add timetable slots for student and professor
+            from app.models.academic import TimetableSlot
+            from app.models.student import StudentProfile
+            student_prof = StudentProfile.query.filter_by(user_id=req.student_id).first()
+            
+            slot_student = TimetableSlot(
+                branch=None,
+                semester=None,
+                role=None,
+                user_id=req.student_id,
+                day_of_week="Fri",
+                time_slot="15:00 - 16:00",
+                course_name="Mentorship Session",
+                course_code="MENT-001",
+                room="Professor Cabin",
+                professor_name=mentor.name,
+                slot_type="meeting"
+            )
+            slot_professor = TimetableSlot(
+                branch=None,
+                semester=None,
+                role=None,
+                user_id=mentor.user_id,
+                day_of_week="Fri",
+                time_slot="15:00 - 16:00",
+                course_name=f"Mentorship Session ({student_prof.full_name if student_prof else 'Student'})",
+                course_code="MENT-001",
+                room="Professor Cabin",
+                professor_name=mentor.name,
+                slot_type="meeting"
+            )
+            db.session.add(slot_student)
+            db.session.add(slot_professor)
+
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
@@ -413,6 +505,177 @@ def respond_to_mentor_request(request_id):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Mock Interview: Student Status & Feedback, Professor Approve
+# ─────────────────────────────────────────────────────────────────────────────
+
+@career_bp.route("/mock-interviews/me", methods=["GET"])
+@require_auth
+@require_roles("student")
+def get_my_mock_interview_bookings():
+    """Student: view their own mock interview bookings with current status."""
+    from app.models.content import MockInterviewBooking, MockInterviewSession
+    user = get_current_user()
+    bookings = MockInterviewBooking.query.filter_by(student_id=user.id).order_by(
+        MockInterviewBooking.created_at.desc()
+    ).all()
+
+    result = []
+    for b in bookings:
+        s = b.session
+        result.append({
+            "booking_id":   str(b.id),
+            "session_id":   str(s.id) if s else None,
+            "session_type": s.session_type if s else None,
+            "company":      s.company_style or "General" if s else None,
+            "difficulty":   s.difficulty if s else None,
+            "scheduled_at": s.scheduled_at.strftime("%b %d · %I:%M %p") if s and s.scheduled_at else "TBD",
+            "status":       getattr(b, "status", "pending"),
+            "feedback":     getattr(b, "feedback", None),
+            "score":        getattr(b, "score", None),
+            "room_url":     getattr(b, "room_url", None),
+        })
+
+    return jsonify({"bookings": result}), 200
+
+
+@career_bp.route("/mock-interviews/<uuid:booking_id>/feedback", methods=["POST"])
+@require_auth
+@require_roles("professor", "admin")
+def submit_mock_interview_feedback(booking_id):
+    """Professor: submit feedback and score for a student's mock interview booking."""
+    from app.models.content import MockInterviewBooking, MentorProfile
+    user    = get_current_user()
+    booking = MockInterviewBooking.query.filter_by(id=booking_id).first()
+    if not booking:
+        return error_response("Booking not found.", 404)
+
+    data     = request.get_json() or {}
+    feedback = data.get("feedback", "").strip()
+    score    = data.get("score")
+    status   = data.get("status", "completed")  # "completed" | "no_show"
+
+    if not feedback:
+        return error_response("Feedback is required.", 400)
+    if status not in ("completed", "no_show"):
+        return error_response("status must be 'completed' or 'no_show'.", 400)
+
+    try:
+        if hasattr(booking, "feedback"):
+            booking.feedback = feedback
+        if hasattr(booking, "score") and score is not None:
+            booking.score = score
+        if hasattr(booking, "status"):
+            booking.status = status
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "submit_mock_interview_feedback")
+
+    audit_action("career.mock_interview.feedback_submitted",
+                 target_type="mock_interview_booking", target_id=str(booking_id))
+
+    # Notify student
+    try:
+        from app.utils.notify import notify
+        score_str = f" (Score: {score}/10)" if score is not None else ""
+        notify(
+            booking.student_id,
+            "Mock Interview Feedback Ready",
+            body=f"Your mock interview feedback is available.{score_str}",
+            notif_type="general",
+            link="/mock",
+        )
+    except Exception:
+        pass
+
+    return jsonify({"message": "Feedback submitted successfully."}), 200
+
+
+@career_bp.route("/mock-interviews/<uuid:session_id>/approve", methods=["PATCH"])
+@require_auth
+@require_roles("professor", "admin")
+def approve_mock_interview_session(session_id):
+    """Professor: approve/reopen a mock interview session and optionally set a room URL."""
+    from app.models.content import MockInterviewSession
+    session = MockInterviewSession.query.filter_by(id=session_id).first()
+    if not session:
+        return error_response("Session not found.", 404)
+
+    data     = request.get_json() or {}
+    is_active = data.get("is_active")
+    room_url  = data.get("room_url")
+
+    try:
+        if is_active is not None:
+            session.is_active = bool(is_active)
+        if room_url and hasattr(session, "room_url"):
+            session.room_url = room_url
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "approve_mock_interview_session")
+
+    audit_action("career.mock_interview.session_updated",
+                 target_type="mock_interview_session", target_id=str(session_id))
+    return jsonify({"message": "Session updated.", "is_active": session.is_active}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mentorship: Complete a session
+# ─────────────────────────────────────────────────────────────────────────────
+
+@career_bp.route("/mentors/requests/<uuid:request_id>/complete", methods=["POST"])
+@require_auth
+@require_roles("professor")
+def complete_mentorship_session(request_id):
+    """Professor: mark a mentorship session as complete and optionally add notes."""
+    from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
+    user = get_current_user()
+    req  = MentorshipRequest.query.filter_by(id=request_id).first()
+    if not req:
+        return error_response("Mentorship request not found.", 404)
+
+    mentor = MentorProfile.query.filter_by(user_id=user.id).first()
+    if not mentor or str(req.mentor_id) != str(mentor.id):
+        return error_response("You can only complete sessions for your mentor profile.", 403)
+
+    if req.status != MentorshipRequestStatus.ACCEPTED:
+        return error_response("Only accepted requests can be marked complete.", 400)
+
+    data          = request.get_json() or {}
+    session_notes = data.get("session_notes", "").strip()
+
+    try:
+        req.status = MentorshipRequestStatus.COMPLETED if hasattr(
+            MentorshipRequestStatus, "COMPLETED"
+        ) else MentorshipRequestStatus.ACCEPTED
+        if hasattr(req, "session_notes") and session_notes:
+            req.session_notes = session_notes
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "complete_mentorship_session")
+
+    audit_action("career.mentorship.completed",
+                 target_type="mentorship_request", target_id=str(request_id))
+
+    # Notify student
+    try:
+        from app.utils.notify import notify
+        notify(
+            req.student_id,
+            "Mentorship Session Completed",
+            body=f"Your mentorship session with {mentor.name} has been marked as complete.",
+            notif_type="mentorship",
+            link="/mentorship",
+        )
+    except Exception:
+        pass
+
+    return jsonify({"message": "Session marked as complete."}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Notes (alias — delegates to community.notes)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -433,3 +696,82 @@ def get_notes_and_pyqs():
         "date":     n.created_at.strftime("%b %d") if n.created_at else "",
     } for n in notes]
     return jsonify({"notes": res}), 200
+
+
+@career_bp.route("/mentors/terminate/<uuid:request_id>", methods=["POST"])
+@require_auth
+def terminate_mentorship(request_id):
+    from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
+    from app.models.chat import Conversation, ConversationType, GroupMembership
+    from app.models.academic import TimetableSlot
+    
+    user = get_current_user()
+    req = MentorshipRequest.query.filter_by(id=request_id).first()
+    if not req:
+        return error_response("Mentorship not found.", 404)
+        
+    mentor = MentorProfile.query.filter_by(id=req.mentor_id).first()
+    if not mentor:
+        return error_response("Mentor profile not found.", 404)
+        
+    # Check authorization: student or professor/mentor
+    if str(user.id) != str(req.student_id) and str(user.id) != str(mentor.user_id):
+        return error_response("Unauthorized to terminate this mentorship.", 403)
+        
+    try:
+        # Update mentorship status
+        req.status = MentorshipRequestStatus.COMPLETED
+        
+        # 1. Revoke chat access (delete direct chat conversation memberships)
+        conversation_ids = db.session.query(GroupMembership.conversation_id).join(Conversation).filter(
+            Conversation.type == ConversationType.DIRECT,
+            GroupMembership.user_id.in_([req.student_id, mentor.user_id])
+        ).group_by(GroupMembership.conversation_id).having(db.func.count(GroupMembership.user_id) == 2).all()
+        
+        for row in conversation_ids:
+            GroupMembership.query.filter_by(conversation_id=row[0]).delete()
+            Conversation.query.filter_by(id=row[0]).delete()
+            
+        # 2. Revoke timetable slots
+        TimetableSlot.query.filter(
+            TimetableSlot.user_id.in_([req.student_id, mentor.user_id]),
+            TimetableSlot.course_code == "MENT-001"
+        ).delete(synchronize_session=False)
+        
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "terminate_mentorship")
+        
+    audit_action("career.mentorship.terminated", target_type="mentorship_request", target_id=str(request_id))
+    return jsonify({"message": "Mentorship terminated successfully. Timetable and chat access revoked."}), 200
+
+
+@career_bp.route("/webhooks/daily", methods=["POST"])
+def daily_webhook():
+    # Public endpoint called by Daily.co when events happen
+    data = request.get_json() or {}
+    event_type = data.get("event")
+    
+    if event_type == "recording.ready":
+        recording_info = data.get("payload", {})
+        recording_url = recording_info.get("download_url")
+        room_name = recording_info.get("room_name")
+        
+        if room_name and recording_url:
+            from app.models.content import MockInterviewBooking
+            booking = MockInterviewBooking.query.filter(
+                MockInterviewBooking.room_url.like(f"%{room_name}%")
+            ).first()
+            if booking:
+                try:
+                    booking.room_url = recording_url
+                    booking.status = "completed"
+                    db.session.commit()
+                    audit_action("career.mock_interview.recording_attached", 
+                                 target_type="mock_interview_booking", target_id=str(booking.id))
+                except Exception as exc:
+                    db.session.rollback()
+                    return jsonify({"error": str(exc)}), 500
+                    
+    return jsonify({"received": True}), 200

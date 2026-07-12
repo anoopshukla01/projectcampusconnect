@@ -1,0 +1,386 @@
+/* Attendance & Timetable Oversight Stylesheet */
+
+.attendance-timetable-page {
+  padding: 1rem 0;
+}
+
+/* Tabs Navigation */
+.tab-nav-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 2px;
+  margin-bottom: 1.5rem;
+}
+
+.tab-nav-btn {
+  background: none;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tab-nav-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-nav-btn.active {
+  color: #6366f1;
+}
+
+.tab-nav-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #6366f1;
+  border-radius: 99px;
+}
+
+.badge-count-pill {
+  background-color: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 99px;
+  line-height: 1;
+}
+
+/* Filters Card */
+.control-filters-card {
+  margin-bottom: 1.5rem;
+}
+
+.filter-controls-flex {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 140px;
+}
+
+.filter-group label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+  border-color: #6366f1;
+}
+
+.add-slot-trigger-btn {
+  margin-left: auto;
+  align-self: flex-end;
+  height: 38px;
+}
+
+/* Timetable 6-day Grid */
+.timetable-board-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1300px) {
+  .timetable-board-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 800px) {
+  .timetable-board-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 500px) {
+  .timetable-board-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.timetable-day-column {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timetable-day-header {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+  text-align: center;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.timetable-slots-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.no-slots-placeholder {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 2rem 0;
+  font-style: italic;
+}
+
+/* Slot Item card */
+.timetable-slot-item {
+  position: relative;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.8rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.timetable-slot-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.slot-time {
+  font-weight: 700;
+  color: #6366f1;
+  margin-bottom: 0.2rem;
+}
+
+.slot-name {
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.25;
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-code-room {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.slot-code {
+  font-weight: 700;
+  color: var(--text-secondary);
+  background-color: var(--border);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.slot-room {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.slot-prof {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.slot-delete-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.timetable-slot-item:hover .slot-delete-btn {
+  opacity: 1;
+}
+
+.slot-delete-btn:hover {
+  color: #ef4444;
+}
+
+/* Slot type styling variants */
+.slot-type-lecture { border-left: 3px solid #6366f1; }
+.slot-type-lab { border-left: 3px solid #10b981; }
+.slot-type-extra { border-left: 3px solid #f59e0b; background-color: rgba(245, 158, 11, 0.03); }
+
+/* Table Elements */
+.roll-pill {
+  background-color: var(--border);
+  color: var(--text-primary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.time-badge {
+  color: #6366f1;
+  font-weight: 700;
+}
+
+/* Status Badges */
+.status-badge-pill {
+  display: inline-flex;
+  padding: 0.25rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-present { background-color: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.status-late { background-color: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+.status-absent { background-color: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  width: 100%;
+  max-width: 580px;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.15);
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.modal-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 500px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #6366f1;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleUp { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }

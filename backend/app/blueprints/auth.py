@@ -64,6 +64,7 @@ from app.schemas.auth import (
     PasswordChangeSchema,
     StudentRegisterSchema,
     TokenRefreshSchema,
+    TPORegisterSchema,
 )
 from app.utils.audit import audit_action
 from app.utils.errors import error_response, internal_error_response, validation_error_response
@@ -275,6 +276,15 @@ def register_faculty():
     Faculty accounts must be created via single-use invite tokens issued by an Admin.
     """
     return error_response("Public faculty registration is disabled. Faculty accounts require an invite token issued by an administrator.", 403)
+
+
+@auth_bp.post("/register/tpo")
+def register_tpo():
+    """
+    Public TPO registration is disabled.
+    TPO accounts must be created via single-use invite tokens issued by an Admin.
+    """
+    return error_response("Public TPO registration is disabled. TPO accounts require an invite token issued by an administrator.", 403)
 
 
 # ── A5: POST /auth/invite/accept ──────────────────────────────────────────────
