@@ -199,3 +199,29 @@ def test_add_branch_placement_as_admin(client, admin_test_context):
     assert cs_stat["total_students"] == 100
     assert cs_stat["placement_pct"] == 42.0
 
+
+def test_admin_summary(client, admin_test_context):
+    token = create_access_token(identity=str(admin_test_context["admin"].id), additional_claims={"role": "admin"})
+    resp = client.get("/api/v1/admin/summary", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert "total_students" in resp.json
+    assert "total_faculty" in resp.json
+
+
+def test_admin_delete_rule(client, admin_test_context):
+    from app.models.rule import SystemRule
+    token = create_access_token(identity=str(admin_test_context["admin"].id), additional_claims={"role": "admin"})
+    
+    # Pre-add a rule
+    rule = SystemRule(id="test_rule_1", section="eligibility", label="Test Rule", value="10")
+    db.session.add(rule)
+    db.session.commit()
+
+    resp = client.delete("/api/v1/admin/rules/test_rule_1", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert "deleted successfully" in resp.json["message"]
+
+    # Verify rule deleted
+    assert db.session.query(SystemRule).filter_by(id="test_rule_1").first() is None
+
+

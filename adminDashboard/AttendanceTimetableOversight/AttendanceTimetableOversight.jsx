@@ -50,7 +50,10 @@ export default function AttendanceTimetableOversight() {
   async function fetchTimetable() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/academics/timetable?branch=${filterBranch}&semester=${filterSemester}`);
+      const token = localStorage.getItem('access_token') || localStorage.getItem('ss_token') || '';
+      const res = await fetch(`/api/v1/academics/timetable?branch=${filterBranch}&semester=${filterSemester}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setSlots(data.timetable || { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] });

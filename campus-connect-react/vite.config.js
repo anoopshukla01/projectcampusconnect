@@ -27,10 +27,10 @@ export default defineConfig({
     // importing from outside the src/ tree
     dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
-      '@':          path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, 'src'),
       '@placement': path.resolve(__dirname, '../placementDashboard'),
-      '@ctx':       path.resolve(__dirname, 'src/context'),
-      '@admin':     path.resolve(__dirname, '../adminDashboard'),
+      '@ctx': path.resolve(__dirname, 'src/context'),
+      '@admin': path.resolve(__dirname, '../adminDashboard'),
       '@professor': path.resolve(__dirname, '../professorDashboard'),
     },
   },

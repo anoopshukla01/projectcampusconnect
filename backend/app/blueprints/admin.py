@@ -59,6 +59,38 @@ from app.utils.errors import error_response, internal_error_response, validation
 admin_bp = Blueprint("admin", __name__)
 
 
+# ── AD0: GET /admin/summary ──────────────────────────────────────────────────
+
+@admin_bp.get("/summary")
+@require_auth
+@require_roles("admin")
+def get_admin_summary():
+    """Lightweight dashboard summary: user counts, pending counts."""
+    try:
+        total_students  = db.session.query(User).filter_by(role=UserRole.STUDENT,          is_deleted=False).count()
+        active_students = db.session.query(User).filter_by(role=UserRole.STUDENT,          is_deleted=False, is_active=True).count()
+        total_faculty   = db.session.query(User).filter_by(role=UserRole.PROFESSOR,        is_deleted=False).count()
+        active_faculty  = db.session.query(User).filter_by(role=UserRole.PROFESSOR,        is_deleted=False, is_active=True).count()
+        total_tpo       = db.session.query(User).filter_by(role=UserRole.PLACEMENT_CELL,   is_deleted=False).count()
+        pending_faculty = db.session.query(ProfessorProfile).filter_by(
+            approval_status=ApprovalStatus.PENDING, is_deleted=False
+        ).count()
+        pending_tpo = db.session.query(User).filter_by(
+            role=UserRole.PLACEMENT_CELL, is_active=False, is_deleted=False
+        ).count()
+        return jsonify({
+            "total_students":  total_students,
+            "active_students": active_students,
+            "total_faculty":   total_faculty,
+            "active_faculty":  active_faculty,
+            "total_tpo":       total_tpo,
+            "pending_faculty": pending_faculty,
+            "pending_tpo":     pending_tpo,
+        }), 200
+    except Exception as exc:
+        return internal_error_response(exc, "get_admin_summary")
+
+
 # ── AD1: GET /admin/users ─────────────────────────────────────────────────────
 
 @admin_bp.get("/users")
@@ -978,6 +1010,26 @@ def save_rules():
     except Exception as exc:
         db.session.rollback()
         return internal_error_response(exc, "save_rules")
+
+
+# ── DELETE /admin/rules/<rule_id> ───────────────────────────────────────────────
+@admin_bp.delete("/rules/<string:rule_id>")
+@require_auth
+@require_roles("admin")
+def delete_rule(rule_id):
+    """Delete a single system rule by its string ID."""
+    from app.models.rule import SystemRule
+    try:
+        rule = db.session.query(SystemRule).filter_by(id=rule_id).first()
+        if not rule:
+            return error_response("Rule not found.", 404)
+        db.session.delete(rule)
+        db.session.commit()
+        audit_action("admin.rules.delete", detail={"rule_id": rule_id})
+        return jsonify({"message": "Rule deleted successfully."}), 200
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "delete_rule")
 
 
 # ── CONTROL PANEL SIGNUP APPROVALS ─────────────────────────────────────────────
