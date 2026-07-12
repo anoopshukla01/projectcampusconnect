@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://campusconnect-backend.onrender.com/api/:path*"
+      "destination": "https://projectcampusconnect.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
