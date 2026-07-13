@@ -325,3 +325,40 @@
 .ad-ann-body  { font-size: .8rem; color: var(--text-secondary); padding-left: .75rem; }
 .ad-ann-meta  { display: flex; gap: .75rem; align-items: center; margin-top: .5rem; padding-left: .75rem; flex-wrap: wrap; }
 .ad-ann-chip  { font-size: .7rem; padding: .18rem .55rem; border-radius: 999px; background: var(--border); color: var(--text-secondary); font-weight: 600; }
+
+/* ── Shared Action Buttons (Queue approvals etc.) ── */
+.pd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease-in-out;
+  text-decoration: none;
+}
+.pd-btn-sm {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+}
+.pd-btn-success {
+  background-color: #10b981;
+  color: #ffffff;
+}
+.pd-btn-success:hover {
+  background-color: #059669;
+}
+.pd-btn-outline-danger {
+  background-color: transparent;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.pd-btn-outline-danger:hover {
+  background-color: rgba(239, 68, 68, 0.08);
+}
+

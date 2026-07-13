@@ -349,7 +349,7 @@ export default function DataManager() {
       </div>
 
       {editingUser && (
-        <div className="ad-modal-backdrop" onClick={() => setEditingUser(null)}>
+        <div className="ad-modal-overlay open" onClick={() => setEditingUser(null)}>
           <div className="ad-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', maxHeight: '85vh', overflowY: 'auto' }}>
             <h2 className="ad-modal-title">Edit {editingUser.role === 'student' ? 'Student' : 'Professor'} Profile</h2>
             <p className="ad-modal-sub">Modify administrative and background database fields.</p>

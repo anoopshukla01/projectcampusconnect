@@ -316,7 +316,7 @@ export default function UserManagement() {
       </div>
 
       {modalOpen && (
-        <div className="ad-modal-backdrop" onClick={() => setModalOpen(false)}>
+        <div className="ad-modal-overlay open" onClick={() => setModalOpen(false)}>
           <div className="ad-modal" onClick={e => e.stopPropagation()}>
             <h2 className="ad-modal-title">Generate Single-Use Staff Invite</h2>
             <p className="ad-modal-sub">
@@ -326,12 +326,31 @@ export default function UserManagement() {
             {inviteTokenResult ? (
               <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', padding: '1rem', borderRadius: '10px', color: '#10b981', marginBottom: '1rem' }}>
                 <p style={{ fontWeight: 700, marginBottom: '0.5rem' }}>✓ Invite Token Generated Successfully:</p>
-                <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', marginBottom: '0.5rem' }}>
                   {inviteTokenResult}
                 </div>
-                <p style={{ fontSize: '0.78rem', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
-                  Share this token link with the invited staff member: <code>/login?token={inviteTokenResult}</code>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Share this token link with the invited staff member:
                 </p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/login?token=${inviteTokenResult}`}
+                    className="ad-input"
+                    style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.8rem' }}
+                    onClick={e => e.target.select()}
+                  />
+                  <button
+                    className="ad-btn ad-btn-primary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/login?token=${inviteTokenResult}`);
+                      showToast('Invite link copied to clipboard!', 'success', 2000);
+                    }}
+                  >
+                    Copy Link
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -373,7 +392,7 @@ export default function UserManagement() {
       )}
 
       {manualModalOpen && (
-        <div className="ad-modal-backdrop" onClick={() => setManualModalOpen(false)}>
+        <div className="ad-modal-overlay open" onClick={() => setManualModalOpen(false)}>
           <div className="ad-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', maxHeight: '85vh', overflowY: 'auto' }}>
             <h2 className="ad-modal-title">Add User Manually</h2>
             <p className="ad-modal-sub">Create a new user account directly in the database.</p>
@@ -559,7 +578,7 @@ export default function UserManagement() {
 
       {/* Restrictions & Tags Modal */}
       {showRestrictionsModal && selectedUser && (
-        <div className="ad-modal-backdrop" onClick={() => setShowRestrictionsModal(false)}>
+        <div className="ad-modal-overlay open" onClick={() => setShowRestrictionsModal(false)}>
           <div className="ad-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
             <h2 className="ad-modal-title">Restrictions & Tags Manager</h2>
             <p className="ad-modal-sub">

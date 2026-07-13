@@ -65,44 +65,44 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [usersRes, placementRes, drivesRes, auditRes, approvalsRes] = await Promise.all([
+        const [usersRes, placementRes, drivesRes, auditRes, approvalsRes, summaryRes] = await Promise.all([
           adminApi.listUsers({ per_page: 100 }),
           adminApi.getAnalytics(),
           placementApi.listDrives(),
           adminApi.getAuditLog({ per_page: 6 }),
           adminApi.getPendingApprovals(),
+          adminApi.getSummary(),
         ]);
 
         const users = usersRes?.users || [];
-        const students  = users.filter(u => u.role === 'student');
-        const faculty   = users.filter(u => u.role === 'professor');
-        const tpo       = users.filter(u => u.role === 'placement_cell');
-        const admins    = users.filter(u => u.role === 'admin');
+        const admins = users.filter(u => u.role === 'admin');
 
-        const pendingStudents = students.filter(u => !u.is_active).length;
-        const pendingFaculty  = faculty.filter(u => !u.is_active).length;
-        const totalPlaced     = placementRes?.placements_this_year || 0;
-        const placementRatePct = students.length > 0 ? Math.round((totalPlaced / students.length) * 100) : 0;
+        const totalStudents = summaryRes?.total_students || 0;
+        const pendingStudents = totalStudents - (summaryRes?.active_students || 0);
+        const facultyMembers = summaryRes?.total_faculty || 0;
+        const pendingFaculty = summaryRes?.pending_faculty || 0;
+        const totalPlaced = placementRes?.placements_this_year || 0;
+        const placementRatePct = totalStudents > 0 ? Math.round((totalPlaced / totalStudents) * 100) : 0;
 
         const activityLogs = (auditRes?.audit_logs || auditRes?.logs || []).map(log => ({
           icon: log.action?.includes('invite') ? '✉️' : log.action?.includes('approve') ? '✅' : '📋',
           text: `${(log.action || '').replace('admin.', '').replace('.', ' ')}: ${log.detail?.email || log.target_type || ''}`,
-          time: log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          time: (log.timestamp || log.created_at) ? new Date(log.timestamp || log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           cls:  log.action?.includes('reject') ? 'ad-act-rose' : 'ad-act-blue',
         }));
 
         setData(prev => ({
           ...prev,
-          totalStudents: students.length,
+          totalStudents,
           pendingStudents,
-          facultyMembers: faculty.length,
+          facultyMembers,
           pendingFaculty,
           placementRate: placementRatePct,
           activeDrives: (drivesRes?.drives || []).length,
           roleOverview: [
-            { role: 'Students',       total: students.length, active: students.filter(u => u.is_active).length, pending: pendingStudents },
-            { role: 'Faculty',        total: faculty.length,  active: faculty.filter(u => u.is_active).length,  pending: pendingFaculty  },
-            { role: 'Placement Cell', total: tpo.length,      active: tpo.filter(u => u.is_active).length,      pending: tpo.filter(u => !u.is_active).length },
+            { role: 'Students',       total: totalStudents,   active: summaryRes?.active_students || 0, pending: pendingStudents },
+            { role: 'Faculty',        total: facultyMembers,  active: summaryRes?.active_faculty || 0,  pending: pendingFaculty  },
+            { role: 'Placement Cell', total: summaryRes?.total_tpo || 0, active: (summaryRes?.total_tpo || 0) - (summaryRes?.pending_tpo || 0), pending: summaryRes?.pending_tpo || 0 },
             { role: 'Admins',         total: admins.length,   active: admins.filter(u => u.is_active).length,   pending: 0               },
           ],
           activity: activityLogs,
@@ -270,10 +270,10 @@ export default function AdminDashboard() {
               <tbody>
                 {approvals.tpo.map(t => (
                   <tr key={t.id}>
-                    <td><strong>{t.full_name}</strong></td>
+                    <td><strong>{t.full_name || (t.email ? t.email.split('@')[0] : 'TPO Member')}</strong></td>
                     <td><span className="ad-status-pill ad-pill-warn" style={{color:'#f59e0b'}}>TPO</span></td>
                     <td>{t.email} {t.phone ? `(${t.phone})` : ''}</td>
-                    <td><code>{t.employee_id}</code></td>
+                    <td><code>{t.employee_id || 'N/A'}</code></td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                         <button className="pd-btn pd-btn-sm pd-btn-success" onClick={() => handleApproveTpo(t.id)}>

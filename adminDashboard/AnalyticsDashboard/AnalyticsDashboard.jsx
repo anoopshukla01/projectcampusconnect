@@ -37,6 +37,20 @@ export default function AnalyticsDashboard() {
     }
   }, [availableBranches]);
 
+  const roleStats = useMemo(() => {
+    const roleUsers = users.filter(u => {
+      if (selectedRole === 'student') return u.role === 'student';
+      if (selectedRole === 'professor') return u.role === 'professor';
+      return u.role === 'placement_cell';
+    });
+
+    const total = roleUsers.length;
+    const active = roleUsers.filter(u => u.is_active).length;
+    const pending = roleUsers.filter(u => !u.is_active).length;
+
+    return { total, active, pending };
+  }, [users, selectedRole]);
+
   async function fetchAnalytics() {
     setLoading(true);
     try {
@@ -89,20 +103,6 @@ export default function AnalyticsDashboard() {
       </div>
     );
   }
-
-  const roleStats = useMemo(() => {
-    const roleUsers = users.filter(u => {
-      if (selectedRole === 'student') return u.role === 'student';
-      if (selectedRole === 'professor') return u.role === 'professor';
-      return u.role === 'placement_cell';
-    });
-
-    const total = roleUsers.length;
-    const active = roleUsers.filter(u => u.is_active).length;
-    const pending = roleUsers.filter(u => !u.is_active).length;
-
-    return { total, active, pending };
-  }, [users, selectedRole]);
 
   return (
     <div className="ad-root">
