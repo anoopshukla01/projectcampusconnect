@@ -105,3 +105,53 @@ def test_elibrary_request_approval_and_expiry_flow(client, db_session):
     resp = client.get(f"/api/v1/community/elibrary/{resource.id}/download", headers={"Authorization": f"Bearer {student_token}"})
     assert resp.status_code == 403
 
+
+def test_professor_event_creation_and_admin_approval_flow(client, db_session):
+    from app.models.community import CampusEvent
+
+    # 1. Create professor and admin users
+    prof_user = User(email="prof_test_events@college.edu.in", role=UserRole.PROFESSOR, is_active=True)
+    prof_user.set_password("ProfPass123")
+    db_session.add(prof_user)
+    db_session.flush()
+
+    admin_user = User(email="admin_test_events@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin_user.set_password("AdminPass123")
+    db_session.add(admin_user)
+    db_session.flush()
+    db_session.commit()
+
+    prof_token = create_access_token(identity=str(prof_user.id), additional_claims={"role": "professor"})
+    admin_token = create_access_token(identity=str(admin_user.id), additional_claims={"role": "admin"})
+
+    # 2. Professor creates event
+    event_data = {
+        "title": "Annual Tech Symposium",
+        "date_time": "July 25, 2026",
+        "venue": "Campus Auditorium",
+        "description": "Welcome to the technical event."
+    }
+    resp = client.post("/api/v1/community/events", json=event_data, headers={"Authorization": f"Bearer {prof_token}"})
+    assert resp.status_code == 201
+    resp_data = resp.get_json()
+    assert resp_data["approval_status"] == "pending"
+    event_id = resp_data["id"]
+
+    # 3. Admin gets pending events list and checks if it's there
+    resp = client.get("/api/v1/admin/events/pending", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    pending_events = resp.get_json()["events"]
+    assert any(ev["id"] == event_id for ev in pending_events)
+
+    # 4. Admin approves the event
+    resp = client.post(f"/api/v1/admin/events/{event_id}/approve", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert resp.get_json()["message"] == "Event approved and is now live."
+
+    # 5. Check if event is now live
+    import uuid as uuid_lib
+    event_obj = db_session.get(CampusEvent, uuid_lib.UUID(event_id))
+    assert event_obj.approval_status == "live"
+    assert event_obj.approved_by_id == admin_user.id
+
+

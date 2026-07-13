@@ -1765,6 +1765,7 @@ def approve_event(event_id):
 
     try:
         event.approval_status = "live"
+        event.approved_by_id = get_current_user().id
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
