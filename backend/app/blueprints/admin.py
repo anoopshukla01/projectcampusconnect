@@ -116,41 +116,46 @@ def list_users():
     base_schema = AdminUserResponseSchema(many=True)
     users_data = base_schema.dump(paginated.items)
 
-    # Enrich with profile data when filtering by role
-    if role == "student":
-        from app.models.student import StudentProfile
-        user_ids = [u.id for u in paginated.items]
-        profiles = {str(p.user_id): p for p in
-                    db.session.query(StudentProfile).filter(
-                        StudentProfile.user_id.in_(user_ids),
-                        StudentProfile.is_deleted == False  # noqa: E712
-                    ).all()}
-        for u in users_data:
-            p = profiles.get(u["id"])
-            if p:
-                u["roll_no"] = p.roll_no
-                u["full_name"] = p.full_name
-                u["branch"] = p.branch
-                u["batch_year"] = p.batch_year
-                u["semester"] = p.semester
-                u["cgpa"] = float(p.cgpa) if p.cgpa is not None else None
-                u["profile_complete"] = p.profile_complete
+    # Enrich with profile data
+    student_user_ids = [u.id for u in paginated.items if u.role == UserRole.STUDENT]
+    prof_user_ids = [u.id for u in paginated.items if u.role == UserRole.PROFESSOR]
 
-    elif role == "professor":
+    student_profiles = {}
+    if student_user_ids:
+        from app.models.student import StudentProfile
+        student_profiles = {str(p.user_id): p for p in
+                            db.session.query(StudentProfile).filter(
+                                StudentProfile.user_id.in_(student_user_ids),
+                                StudentProfile.is_deleted == False  # noqa: E712
+                            ).all()}
+
+    prof_profiles = {}
+    if prof_user_ids:
         from app.models.professor import ProfessorProfile
-        user_ids = [u.id for u in paginated.items]
-        profiles = {str(p.user_id): p for p in
-                    db.session.query(ProfessorProfile).filter(
-                        ProfessorProfile.user_id.in_(user_ids)
-                    ).all()}
-        for u in users_data:
-            p = profiles.get(u["id"])
-            if p:
-                u["employee_id"] = p.employee_id
-                u["full_name"] = p.full_name
-                u["department"] = p.department
-                u["designation"] = p.designation
-                u["approval_status"] = p.approval_status.value if p.approval_status else "approved"
+        prof_profiles = {str(p.user_id): p for p in
+                         db.session.query(ProfessorProfile).filter(
+                             ProfessorProfile.user_id.in_(prof_user_ids)
+                         ).all()}
+
+    for u in users_data:
+        u_role = u.get("role")
+        u_id = u["id"]
+        if u_role == "student" and u_id in student_profiles:
+            p = student_profiles[u_id]
+            u["roll_no"] = p.roll_no
+            u["full_name"] = p.full_name
+            u["branch"] = p.branch
+            u["batch_year"] = p.batch_year
+            u["semester"] = p.semester
+            u["cgpa"] = float(p.cgpa) if p.cgpa is not None else None
+            u["profile_complete"] = p.profile_complete
+        elif u_role == "professor" and u_id in prof_profiles:
+            p = prof_profiles[u_id]
+            u["employee_id"] = p.employee_id
+            u["full_name"] = p.full_name
+            u["department"] = p.department
+            u["designation"] = p.designation
+            u["approval_status"] = p.approval_status.value if p.approval_status else "approved"
 
     return jsonify({
         "users": users_data,

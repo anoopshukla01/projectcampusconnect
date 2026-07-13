@@ -65,7 +65,13 @@ export default function UserManagement() {
   const roleFilterMap = ['', 'student', 'professor', 'placement_cell'];
   const filtered = users.filter(u => {
     const roleMatch = !roleFilterMap[tab] || u.role === roleFilterMap[tab];
-    const searchMatch = !search || (u.email && u.email.toLowerCase().includes(search.toLowerCase())) || (u.phone && u.phone.includes(search));
+    const searchLower = search.toLowerCase();
+    const searchMatch = !search || 
+      (u.email && u.email.toLowerCase().includes(searchLower)) || 
+      (u.phone && u.phone.includes(search)) ||
+      (u.roll_no && u.roll_no.toLowerCase().includes(searchLower)) ||
+      (u.employee_id && u.employee_id.toLowerCase().includes(searchLower)) ||
+      (u.full_name && u.full_name.toLowerCase().includes(searchLower));
     return roleMatch && searchMatch;
   });
 
@@ -257,7 +263,8 @@ export default function UserManagement() {
                 {filtered.map(u => (
                   <tr key={u.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{u.email || u.phone || u.id}</div>
+                      <div style={{ fontWeight: 600 }}>{u.email || u.roll_no || u.employee_id || u.phone || u.id}</div>
+                      {u.full_name && <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{u.full_name}</div>}
                     </td>
                     <td><span className="ad-badge" style={{ textTransform: 'capitalize' }}>{u.role}</span></td>
                     <td>
