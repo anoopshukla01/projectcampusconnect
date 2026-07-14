@@ -412,7 +412,7 @@ def add_user_manually():
             profile = ProfessorProfile(
                 user_id=user.id,
                 employee_id=data["employee_id"].upper(),
-                full_name=data.get("full_name") or email.split("@")[0].capitalize(),
+                full_name=data.get("full_name") or (email.split("@")[0].capitalize() if email else "Professor"),
                 department=data.get("department") or "Computer Science",
                 designation=data.get("designation") or "Assistant Professor",
                 approval_status=ApprovalStatus.APPROVED,
