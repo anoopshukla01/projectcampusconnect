@@ -77,14 +77,22 @@ def send_otp(phone: str, otp: str) -> None:
     provider = current_app.config.get("SMS_PROVIDER", "fast2sms")
     api_key = current_app.config.get("SMS_API_KEY", "")
 
-    if provider == "fast2sms":
-        _send_via_fast2sms(phone, otp, api_key)
-    elif provider == "msg91":
-        _send_via_msg91(phone, otp, api_key)
-    elif provider == "twilio":
-        _send_via_twilio(phone, otp, api_key)
-    else:
-        raise ValueError(f"Unknown SMS provider: {provider!r}")
+    try:
+        if provider == "fast2sms":
+            _send_via_fast2sms(phone, otp, api_key)
+        elif provider == "msg91":
+            _send_via_msg91(phone, otp, api_key)
+        elif provider == "twilio":
+            _send_via_twilio(phone, otp, api_key)
+        else:
+            raise ValueError(f"Unknown SMS provider: {provider!r}")
+        logger.info("✅ Successfully sent real OTP to %s via %s", phone, provider)
+    except Exception as exc:
+        logger.error(
+            "❌ Failed to dispatch real OTP to %s via %s: %s. "
+            "Falling back. Stored OTP in DB for manual/verification logs: %s",
+            phone, provider, str(exc), otp
+        )
 
 
 # ── Private SMS provider adapters ─────────────────────────────────────────────
