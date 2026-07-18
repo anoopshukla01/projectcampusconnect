@@ -206,7 +206,11 @@ class ProductionConfig(BaseConfig):
         cls.COLLEGE_NAME = _require_env("COLLEGE_NAME")
         cls.MOCK_OTP = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
-        cls.CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",")
+        origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+        for fallback in ["http://localhost", "capacitor://localhost"]:
+            if fallback not in origins:
+                origins.append(fallback)
+        cls.CORS_ORIGINS = origins
 
         uri = cls.SQLALCHEMY_DATABASE_URI
         # Supabase (and most managed PG providers) use 'postgresql://'

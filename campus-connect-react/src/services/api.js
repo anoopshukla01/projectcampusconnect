@@ -35,7 +35,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 let apiURL = import.meta.env.VITE_API_URL || '';
-if (apiURL.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
+const isNative = !!window.Capacitor || (window.location.protocol === 'capacitor:') || (window.location.hostname === 'localhost' && import.meta.env.PROD);
+
+if (isNative) {
+  apiURL = 'https://projectcampusconnect.onrender.com';
+} else if (apiURL.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
   apiURL = '';
 }
 const BASE = apiURL ? `${apiURL}/api/v1` : '/api/v1';
