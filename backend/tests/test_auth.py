@@ -29,11 +29,13 @@ def test_otp_flow_and_student_registration(client):
     # But wait, since the test runs in the same process, we can monkeypatch.
     # Let's write a cleaner test where we patch `app.utils.otp.generate_otp` to return "123456".
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 def test_otp_verify_and_register_student_with_mock_otp(client, db_session, monkeypatch):
     monkeypatch.setattr("app.blueprints.auth.generate_otp", lambda: "123456")
 
     # Pre-import StudentProfile with inactive stub User (simulating Admin CSV import)
-    stub_user = User(role=UserRole.STUDENT, is_active=False)
+    stub_user = User(college_id=DEFAULT_COLLEGE_ID, role=UserRole.STUDENT, is_active=False)
     db_session.add(stub_user)
     db_session.flush()
 
@@ -100,7 +102,7 @@ def test_faculty_registration_and_admin_approval_mechanics(client):
 
 def test_login_lockout_and_mismatch_errors(client, db_session):
     # Setup a user
-    user = User(email="staff@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
+    user = User(college_id=DEFAULT_COLLEGE_ID, email="staff@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
     user.set_password("SecurePassword1")
     db_session.add(user)
     db_session.commit()
@@ -135,11 +137,12 @@ def test_invite_acceptance_flow(client, db_session):
     expiry = datetime.now(timezone.utc) + timedelta(hours=48)
 
     # We need an admin to be the inviter
-    admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin = User(college_id=DEFAULT_COLLEGE_ID, email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     db_session.add(admin)
     db_session.commit()
 
     invite = Invite(
+        college_id=DEFAULT_COLLEGE_ID,
         email="new_tpo@college.edu.in",
         role="placement_cell",
         invited_by=admin.id,
@@ -210,6 +213,7 @@ def test_logout_revokes_tokens(client, db_session):
     from app.models.user import User, UserRole
     from app.models.student import StudentProfile
     user = User(
+        college_id=DEFAULT_COLLEGE_ID,
         email="logout_test@college.edu.in",
         phone="9876543219",
         role=UserRole.STUDENT,

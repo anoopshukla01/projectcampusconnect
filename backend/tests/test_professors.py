@@ -4,10 +4,12 @@ from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.professor import ProfessorProfile, ApprovalStatus
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 @pytest.fixture
 def test_prof_users(db_session):
     # Setup test users for professor tests
-    prof1 = User(email="prof1@college.edu.in", role=UserRole.PROFESSOR, is_active=True)
+    prof1 = User(college_id=DEFAULT_COLLEGE_ID, email="prof1@college.edu.in", role=UserRole.PROFESSOR, is_active=True)
     prof1.set_password("ProfPassword1")
     db_session.add(prof1)
     db_session.flush()
@@ -23,7 +25,7 @@ def test_prof_users(db_session):
     )
     db_session.add(profile1)
 
-    prof2 = User(email="prof2@college.edu.in", role=UserRole.PROFESSOR, is_active=False) # pending approval
+    prof2 = User(college_id=DEFAULT_COLLEGE_ID, email="prof2@college.edu.in", role=UserRole.PROFESSOR, is_active=False) # pending approval
     prof2.set_password("ProfPassword2")
     db_session.add(prof2)
     db_session.flush()
@@ -39,11 +41,11 @@ def test_prof_users(db_session):
     )
     db_session.add(profile2)
 
-    admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin = User(college_id=DEFAULT_COLLEGE_ID, email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     admin.set_password("AdminPassword1")
     db_session.add(admin)
 
-    student = User(phone="9999999999", role=UserRole.STUDENT, is_active=True)
+    student = User(college_id=DEFAULT_COLLEGE_ID, phone="9999999999", role=UserRole.STUDENT, is_active=True)
     student.set_password("StudentPassword1")
     db_session.add(student)
 

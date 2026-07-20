@@ -215,12 +215,12 @@ def create_conversation():
         invited_ids = data.get("invited_user_ids", [])
         if user.role == UserRole.PLACEMENT_CELL:
             from app.models.placement import PlacementDrive, DriveType
-            active_drives = PlacementDrive.query.filter_by(is_deleted=False).all()
+            active_drives = PlacementDrive.query.filter_by(is_deleted=False, college_id=user.college_id).all()
             for uid_str in invited_ids:
                 uid = parse_uuid(uid_str)
                 if uid:
                     member_user = User.query.get(uid)
-                    if member_user and member_user.role == UserRole.STUDENT:
+                    if member_user and member_user.college_id == user.college_id and member_user.role == UserRole.STUDENT:
                         profile = member_user.student_profile
                         if not profile:
                             continue
@@ -247,16 +247,17 @@ def create_conversation():
         )
         db.session.add(admin_membership)
 
-        # Invite additional users
+        # Invite additional users (must be from the same college)
         for uid_str in invited_ids:
             uid = parse_uuid(uid_str)
             if uid and uid != user.id:
                 invited_user = User.query.get(uid)
-                is_pending = False
-                if invited_user and invited_user.role == UserRole.PROFESSOR:
-                    is_pending = True
-                m = GroupMembership(conversation_id=c.id, user_id=uid, role=GroupRole.MEMBER, is_invite_pending=is_pending)
-                db.session.add(m)
+                if invited_user and invited_user.college_id == user.college_id:
+                    is_pending = False
+                    if invited_user.role == UserRole.PROFESSOR:
+                        is_pending = True
+                    m = GroupMembership(conversation_id=c.id, user_id=uid, role=GroupRole.MEMBER, is_invite_pending=is_pending)
+                    db.session.add(m)
 
         db.session.commit()
         return jsonify({"conversation_id": str(c.id), "type": "private"}), 201
@@ -352,7 +353,7 @@ def add_member():
         return error_response("User is already a member of this conversation", 400)
 
     new_user = User.query.get(new_user_id)
-    if not new_user:
+    if not new_user or new_user.college_id != user.college_id:
         return error_response("User not found", 404)
 
     is_pending = False

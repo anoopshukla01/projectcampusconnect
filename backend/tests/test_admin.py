@@ -7,14 +7,16 @@ from app.models.student import StudentProfile
 from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, DriveType, DriveStatus
 from datetime import date, datetime, timezone, timedelta
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 @pytest.fixture
 def admin_test_context(db_session):
     # Setup test database records for admin tests
-    admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin = User(college_id=DEFAULT_COLLEGE_ID, email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     admin.set_password("AdminPassword1")
     db_session.add(admin)
 
-    student1 = User(phone="9999999901", role=UserRole.STUDENT, is_active=True)
+    student1 = User(college_id=DEFAULT_COLLEGE_ID, phone="9999999901", role=UserRole.STUDENT, is_active=True)
     db_session.add(student1)
     db_session.flush()
 
@@ -31,7 +33,7 @@ def admin_test_context(db_session):
     )
     db_session.add(profile1)
 
-    prof = User(email="prof@college.edu.in", role=UserRole.PROFESSOR, is_active=False)
+    prof = User(college_id=DEFAULT_COLLEGE_ID, email="prof@college.edu.in", role=UserRole.PROFESSOR, is_active=False)
     prof.set_password("ProfPassword1")
     db_session.add(prof)
     db_session.flush()
@@ -47,7 +49,7 @@ def admin_test_context(db_session):
     db_session.add(prof_profile)
 
     # Setup drives and offers for analytics test
-    tpo = User(email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
+    tpo = User(college_id=DEFAULT_COLLEGE_ID, email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
     db_session.add(tpo)
     db_session.flush()
 

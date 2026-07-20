@@ -78,6 +78,13 @@ def seed():
     app = create_app(env)
     with app.app_context():
         db.create_all()
+        from app.models.college import College, DEFAULT_COLLEGE_ID
+        college = db.session.get(College, DEFAULT_COLLEGE_ID)
+        if not college:
+            college = College(id=DEFAULT_COLLEGE_ID, name="Default College", slug="default-college", code="CC2024")
+            db.session.add(college)
+            db.session.flush()
+
         created = []
         skipped = []
 
@@ -89,6 +96,7 @@ def seed():
                 continue
 
             user = User(
+                college_id=college.id,
                 email=email,
                 role=spec["role"],
                 is_active=True,

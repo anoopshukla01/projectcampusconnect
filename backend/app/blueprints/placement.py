@@ -711,6 +711,9 @@ def update_shortlist_status(drive_id, student_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def get_shortlist(drive_id):
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
+    if not drive:
+        return error_response("Drive not found.", 404)
     records = db.session.query(DriveShortlist).filter_by(drive_id=drive_id).all()
     result = []
     for rec in records:
@@ -1067,6 +1070,9 @@ def create_interview_booking(drive_id):
 @require_roles("admin", "placement_cell")
 def get_drive_bookings(drive_id):
     """List all interview bookings (including pending ones) for a drive."""
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
+    if not drive:
+        return error_response("Drive not found.", 404)
     from app.models.academic import TimetableBooking
     bookings = TimetableBooking.query.filter_by(drive_id=drive_id).all()
     res = []
@@ -1125,6 +1131,7 @@ def submit_moderation_report():
 
     try:
         report = ModerationReport(
+            college_id=g.current_user.college_id,
             reporter_id=get_current_user().id,
             target_type=target_type,
             target_id=target_id,
@@ -1146,7 +1153,7 @@ def submit_moderation_report():
 def get_moderation_reports():
     """TPO and Admin view the unified moderation reports queue."""
     from app.models.community import ModerationReport
-    reports = ModerationReport.query.order_by(ModerationReport.created_at.desc()).all()
+    reports = ModerationReport.query.filter_by(college_id=g.current_user.college_id).order_by(ModerationReport.created_at.desc()).all()
     res = []
     for r in reports:
         reporter = db.session.get(User, r.reporter_id)

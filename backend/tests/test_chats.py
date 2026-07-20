@@ -5,10 +5,12 @@ from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.chat import Conversation, GroupMembership, ChatMessage, ConversationType, GroupRole
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 @pytest.fixture
 def chat_test_setup(db_session):
     # Setup test users
-    s1 = User(phone="9900000001", role=UserRole.STUDENT, is_active=True)
+    s1 = User(college_id=DEFAULT_COLLEGE_ID, phone="9900000001", role=UserRole.STUDENT, is_active=True)
     s1.set_password("Pass1")
     db_session.add(s1)
     db_session.flush()
@@ -25,7 +27,7 @@ def chat_test_setup(db_session):
     )
     db_session.add(profile1)
 
-    s2 = User(phone="9900000002", role=UserRole.STUDENT, is_active=True)
+    s2 = User(college_id=DEFAULT_COLLEGE_ID, phone="9900000002", role=UserRole.STUDENT, is_active=True)
     s2.set_password("Pass2")
     db_session.add(s2)
     db_session.flush()
@@ -42,7 +44,7 @@ def chat_test_setup(db_session):
     )
     db_session.add(profile2)
 
-    s3 = User(phone="9900000003", role=UserRole.STUDENT, is_active=True)
+    s3 = User(college_id=DEFAULT_COLLEGE_ID, phone="9900000003", role=UserRole.STUDENT, is_active=True)
     s3.set_password("Pass3")
     db_session.add(s3)
     db_session.flush()

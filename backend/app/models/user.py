@@ -19,7 +19,7 @@ class User(db.Model):
     # Global unique constraints on email/phone are intentionally removed here — they are
     # replaced by composite (college_id, email) and (college_id, phone) constraints
     # defined in the Alembic migration (add_multi_tenancy).
-    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     email = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(15), nullable=True)
     password_hash = db.Column(db.String(255), nullable=True) # NULL for OTP-only registration phase

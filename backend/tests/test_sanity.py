@@ -6,9 +6,11 @@ def test_health_check(client):
 
 def test_db_setup(db_session):
     """Verify that the database tables are successfully created and accessible."""
+    from app.models.college import DEFAULT_COLLEGE_ID
     from app.models import User, UserRole
     # Try inserting a test user to ensure SQLAlchemy models are registered
     user = User(
+        college_id=DEFAULT_COLLEGE_ID,
         email="test@college.edu.in",
         role=UserRole.ADMIN,
         is_active=True

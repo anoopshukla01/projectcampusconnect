@@ -1,9 +1,10 @@
 import pytest
 from flask_jwt_extended import create_access_token
+from app.models.college import DEFAULT_COLLEGE_ID
 from app.models.user import User, UserRole
 
 def test_academics_endpoints_empty(client, db_session):
-    student_user = User(email="student_test@college.edu", role=UserRole.STUDENT, is_active=True)
+    student_user = User(college_id=DEFAULT_COLLEGE_ID, email="student_test@college.edu", role=UserRole.STUDENT, is_active=True)
     student_user.set_password("Pass@123456")
     db_session.add(student_user)
     db_session.commit()

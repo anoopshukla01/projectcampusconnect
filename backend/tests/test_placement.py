@@ -25,18 +25,20 @@ from app.models.placement import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 @pytest.fixture
 def placement_context(db_session):
-    tpo = User(email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
+    tpo = User(college_id=DEFAULT_COLLEGE_ID, email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
     db_session.add(tpo)
     db_session.flush()
 
-    admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin = User(college_id=DEFAULT_COLLEGE_ID, email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     db_session.add(admin)
 
     from app.models.student import StudentProfile, StudentResume
     # Eligible student
-    student_a = User(phone="9999900001", role=UserRole.STUDENT, is_active=True)
+    student_a = User(college_id=DEFAULT_COLLEGE_ID, phone="9999900001", role=UserRole.STUDENT, is_active=True)
     db_session.add(student_a)
     db_session.flush()
     profile_a = StudentProfile(
@@ -48,7 +50,7 @@ def placement_context(db_session):
     db_session.flush()
 
     # Ineligible student (low CGPA)
-    student_b = User(phone="9999900002", role=UserRole.STUDENT, is_active=True)
+    student_b = User(college_id=DEFAULT_COLLEGE_ID, phone="9999900002", role=UserRole.STUDENT, is_active=True)
     db_session.add(student_b)
     db_session.flush()
     profile_b = StudentProfile(

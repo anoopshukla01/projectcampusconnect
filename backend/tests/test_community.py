@@ -2,8 +2,10 @@ import pytest
 from flask_jwt_extended import create_access_token
 from app.models.user import User, UserRole
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 def test_community_endpoints(client, db_session):
-    student_user = User(email="student_test2@college.edu", role=UserRole.STUDENT, is_active=True)
+    student_user = User(college_id=DEFAULT_COLLEGE_ID, email="student_test2@college.edu", role=UserRole.STUDENT, is_active=True)
     student_user.set_password("Pass@123456")
     db_session.add(student_user)
     db_session.commit()
@@ -47,7 +49,7 @@ def test_elibrary_request_approval_and_expiry_flow(client, db_session):
     from app.models.student import StudentProfile
 
     # 1. Setup Student and Admin
-    student_user = User(email="lib_stud@college.edu.in", role=UserRole.STUDENT, is_active=True)
+    student_user = User(college_id=DEFAULT_COLLEGE_ID, email="lib_stud@college.edu.in", role=UserRole.STUDENT, is_active=True)
     student_user.set_password("StudentPass12")
     db_session.add(student_user)
     db_session.flush()
@@ -59,7 +61,7 @@ def test_elibrary_request_approval_and_expiry_flow(client, db_session):
     )
     db_session.add(profile)
 
-    admin_user = User(email="lib_admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin_user = User(college_id=DEFAULT_COLLEGE_ID, email="lib_admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     admin_user.set_password("AdminPass12")
     db_session.add(admin_user)
     db_session.flush()
@@ -110,12 +112,12 @@ def test_professor_event_creation_and_admin_approval_flow(client, db_session):
     from app.models.community import CampusEvent
 
     # 1. Create professor and admin users
-    prof_user = User(email="prof_test_events@college.edu.in", role=UserRole.PROFESSOR, is_active=True)
+    prof_user = User(college_id=DEFAULT_COLLEGE_ID, email="prof_test_events@college.edu.in", role=UserRole.PROFESSOR, is_active=True)
     prof_user.set_password("ProfPass123")
     db_session.add(prof_user)
     db_session.flush()
 
-    admin_user = User(email="admin_test_events@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin_user = User(college_id=DEFAULT_COLLEGE_ID, email="admin_test_events@college.edu.in", role=UserRole.ADMIN, is_active=True)
     admin_user.set_password("AdminPass123")
     db_session.add(admin_user)
     db_session.flush()

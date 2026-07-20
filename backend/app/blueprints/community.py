@@ -92,12 +92,12 @@ def delete_announcement(announcement_id):
     a = Announcement.query.filter_by(id=announcement_id, college_id=user.college_id).first()
     if not a:
         return error_response("Announcement not found.", 404)
-    # professors can only delete their own
+    # professors can only delete their own announcements
     role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
-    if role_str == "professor" and a.author_name != (user.email or "").split("@")[0].capitalize():
-        # Check by author_role instead as a fallback — admin can delete any
-        if a.author_role != "admin":
-            pass  # allow professor to delete what they posted
+    if role_str == "professor":
+        prof_name = user.professor_profile.full_name if (hasattr(user, 'professor_profile') and user.professor_profile) else (user.email or "").split("@")[0].capitalize()
+        if a.author_name != prof_name:
+            return error_response("Professors can only delete their own announcements.", 403)
     try:
         db.session.delete(a)
         db.session.commit()
@@ -331,7 +331,8 @@ def get_my_events():
 @require_auth
 @require_roles("admin", "professor", "placement_cell")
 def update_event(event_id):
-    e = CampusEvent.query.filter_by(id=event_id).first()
+    user = get_current_user()
+    e = CampusEvent.query.filter_by(id=event_id, college_id=user.college_id).first()
     if not e:
         return error_response("Event not found.", 404)
     data = request.get_json() or {}
@@ -370,7 +371,8 @@ def update_event(event_id):
 @require_auth
 @require_roles("admin", "professor", "placement_cell")
 def delete_event(event_id):
-    e = CampusEvent.query.filter_by(id=event_id).first()
+    user = get_current_user()
+    e = CampusEvent.query.filter_by(id=event_id, college_id=user.college_id).first()
     if not e:
         return error_response("Event not found.", 404)
     
@@ -408,27 +410,6 @@ def delete_event(event_id):
     return jsonify({"message": "Event deleted."}), 200
 
 
-# ── POST /community/events/<id>/register ─────────────────────────────────────
-@community_bp.route("/events/<uuid:event_id>/register", methods=["POST"])
-@require_auth
-def register_for_event(event_id):
-    """No-op registration acknowledged — extend with EventRegistration model if needed."""
-    e = CampusEvent.query.filter_by(id=event_id).first()
-    if not e:
-        return error_response("Event not found.", 404)
-    return jsonify({"message": f"Registered for '{e.title}'."}), 200
-
-
-# ── DELETE /community/events/<id>/register ────────────────────────────────────
-@community_bp.route("/events/<uuid:event_id>/register", methods=["DELETE"])
-@require_auth
-def unregister_from_event(event_id):
-    e = CampusEvent.query.filter_by(id=event_id).first()
-    if not e:
-        return error_response("Event not found.", 404)
-    return jsonify({"message": "Unregistered from event."}), 200
-
-
 # ── POST /community/marketplace ────────────────────────────────────────────────
 @community_bp.route("/marketplace", methods=["POST"])
 @require_auth
@@ -452,6 +433,7 @@ def create_listing():
 
     try:
         item = MarketplaceItem(
+            college_id=user.college_id,
             seller_id=user.id,
             seller_name=seller_name,
             title=title,
@@ -474,11 +456,12 @@ def create_listing():
 @require_auth
 def update_listing(item_id):
     user = get_current_user()
-    item = MarketplaceItem.query.filter_by(id=item_id).first()
+    item = MarketplaceItem.query.filter_by(id=item_id, college_id=user.college_id).first()
     if not item:
         return error_response("Listing not found.", 404)
     # IDOR: only seller or admin can update
-    if str(item.seller_id) != str(user.id) and user.role.value != "admin":
+    role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if str(item.seller_id) != str(user.id) and role_str != "admin":
         return error_response("You can only edit your own listings.", 403)
     data = request.get_json() or {}
     for field in ["title", "price", "category", "description", "contact_info", "status"]:
@@ -497,10 +480,11 @@ def update_listing(item_id):
 @require_auth
 def delete_listing(item_id):
     user = get_current_user()
-    item = MarketplaceItem.query.filter_by(id=item_id).first()
+    item = MarketplaceItem.query.filter_by(id=item_id, college_id=user.college_id).first()
     if not item:
         return error_response("Listing not found.", 404)
-    if str(item.seller_id) != str(user.id) and user.role.value != "admin":
+    role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if str(item.seller_id) != str(user.id) and role_str != "admin":
         return error_response("You can only delete your own listings.", 403)
     try:
         db.session.delete(item)
@@ -538,6 +522,7 @@ def report_lost_found():
     from datetime import date
     try:
         item = LostFoundItem(
+            college_id=user.college_id,
             reporter_id=user.id,
             reporter_name=reporter_name,
             title=title,
@@ -561,11 +546,12 @@ def report_lost_found():
 @require_auth
 def update_lost_found(item_id):
     user = get_current_user()
-    item = LostFoundItem.query.filter_by(id=item_id).first()
+    item = LostFoundItem.query.filter_by(id=item_id, college_id=user.college_id).first()
     if not item:
         return error_response("Item not found.", 404)
     # IDOR: only reporter or admin can update
-    if str(item.reporter_id) != str(user.id) and user.role.value != "admin":
+    role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if str(item.reporter_id) != str(user.id) and role_str != "admin":
         return error_response("You can only update items you reported.", 403)
     data = request.get_json() or {}
     for field in ["title", "item_type", "category", "location", "contact_info", "status"]:
@@ -584,10 +570,11 @@ def update_lost_found(item_id):
 @require_auth
 def delete_lost_found(item_id):
     user = get_current_user()
-    item = LostFoundItem.query.filter_by(id=item_id).first()
+    item = LostFoundItem.query.filter_by(id=item_id, college_id=user.college_id).first()
     if not item:
         return error_response("Item not found.", 404)
-    if str(item.reporter_id) != str(user.id) and user.role.value != "admin":
+    role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
+    if str(item.reporter_id) != str(user.id) and role_str != "admin":
         return error_response("You can only delete items you reported.", 403)
     try:
         db.session.delete(item)
@@ -621,7 +608,8 @@ def _resolve_display_name(user):
 @require_roles("admin", "professor")
 def get_elibrary_pending():
     """Professor/admin: list unapproved library resources."""
-    resources = LibraryResource.query.filter_by(approved=False).order_by(
+    user = get_current_user()
+    resources = LibraryResource.query.filter_by(college_id=user.college_id, approved=False).order_by(
         LibraryResource.created_at.desc()
     ).all()
     res = [{
@@ -656,6 +644,7 @@ def upload_library_resource():
 
     try:
         r = LibraryResource(
+            college_id    = user.college_id,
             title         = title,
             author        = data.get("author") or _resolve_display_name(user),
             subject       = subject,
@@ -680,7 +669,8 @@ def upload_library_resource():
 @require_roles("admin", "professor")
 def approve_library_resource(resource_id):
     """Professor/admin: approve a pending library resource."""
-    r = LibraryResource.query.filter_by(id=resource_id).first()
+    user = get_current_user()
+    r = LibraryResource.query.filter_by(id=resource_id, college_id=user.college_id).first()
     if not r:
         return error_response("Resource not found.", 404)
     r.approved = True
@@ -697,7 +687,8 @@ def approve_library_resource(resource_id):
 @require_roles("admin", "professor")
 def delete_library_resource(resource_id):
     """Admin/professor: delete a library resource."""
-    r = LibraryResource.query.filter_by(id=resource_id).first()
+    user = get_current_user()
+    r = LibraryResource.query.filter_by(id=resource_id, college_id=user.college_id).first()
     if not r:
         return error_response("Resource not found.", 404)
     try:
@@ -717,7 +708,7 @@ def download_library_resource(resource_id):
     from datetime import datetime, timezone
     user = get_current_user()
 
-    r = LibraryResource.query.filter_by(id=resource_id, approved=True).first()
+    r = LibraryResource.query.filter_by(id=resource_id, college_id=user.college_id, approved=True).first()
     if not r:
         return error_response("Resource not found or not yet approved.", 404)
 
@@ -754,7 +745,8 @@ def download_library_resource(resource_id):
 @require_roles("admin", "professor")
 def get_notes_pending():
     """Professor/admin: list unapproved note uploads."""
-    notes = StudyNote.query.filter_by(approved=False).order_by(
+    user = get_current_user()
+    notes = StudyNote.query.filter_by(college_id=user.college_id, approved=False).order_by(
         StudyNote.created_at.desc()
     ).all()
     res = [{
@@ -793,6 +785,7 @@ def upload_note():
 
     try:
         n = StudyNote(
+            college_id     = user.college_id,
             title          = title,
             subject        = subject,
             semester       = int(data.get("semester") or (sp.semester if sp else 1)),
@@ -819,7 +812,8 @@ def upload_note():
 @require_roles("admin", "professor")
 def approve_note(note_id):
     """Professor/admin: approve a student-uploaded note."""
-    n = StudyNote.query.filter_by(id=note_id).first()
+    user = get_current_user()
+    n = StudyNote.query.filter_by(id=note_id, college_id=user.college_id).first()
     if not n:
         return error_response("Note not found.", 404)
     n.approved = True
@@ -851,7 +845,7 @@ def approve_note(note_id):
 def delete_note(note_id):
     """Delete a note — owner or admin/professor."""
     user = get_current_user()
-    n = StudyNote.query.filter_by(id=note_id).first()
+    n = StudyNote.query.filter_by(id=note_id, college_id=user.college_id).first()
     if not n:
         return error_response("Note not found.", 404)
     role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
@@ -870,7 +864,8 @@ def delete_note(note_id):
 @require_auth
 def download_note(note_id):
     """Increment download counter and return file URL."""
-    n = StudyNote.query.filter_by(id=note_id, approved=True).first()
+    user = get_current_user()
+    n = StudyNote.query.filter_by(id=note_id, college_id=user.college_id, approved=True).first()
     if not n:
         return error_response("Note not found or not yet approved.", 404)
     try:
@@ -968,12 +963,11 @@ def manage_library_request(request_id):
     from datetime import datetime, timezone, timedelta
 
     req = db.session.get(LibraryRequest, request_id)
-    if not req:
-        return error_response("Request not found", 404)
-    if req.resource:
-        err = assert_college_match(req.resource, g.current_user)
-        if err:
-            return err
+    if not req or not req.resource:
+        return error_response("Request or associated resource not found", 404)
+    err = assert_college_match(req.resource, g.current_user)
+    if err:
+        return err
 
     data = request.get_json() or {}
     status_str = data.get("status")
@@ -1081,6 +1075,7 @@ def cleanup_marketplace():
     expiry_limit = datetime.now(timezone.utc) - timedelta(days=30)
     try:
         expired_count = MarketplaceItem.query.filter(
+            MarketplaceItem.college_id == g.current_user.college_id,
             MarketplaceItem.status == "active",
             MarketplaceItem.created_at < expiry_limit
         ).update({MarketplaceItem.status: "expired"}, synchronize_session=False)

@@ -97,12 +97,19 @@ def create_app(config_name: str | None = None) -> Flask:
     def bootstrap_admin(email, password):
         """Offline manual CLI process to create the initial college Admin account."""
         from app.models.user import User, UserRole
+        from app.models.college import College, DEFAULT_COLLEGE_ID
         existing = db.session.query(User).filter_by(email=email).first()
         if existing:
             click.echo(f"User with email '{email}' already exists.")
             return
 
-        admin_user = User(email=email, role=UserRole.ADMIN, is_active=True)
+        college = db.session.get(College, DEFAULT_COLLEGE_ID)
+        if not college:
+            college = College(id=DEFAULT_COLLEGE_ID, name="Default College", slug="default-college", code="CC2024")
+            db.session.add(college)
+            db.session.flush()
+
+        admin_user = User(college_id=college.id, email=email, role=UserRole.ADMIN, is_active=True)
         admin_user.set_password(password)
         db.session.add(admin_user)
         db.session.commit()

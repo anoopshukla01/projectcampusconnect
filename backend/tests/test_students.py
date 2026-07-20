@@ -4,10 +4,12 @@ from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 
+from app.models.college import DEFAULT_COLLEGE_ID
+
 @pytest.fixture
 def test_users(db_session):
     # Setup test users for all roles
-    student1 = User(phone="9999999901", role=UserRole.STUDENT, is_active=True)
+    student1 = User(college_id=DEFAULT_COLLEGE_ID, phone="9999999901", role=UserRole.STUDENT, is_active=True)
     student1.set_password("StudentPassword1")
     db_session.add(student1)
     db_session.flush()
@@ -25,7 +27,7 @@ def test_users(db_session):
     )
     db_session.add(profile1)
 
-    student2 = User(phone="9999999902", role=UserRole.STUDENT, is_active=True)
+    student2 = User(college_id=DEFAULT_COLLEGE_ID, phone="9999999902", role=UserRole.STUDENT, is_active=True)
     student2.set_password("StudentPassword2")
     db_session.add(student2)
     db_session.flush()
@@ -44,11 +46,11 @@ def test_users(db_session):
     )
     db_session.add(profile2)
 
-    admin = User(email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
+    admin = User(college_id=DEFAULT_COLLEGE_ID, email="admin@college.edu.in", role=UserRole.ADMIN, is_active=True)
     admin.set_password("AdminPassword1")
     db_session.add(admin)
 
-    tpo = User(email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
+    tpo = User(college_id=DEFAULT_COLLEGE_ID, email="tpo@college.edu.in", role=UserRole.PLACEMENT_CELL, is_active=True)
     tpo.set_password("TpoPassword1")
     db_session.add(tpo)
 

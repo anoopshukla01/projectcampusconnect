@@ -68,7 +68,7 @@ def upgrade():
             "VALUES (:id, :name, :slug, :code, true, NOW())"
         ),
         {
-            "id": INITIAL_COLLEGE_ID,
+            "id": DEFAULT_COLLEGE_ID,
             "name": INITIAL_COLLEGE_NAME,
             "slug": INITIAL_COLLEGE_SLUG,
             "code": INITIAL_COLLEGE_CODE,
@@ -120,7 +120,7 @@ def upgrade():
     # Backfill existing invites with the initial college
     conn.execute(
         text("UPDATE invites SET college_id = :cid WHERE college_id IS NULL"),
-        {"cid": INITIAL_COLLEGE_ID},
+        {"cid": DEFAULT_COLLEGE_ID},
     )
 
     # ── 4. Backfill all existing rows with the initial college's UUID ─────────
@@ -128,7 +128,7 @@ def upgrade():
     for table in tables_needing_college_id:
         result = conn.execute(
             text(f"UPDATE {table} SET college_id = :cid WHERE college_id IS NULL"),
-            {"cid": INITIAL_COLLEGE_ID},
+            {"cid": DEFAULT_COLLEGE_ID},
         )
         print(f"  [backfill] {table}: {result.rowcount} row(s) updated")
 
