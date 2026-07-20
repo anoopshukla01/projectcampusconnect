@@ -98,15 +98,25 @@ class GradeRevision(db.Model):
 
 
 import enum as _enum
+from app.models.college import DEFAULT_COLLEGE_ID
 
 class Subject(db.Model):
     __tablename__ = "subjects"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # college_id: nullable during migration backfill only; becomes NOT NULL via Alembic.
+    # Global unique on code is removed — replaced by composite (college_id, code) below.
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     name = db.Column(db.String(255), nullable=False)
-    code = db.Column(db.String(50), nullable=False, unique=True)
+    code = db.Column(db.String(50), nullable=False)
     branch = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    college = db.relationship("College", foreign_keys=[college_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("college_id", "code", name="uq_college_subject_code"),
+    )
 
 
 # ── Professor teaching assignments (IDOR anchor for all class-scoped queries) ──

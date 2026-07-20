@@ -686,6 +686,39 @@
   margin-bottom: 0.5rem;
 }
 
+/* ── Sign-Up Tab Bar ─────────────────────────────────────────────────────── */
+
+.signup-tab-bar {
+  display: flex;
+  gap: 0;
+  border: 1px solid #312e81;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.signup-tab {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.signup-tab.active {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+
+.signup-tab:not(.active):hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 520px) {

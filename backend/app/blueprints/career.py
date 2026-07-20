@@ -52,16 +52,20 @@ def get_lectures():
 
     if user.role == UserRole.PROFESSOR:
         recordings = LectureRecording.query.filter_by(
+            college_id=user.college_id,
             uploaded_by_id=user.id
         ).order_by(LectureRecording.created_at.desc()).all()
         syllabus   = SyllabusProgress.query.filter_by(
+            college_id=user.college_id,
             professor_id=user.id
         ).all()
     else:
         recordings = LectureRecording.query.filter(
+            LectureRecording.college_id == user.college_id,
             (LectureRecording.branch == branch) | (LectureRecording.branch.is_(None))
         ).order_by(LectureRecording.created_at.desc()).limit(50).all()
         syllabus   = SyllabusProgress.query.filter(
+            SyllabusProgress.college_id == user.college_id,
             (SyllabusProgress.branch == branch) | (SyllabusProgress.branch.is_(None))
         ).all()
 
@@ -104,6 +108,7 @@ def upload_lecture():
 
     try:
         r = LectureRecording(
+            college_id     = user.college_id,
             title          = title,
             subject        = subject,
             course_code    = data.get("code"),
@@ -140,10 +145,12 @@ def update_syllabus_progress(recording_id):
 
     try:
         sp = SyllabusProgress.query.filter_by(
+            college_id=user.college_id,
             course_code=course_code, professor_id=user.id
         ).first()
         if not sp:
             sp = SyllabusProgress(
+                college_id=user.college_id,
                 subject=subject or course_code or "Unknown",
                 course_code=course_code or "CS000",
                 professor_id=user.id,
@@ -171,7 +178,7 @@ def get_mock_interviews():
     """List active mock interview sessions with booking count."""
     from app.models.content import MockInterviewSession, MockInterviewBooking
     user     = get_current_user()
-    sessions = MockInterviewSession.query.filter_by(is_active=True).order_by(
+    sessions = MockInterviewSession.query.filter_by(college_id=user.college_id, is_active=True).order_by(
         MockInterviewSession.scheduled_at.asc()
     ).all()
 
@@ -201,7 +208,7 @@ def book_mock_interview(session_id):
     """Student: book a mock interview slot (idempotent)."""
     from app.models.content import MockInterviewSession, MockInterviewBooking
     user    = get_current_user()
-    session = MockInterviewSession.query.filter_by(id=session_id, is_active=True).first()
+    session = MockInterviewSession.query.filter_by(id=session_id, college_id=user.college_id, is_active=True).first()
     if not session:
         return error_response("Session not found or not active.", 404)
 
@@ -228,6 +235,7 @@ def book_mock_interview(session_id):
             time_str = f"{session.scheduled_at.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
             
         slot = TimetableSlot(
+            college_id=user.college_id,
             branch=None,
             semester=None,
             role=None,
@@ -684,7 +692,8 @@ def complete_mentorship_session(request_id):
 def get_notes_and_pyqs():
     """Proxy to community notes — returns approved notes for career tab."""
     from app.models.community import StudyNote
-    notes = StudyNote.query.filter_by(approved=True).order_by(
+    user = get_current_user()
+    notes = StudyNote.query.filter_by(college_id=user.college_id, approved=True).order_by(
         StudyNote.created_at.desc()
     ).all()
     res = [{
@@ -750,6 +759,16 @@ def terminate_mentorship(request_id):
 @career_bp.route("/webhooks/daily", methods=["POST"])
 def daily_webhook():
     # Public endpoint called by Daily.co when events happen
+    import os, hmac, hashlib
+    webhook_secret = os.environ.get("DAILY_WEBHOOK_SECRET")
+    if webhook_secret:
+        sig = request.headers.get("X-Daily-Signature")
+        if not sig:
+            return jsonify({"error": "Missing signature"}), 401
+        computed = hmac.new(webhook_secret.encode("utf-8"), request.get_data(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(computed, sig):
+            return jsonify({"error": "Invalid signature"}), 401
+
     data = request.get_json() or {}
     event_type = data.get("event")
     

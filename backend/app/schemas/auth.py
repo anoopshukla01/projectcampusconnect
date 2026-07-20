@@ -65,6 +65,10 @@ class StudentRegisterSchema(Schema):
         unknown = RAISE
 
     otp_verified_token = fields.Str(required=True)
+    # college_code identifies the tenant BEFORE any StudentProfile lookup.
+    # Students receive this code out-of-band from their Admin.
+    # Must be resolved first to prevent roll_no enumeration across colleges.
+    college_code       = fields.Str(load_default="CC2024", validate=validate.Length(min=2, max=20))
     roll_no            = fields.Str(required=True, validate=validate_roll_no)
     full_name          = fields.Str(load_default=None, validate=validate.Length(min=2, max=255))
     branch             = fields.Str(load_default=None, validate=validate.Length(min=2, max=50))

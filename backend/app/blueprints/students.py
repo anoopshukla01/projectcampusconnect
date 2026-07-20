@@ -25,7 +25,7 @@ import uuid
 from flask import Blueprint, jsonify, request, g
 from marshmallow import ValidationError
 
-from app.auth.permissions import require_auth, require_roles, require_self_or_roles, get_current_user
+from app.auth.permissions import require_auth, require_roles, require_self_or_roles, get_current_user, assert_college_match
 from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
@@ -89,7 +89,7 @@ def update_own_profile():
 @require_roles("admin", "placement_cell")
 def get_student_by_id(student_id):
     profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, is_deleted=False
+        id=student_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -116,7 +116,10 @@ def list_students():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
-    query = db.session.query(StudentProfile).filter(StudentProfile.is_deleted == False) # noqa: E712
+    query = db.session.query(StudentProfile).filter(
+        StudentProfile.college_id == g.current_user.college_id,
+        StudentProfile.is_deleted == False
+    ) # noqa: E712
 
     if branch:
         query = query.filter(StudentProfile.branch == branch)
@@ -143,7 +146,7 @@ def list_students():
 @require_roles("admin")
 def admin_update_student(student_id):
     profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, is_deleted=False
+        id=student_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -188,7 +191,7 @@ def admin_update_student(student_id):
 @require_roles("admin")
 def admin_delete_student(student_id):
     profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, is_deleted=False
+        id=student_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -217,6 +220,9 @@ def get_student_applications(student_id):
     student_user = db.session.get(User, student_id)
     if not student_user or student_user.is_deleted or student_user.role != UserRole.STUDENT:
         return error_response("Student not found.", 404)
+    err = assert_college_match(student_user, g.current_user)
+    if err:
+        return err
 
     applications = db.session.query(DriveApplication).filter_by(
         student_id=student_id, is_deleted=False
@@ -246,6 +252,9 @@ def get_student_offers(student_id):
     student_user = db.session.get(User, student_id)
     if not student_user or student_user.is_deleted or student_user.role != UserRole.STUDENT:
         return error_response("Student not found.", 404)
+    err = assert_college_match(student_user, g.current_user)
+    if err:
+        return err
 
     offers = db.session.query(PlacementOffer).filter_by(
         student_id=student_id, is_deleted=False

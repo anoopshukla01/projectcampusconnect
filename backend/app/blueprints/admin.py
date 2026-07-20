@@ -27,7 +27,7 @@ SELF-REVIEW CHECKLIST:
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone, date
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from marshmallow import ValidationError
 from sqlalchemy import func, case
 
@@ -67,16 +67,17 @@ admin_bp = Blueprint("admin", __name__)
 def get_admin_summary():
     """Lightweight dashboard summary: user counts, pending counts."""
     try:
-        total_students  = db.session.query(User).filter_by(role=UserRole.STUDENT,          is_deleted=False).count()
-        active_students = db.session.query(User).filter_by(role=UserRole.STUDENT,          is_deleted=False, is_active=True).count()
-        total_faculty   = db.session.query(User).filter_by(role=UserRole.PROFESSOR,        is_deleted=False).count()
-        active_faculty  = db.session.query(User).filter_by(role=UserRole.PROFESSOR,        is_deleted=False, is_active=True).count()
-        total_tpo       = db.session.query(User).filter_by(role=UserRole.PLACEMENT_CELL,   is_deleted=False).count()
+        cid = g.current_user.college_id
+        total_students  = db.session.query(User).filter_by(college_id=cid, role=UserRole.STUDENT,          is_deleted=False).count()
+        active_students = db.session.query(User).filter_by(college_id=cid, role=UserRole.STUDENT,          is_deleted=False, is_active=True).count()
+        total_faculty   = db.session.query(User).filter_by(college_id=cid, role=UserRole.PROFESSOR,        is_deleted=False).count()
+        active_faculty  = db.session.query(User).filter_by(college_id=cid, role=UserRole.PROFESSOR,        is_deleted=False, is_active=True).count()
+        total_tpo       = db.session.query(User).filter_by(college_id=cid, role=UserRole.PLACEMENT_CELL,   is_deleted=False).count()
         pending_faculty = db.session.query(ProfessorProfile).filter_by(
-            approval_status=ApprovalStatus.PENDING, is_deleted=False
+            college_id=cid, approval_status=ApprovalStatus.PENDING, is_deleted=False
         ).count()
         pending_tpo = db.session.query(User).filter_by(
-            role=UserRole.PLACEMENT_CELL, is_active=False, is_deleted=False
+            college_id=cid, role=UserRole.PLACEMENT_CELL, is_active=False, is_deleted=False
         ).count()
         return jsonify({
             "total_students":  total_students,
@@ -102,7 +103,7 @@ def list_users():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
-    query = db.session.query(User).filter(User.is_deleted == False)  # noqa: E712
+    query = db.session.query(User).filter(User.college_id == g.current_user.college_id, User.is_deleted == False)  # noqa: E712
 
     if role:
         try:
@@ -172,7 +173,7 @@ def list_users():
 @require_auth
 @require_roles("admin")
 def update_user(user_id):
-    user = db.session.query(User).filter_by(id=user_id, is_deleted=False).first()
+    user = db.session.query(User).filter_by(id=user_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not user:
         return error_response("User not found.", 404)
 
@@ -275,7 +276,7 @@ def update_user(user_id):
 @require_auth
 @require_roles("admin")
 def get_user(user_id):
-    user = db.session.query(User).filter_by(id=user_id, is_deleted=False).first()
+    user = db.session.query(User).filter_by(id=user_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not user:
         return error_response("User not found.", 404)
 
@@ -316,7 +317,7 @@ def get_user(user_id):
 @require_auth
 @require_roles("admin")
 def delete_user(user_id):
-    user = db.session.query(User).filter_by(id=user_id, is_deleted=False).first()
+    user = db.session.query(User).filter_by(id=user_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not user:
         return error_response("User not found.", 404)
 
@@ -355,13 +356,15 @@ def add_user_manually():
         except ValueError:
             return jsonify({"error": f"Invalid role: {role_str}"}), 400
 
+        cid = g.current_user.college_id
+
         # Check existing user
         if email:
-            existing = db.session.query(User).filter_by(email=email, is_deleted=False).first()
+            existing = db.session.query(User).filter_by(email=email, college_id=cid, is_deleted=False).first()
             if existing:
                 return jsonify({"error": f"User with email '{email}' already exists."}), 400
         if phone:
-            existing = db.session.query(User).filter_by(phone=phone, is_deleted=False).first()
+            existing = db.session.query(User).filter_by(phone=phone, college_id=cid, is_deleted=False).first()
             if existing:
                 return jsonify({"error": f"User with phone '{phone}' already exists."}), 400
 
@@ -370,7 +373,7 @@ def add_user_manually():
             roll_no = data.get("roll_no")
             if not roll_no:
                 return jsonify({"error": "Roll number is required for students."}), 400
-            existing_stud = db.session.query(StudentProfile).filter_by(roll_no=roll_no.upper(), is_deleted=False).first()
+            existing_stud = db.session.query(StudentProfile).filter_by(roll_no=roll_no.upper(), college_id=cid, is_deleted=False).first()
             if existing_stud:
                 return jsonify({"error": f"Student with roll number '{roll_no}' already exists."}), 400
 
@@ -378,12 +381,13 @@ def add_user_manually():
             employee_id = data.get("employee_id")
             if not employee_id:
                 return jsonify({"error": "Employee ID is required for faculty."}), 400
-            existing_prof = db.session.query(ProfessorProfile).filter_by(employee_id=employee_id.upper(), is_deleted=False).first()
+            existing_prof = db.session.query(ProfessorProfile).filter_by(employee_id=employee_id.upper(), college_id=cid, is_deleted=False).first()
             if existing_prof:
                 return jsonify({"error": f"Professor with employee ID '{employee_id}' already exists."}), 400
 
         # Create user
         user = User(
+            college_id=cid,
             email=email or None,
             phone=phone or None,
             role=role,
@@ -396,6 +400,7 @@ def add_user_manually():
         # Create profile if applicable
         if role == UserRole.STUDENT:
             profile = StudentProfile(
+                college_id=cid,
                 user_id=user.id,
                 roll_no=data["roll_no"].upper(),
                 full_name=data.get("full_name") or f"Student {data['roll_no']}",
@@ -410,6 +415,7 @@ def add_user_manually():
             db.session.add(profile)
         elif role == UserRole.PROFESSOR:
             profile = ProfessorProfile(
+                college_id=cid,
                 user_id=user.id,
                 employee_id=data["employee_id"].upper(),
                 full_name=data.get("full_name") or (email.split("@")[0].capitalize() if email else "Professor"),
@@ -451,19 +457,22 @@ def create_invite():
     except ValidationError as e:
         return validation_error_response(e.messages)
 
+    cid = g.current_user.college_id
+
     # Check if user already exists
-    existing_user = db.session.query(User).filter_by(email=data["email"], is_deleted=False).first()
+    existing_user = db.session.query(User).filter_by(email=data["email"], college_id=cid, is_deleted=False).first()
     if existing_user:
         return error_response("A user with this email already exists.", 409)
 
     # Invalidate old unused invites to same email
-    db.session.query(Invite).filter_by(email=data["email"], is_used=False).update({"is_used": True})
+    db.session.query(Invite).filter_by(email=data["email"], college_id=cid, is_used=False).update({"is_used": True})
 
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     expiry = datetime.now(timezone.utc) + timedelta(hours=48)
 
     invite = Invite(
+        college_id=cid,
         email=data["email"],
         role=data["role"],
         invited_by=get_current_user().id,
@@ -495,7 +504,7 @@ def create_invite():
 @require_auth
 @require_roles("admin")
 def list_invites():
-    invites = db.session.query(Invite).filter_by(is_used=False).all()
+    invites = db.session.query(Invite).filter_by(college_id=g.current_user.college_id, is_used=False).all()
     return jsonify(AdminInviteResponseSchema(many=True).dump(invites)), 200
 
 
@@ -505,7 +514,7 @@ def list_invites():
 @require_auth
 @require_roles("admin")
 def revoke_invite(invite_id):
-    invite = db.session.query(Invite).filter_by(id=invite_id, is_used=False).first()
+    invite = db.session.query(Invite).filter_by(id=invite_id, college_id=g.current_user.college_id, is_used=False).first()
     if not invite:
         return error_response("Active invitation not found.", 404)
 
@@ -526,7 +535,7 @@ def revoke_invite(invite_id):
 @require_auth
 @require_roles("admin")
 def approve_faculty(prof_id):
-    profile = db.session.query(ProfessorProfile).filter_by(id=prof_id, is_deleted=False).first()
+    profile = db.session.query(ProfessorProfile).filter_by(id=prof_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not profile:
         return error_response("Faculty profile not found.", 404)
 
@@ -553,7 +562,7 @@ def approve_faculty(prof_id):
 @require_auth
 @require_roles("admin")
 def reject_faculty(prof_id):
-    profile = db.session.query(ProfessorProfile).filter_by(id=prof_id, is_deleted=False).first()
+    profile = db.session.query(ProfessorProfile).filter_by(id=prof_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not profile:
         return error_response("Faculty profile not found.", 404)
 
@@ -831,6 +840,7 @@ def import_students_csv():
 
     imported_count = 0
     skipped_count = 0
+    cid = g.current_user.college_id
 
     try:
         for item in students_data:
@@ -838,17 +848,18 @@ def import_students_csv():
             if not roll_no:
                 continue
 
-            existing = db.session.query(StudentProfile).filter_by(roll_no=roll_no, is_deleted=False).first()
+            existing = db.session.query(StudentProfile).filter_by(roll_no=roll_no, college_id=cid, is_deleted=False).first()
             if existing:
                 skipped_count += 1
                 continue
 
             # Create inactive stub User & StudentProfile
-            user = User(role=UserRole.STUDENT, is_active=False)
+            user = User(college_id=cid, role=UserRole.STUDENT, is_active=False)
             db.session.add(user)
             db.session.flush()
 
             profile = StudentProfile(
+                college_id=cid,
                 user_id=user.id,
                 roll_no=roll_no.upper(),
                 full_name=item.get("full_name") or f"Student {roll_no}",
@@ -888,14 +899,15 @@ def add_branch():
             return jsonify({"error": "Branch name is required."}), 400
 
         branch_name = branch.strip()
+        cid = g.current_user.college_id
 
         # Check if it already exists as a BranchPlacement
-        existing = db.session.query(BranchPlacement).filter_by(branch=branch_name).first()
+        existing = db.session.query(BranchPlacement).filter_by(branch=branch_name, college_id=cid).first()
         if existing:
             return jsonify({"error": f"Branch '{branch_name}' already exists."}), 400
 
         # Create a BranchPlacement with 0 placed / 0 total as a stub
-        bp = BranchPlacement(branch=branch_name, placed_count=0, total_count=0)
+        bp = BranchPlacement(college_id=cid, branch=branch_name, placed_count=0, total_count=0)
         db.session.add(bp)
         db.session.commit()
 
@@ -935,10 +947,12 @@ def add_branch_placement():
         except (ValueError, TypeError):
             return jsonify({"error": "Placed count and total count must be valid integers."}), 400
 
+        cid = g.current_user.college_id
+
         # Upsert logic
-        bp = db.session.query(BranchPlacement).filter_by(branch=branch).first()
+        bp = db.session.query(BranchPlacement).filter_by(branch=branch, college_id=cid).first()
         if not bp:
-            bp = BranchPlacement(branch=branch, placed_count=placed_count, total_count=total_count)
+            bp = BranchPlacement(college_id=cid, branch=branch, placed_count=placed_count, total_count=total_count)
             db.session.add(bp)
             msg = f"Created placement override for {branch}."
         else:
@@ -1292,8 +1306,10 @@ def reject_timetable_booking(booking_id):
 @require_roles("admin")
 def get_data_health():
     try:
+        cid = g.current_user.college_id
+
         # 1. Fetch user-reported blocks/chat reports (StudentReport)
-        chat_reports = db.session.query(StudentReport).all()
+        chat_reports = db.session.query(StudentReport).join(User, StudentReport.reporter_id == User.id).filter(User.college_id == cid).all()
         reported_list = []
         for cr in chat_reports:
             reporter = db.session.get(User, cr.reporter_id)
@@ -1313,7 +1329,7 @@ def get_data_health():
             })
 
         # 2. Fetch TPO/Company complaints (ModerationReport)
-        mod_reports = db.session.query(ModerationReport).filter(ModerationReport.status == "pending").all()
+        mod_reports = db.session.query(ModerationReport).join(User, ModerationReport.reporter_id == User.id).filter(ModerationReport.status == "pending", User.college_id == cid).all()
         for mr in mod_reports:
             reporter = db.session.get(User, mr.reporter_id)
             
@@ -1357,6 +1373,7 @@ def get_data_health():
 
         # A. Academic: attendance < limit
         students_low_attendance = db.session.query(StudentProfile).filter(
+            StudentProfile.college_id == cid,
             StudentProfile.attendance_pct < attendance_limit,
             StudentProfile.is_deleted == False
         ).all()
@@ -1373,7 +1390,8 @@ def get_data_health():
         # B. Behavioral: reports count >= limit
         from sqlalchemy import text
         reports_count_query = db.session.execute(
-            text("select reported_user_id, count(*) as cnt from student_reports group by reported_user_id")
+            text("select sr.reported_user_id, count(*) as cnt from student_reports sr join users u on sr.reported_user_id = u.id where u.college_id = :cid group by sr.reported_user_id"),
+            {"cid": str(cid)}
         ).fetchall()
         for row in reports_count_query:
             target_id = row[0]
@@ -1393,7 +1411,8 @@ def get_data_health():
 
         # C. Platform-usage: active marketplace listings > limit
         listings_count_query = db.session.execute(
-            text("select seller_id, count(*) as cnt from marketplace_items where status = 'active' group by seller_id")
+            text("select seller_id, count(*) as cnt from marketplace_items where status = 'active' and college_id = :cid group by seller_id"),
+            {"cid": str(cid)}
         ).fetchall()
         for row in listings_count_query:
             seller_id = row[0]
@@ -1413,6 +1432,7 @@ def get_data_health():
 
         # 5. Security signals (failed login attempts >= 5)
         failed_logins = db.session.query(User).filter(
+            User.college_id == cid,
             User.failed_login_attempts >= 5,
             User.is_deleted == False
         ).all()

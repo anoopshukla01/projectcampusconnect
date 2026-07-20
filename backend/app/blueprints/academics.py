@@ -24,10 +24,13 @@ SECURITY CHECKLIST:
   [x] @require_roles where role restriction applies
   [x] IDOR guard: professors can only edit/delete their own slots and assignments
   [x] Role resolved from g.current_user (JWT), never from request body
+  [x] Gate 0 (college scoping): all list queries filter by college_id;
+      all db.session.get() PK lookups followed by assert_college_match()
 """
 
 from flask import Blueprint, jsonify, request
-from app.auth.permissions import require_auth, require_roles, get_current_user
+from flask import g
+from app.auth.permissions import require_auth, require_roles, get_current_user, assert_college_match
 from app.extensions import db
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile
@@ -175,8 +178,9 @@ def mark_attendance():
             except Exception:
                 pass # Proceed if format parsing fails
 
-    # Resolve students: branch + semester filter or all if not given
-    q = StudentProfile.query.filter_by(is_deleted=False)
+    # Resolve students in same college: branch + semester filter or all if not given
+    college_id = g.current_user.college_id
+    q = StudentProfile.query.filter_by(is_deleted=False, college_id=college_id)
     if branch:
         q = q.filter_by(branch=branch)
     if semester:
@@ -596,6 +600,9 @@ def update_assignment(assignment_id):
     a = db.session.get(Assignment, assignment_id)
     if not a:
         return error_response("Assignment not found.", 404)
+    err = assert_college_match(a, g.current_user)
+    if err:
+        return err
 
     if user.role == UserRole.PROFESSOR and str(a.professor_id) != str(user.id):
         return error_response("You can only edit assignments you created.", 403)
@@ -624,6 +631,9 @@ def delete_assignment(assignment_id):
     a = db.session.get(Assignment, assignment_id)
     if not a:
         return error_response("Assignment not found.", 404)
+    err = assert_college_match(a, g.current_user)
+    if err:
+        return err
 
     if user.role == UserRole.PROFESSOR:
         if str(a.professor_id) != str(user.id):
@@ -665,6 +675,9 @@ def submit_assignment(assignment_id):
     a = db.session.get(Assignment, assignment_id)
     if not a:
         return error_response("Assignment not found.", 404)
+    err = assert_college_match(a, g.current_user)
+    if err:
+        return err
 
     # Check deadline
     try:
@@ -715,6 +728,9 @@ def list_submissions(assignment_id):
     a = db.session.get(Assignment, assignment_id)
     if not a:
         return error_response("Assignment not found.", 404)
+    err = assert_college_match(a, g.current_user)
+    if err:
+        return err
 
     # IDOR: professor can only view their own assignment submissions
     if user.role == UserRole.PROFESSOR and str(a.professor_id) != str(user.id):
@@ -746,6 +762,9 @@ def grade_submission(submission_id):
 
     # IDOR: professor can only grade their own assignment's submissions
     a = db.session.get(Assignment, sub.assignment_id)
+    err = assert_college_match(a or sub, g.current_user)
+    if err:
+        return err
     if a and user.role == UserRole.PROFESSOR and str(a.professor_id) != str(user.id):
         return error_response("You can only grade submissions for your own assignments.", 403)
 
@@ -802,7 +821,8 @@ def get_roster():
     branch   = request.args.get("branch")
     semester = request.args.get("semester", type=int)
 
-    q = StudentProfile.query.filter_by(is_deleted=False)
+    college_id = g.current_user.college_id
+    q = StudentProfile.query.filter_by(is_deleted=False, college_id=college_id)
     if branch:
         q = q.filter_by(branch=branch)
     if semester:
@@ -850,6 +870,9 @@ def update_grade(grade_id):
     grade_rec = db.session.get(Grade, grade_id)
     if not grade_rec:
         return error_response("Grade record not found.", 404)
+    err = assert_college_match(grade_rec.student, g.current_user)
+    if err:
+        return err
 
     data = request.get_json() or {}
     new_grade = data.get("grade")
@@ -915,6 +938,9 @@ def get_student_grades(student_id):
     student = db.session.get(StudentProfile, student_id)
     if not student or student.is_deleted:
         return error_response("Student profile not found.", 404)
+    err = assert_college_match(student, g.current_user)
+    if err:
+        return err
 
     # TPO Security Gate: restricted to CGPA/eligibility fields only
     if user.role == UserRole.PLACEMENT_CELL:
@@ -1008,6 +1034,9 @@ def lock_grade_results(grade_id):
     grade_rec = db.session.get(Grade, grade_id)
     if not grade_rec:
         return error_response("Grade record not found.", 404)
+    err = assert_college_match(grade_rec.student, g.current_user)
+    if err:
+        return err
 
     # For professors: must own the course via ProfessorClassAssignment
     if user.role == UserRole.PROFESSOR:
@@ -1055,6 +1084,9 @@ def apply_reeval_grade(grade_id):
     grade_rec = db.session.get(Grade, grade_id)
     if not grade_rec:
         return error_response("Grade record not found.", 404)
+    err = assert_college_match(grade_rec.student, g.current_user)
+    if err:
+        return err
 
     # Must have an approved re-eval request
     reeval = ReEvaluationRequest.query.filter_by(
@@ -1112,7 +1144,7 @@ def get_student_grades_professor(student_id):
     from app.models.academic import ProfessorClassAssignment, Grade
     user = get_current_user()
 
-    sp = StudentProfile.query.filter_by(id=student_id, is_deleted=False).first()
+    sp = StudentProfile.query.filter_by(id=student_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not sp:
         return error_response("Student not found.", 404)
 
@@ -1277,6 +1309,9 @@ def update_professor_slot(slot_id):
 
     if not slot or slot.is_deleted:
         return error_response("Timetable slot not found.", 404)
+    err = assert_college_match(slot, g.current_user)
+    if err:
+        return err
 
     # IDOR: this slot must belong to this professor
     if str(slot.user_id) != str(user.id):
@@ -1330,6 +1365,9 @@ def delete_professor_slot(slot_id):
 
     if not slot or slot.is_deleted:
         return error_response("Timetable slot not found.", 404)
+    err = assert_college_match(slot, g.current_user)
+    if err:
+        return err
 
     if str(slot.user_id) != str(user.id):
         return error_response("You can only delete your own timetable slots.", 403)

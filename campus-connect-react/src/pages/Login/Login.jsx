@@ -111,6 +111,18 @@ export default function Login() {
   const [claimDpdp,      setClaimDpdp]      = useState(false);
   const [claimStepError, setClaimStepError] = useState('');
 
+  /* Email Sign-Up (new) */
+  const [signupMode,      setSignupMode]      = useState('email'); // 'email' | 'claim'
+  const [signupEmail,     setSignupEmail]     = useState('');
+  const [signupOtp,       setSignupOtp]       = useState('');
+  const [signupOtpSent,   setSignupOtpSent]   = useState(false);
+  const [signupOtpToken,  setSignupOtpToken]  = useState('');
+  const [signupVerified,  setSignupVerified]  = useState(false);
+  const [signupFullName,  setSignupFullName]  = useState('');
+  const [signupPassword,  setSignupPassword]  = useState('');
+  const [signupDpdp,      setSignupDpdp]      = useState(false);
+  const [signupError,     setSignupError]     = useState('');
+
   /* Accept Invite */
   const [inviteToken,    setInviteToken]    = useState('');
   const [invitePassword, setInvitePassword] = useState('');
@@ -154,7 +166,108 @@ export default function Login() {
     }
   }
 
-  /* ── OTP Send ── */
+  /* ── Email Sign-Up: Send OTP ── */
+  async function handleEmailOtpSend() {
+    if (!signupEmail.trim() || !isValidEmail(signupEmail.trim())) {
+      setSignupError('Please enter a valid email address (e.g. yourname@gmail.com).'); return;
+    }
+    setSignupError(''); setLoading(true);
+    try {
+      const res = await fetch('/api/v1/auth/otp/email/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signupEmail.trim().toLowerCase() }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (res.ok) {
+        setSignupOtpSent(true);
+        const hint = data.mock_otp ? ` (Dev OTP: ${data.mock_otp})` : '';
+        showToast(`OTP sent to ${signupEmail}!${hint}`, 'success', 5000);
+      } else {
+        setSignupError(data.error || 'Failed to send OTP. Please try again.');
+      }
+    } catch {
+      setLoading(false);
+      setSignupError('Cannot reach server. Please check your connection.');
+    }
+  }
+
+  /* ── Email Sign-Up: Verify OTP ── */
+  async function handleEmailOtpVerify() {
+    if (!signupOtp.trim() || signupOtp.trim().length !== 6) {
+      setSignupError('Please enter the 6-digit OTP sent to your email.'); return;
+    }
+    setSignupError(''); setLoading(true);
+    try {
+      const res = await fetch('/api/v1/auth/otp/email/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signupEmail.trim().toLowerCase(), otp: signupOtp.trim() }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (res.ok) {
+        setSignupOtpToken(data.otp_verified_token || '');
+        setSignupVerified(true);
+        showToast('Email verified! Set your password below.', 'success', 3000);
+      } else {
+        setSignupError(data.error || 'Invalid OTP. Please try again.');
+      }
+    } catch {
+      setLoading(false);
+      setSignupError('Cannot reach server. Please check your connection.');
+    }
+  }
+
+  /* ── Email Sign-Up: Complete Registration ── */
+  async function handleEmailRegister(e) {
+    e.preventDefault();
+    if (!signupPassword || signupPassword.length < 8) { setSignupError('Password must be at least 8 characters.'); return; }
+    if (!/[A-Z]/.test(signupPassword)) { setSignupError('Password must contain at least one uppercase letter.'); return; }
+    if (!/\d/.test(signupPassword)) { setSignupError('Password must contain at least one digit.'); return; }
+    if (!signupDpdp) { setSignupError('DPDP Act consent is required to create an account.'); return; }
+    setSignupError(''); setLoading(true);
+    try {
+      const res = await fetch('/api/v1/auth/register/email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otp_verified_token: signupOtpToken,
+          full_name: signupFullName.trim() || undefined,
+          password: signupPassword,
+          dpdp_consent: signupDpdp,
+        }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (res.ok) {
+        // Auto-login: persist tokens and redirect
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem('token', data.access_token);
+        const userObj = {
+          id: data.user_id,
+          email: signupEmail.trim().toLowerCase(),
+          role: 'student',
+          backendRole: 'student',
+          name: data.full_name || signupEmail.split('@')[0],
+          initials: (data.full_name || signupEmail.split('@')[0]).slice(0, 2).toUpperCase(),
+        };
+        localStorage.setItem('ss_user', JSON.stringify(userObj));
+        showToast(`Welcome, ${userObj.name}! Account created 🎉`, 'success', 3000);
+        setTimeout(() => window.location.href = '/', 800);
+      } else {
+        if (res.status === 409) {
+          setSignupError('An account with this email already exists. Please sign in instead.');
+        } else {
+          setSignupError(data.error || 'Registration failed. Please try again.');
+        }
+      }
+    } catch {
+      setLoading(false);
+      setSignupError('Cannot reach server. Please check your connection.');
+    }
+  }
+
+  /* ── OTP Send (phone, for existing student claim) ── */
   async function handleSendOtp() {
     if (!claimPhone.trim() || claimPhone.trim().length < 10) {
       setClaimStepError('Please enter a valid 10-digit phone number.'); return;
@@ -174,7 +287,7 @@ export default function Login() {
     }
   }
 
-  /* ── OTP Verify ── */
+  /* ── OTP Verify (phone, for existing student claim) ── */
   async function handleVerifyOtp() {
     if (!claimOtp.trim() || claimOtp.trim().length !== 6) {
       setClaimStepError('Please enter the 6-digit OTP.'); return;
@@ -198,7 +311,7 @@ export default function Login() {
     }
   }
 
-  /* ── Complete Claim ── */
+  /* ── Complete Claim (roll number) ── */
   async function handleCompleteClaim(e) {
     e.preventDefault();
     if (!claimRollNo.trim()) { setClaimStepError('Roll number is required.'); return; }
@@ -367,86 +480,218 @@ export default function Login() {
           </form>
         )}
 
-        {/* ─── MODE 2: CLAIM STUDENT ACCOUNT ───────────────────────────── */}
+        {/* ─── MODE 2: SIGN UP / CLAIM ──────────────────────────────────── */}
         {mode === 'claim_student' && (
-          <form className="login-form" onSubmit={handleCompleteClaim}>
-            {claimStepError && <div className="alert-error">{claimStepError}</div>}
+          <div className="login-form">
 
-            <div className="form-field">
-              <label className="form-label" htmlFor="claimRoll">Roll Number</label>
-              <div className="input-wrap">
-                <input
-                  type="text" id="claimRoll" placeholder="e.g. CS21B1042"
-                  value={claimRollNo}
-                  onChange={e => setClaimRollNo(e.target.value.toUpperCase())}
-                />
-              </div>
+            {/* Tab switcher */}
+            <div className="signup-tab-bar">
+              <button
+                type="button"
+                className={`signup-tab${signupMode === 'email' ? ' active' : ''}`}
+                onClick={() => setSignupMode('email')}
+              >
+                ✉ Sign Up with Email
+              </button>
+              <button
+                type="button"
+                className={`signup-tab${signupMode === 'claim' ? ' active' : ''}`}
+                onClick={() => setSignupMode('claim')}
+              >
+                🎓 Claim Student Record
+              </button>
             </div>
 
-            <div className="form-field">
-              <label className="form-label" htmlFor="claimPhone">Phone Number (OTP Verification)</label>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
-                <div className="input-wrap" style={{ flex: 1 }}>
-                  <input
-                    type="tel" id="claimPhone" placeholder="10-digit mobile number"
-                    value={claimPhone} disabled={otpVerified}
-                    onChange={e => setClaimPhone(e.target.value)}
-                  />
-                </div>
-                {!otpVerified && (
-                  <button type="button" className="btn-inline" onClick={handleSendOtp} disabled={loading}>
-                    {otpSent ? 'Resend OTP' : 'Send OTP'}
-                  </button>
+            {/* ── Email Sign-Up ── */}
+            {signupMode === 'email' && (
+              <form onSubmit={signupVerified ? handleEmailRegister : (e) => { e.preventDefault(); signupOtpSent ? handleEmailOtpVerify() : handleEmailOtpSend(); }}>
+                {signupError && <div className="alert-error">{signupError}</div>}
+
+                {!signupVerified && (
+                  <>
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="signupEmail">Email Address</label>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                        <div className="input-wrap" style={{ flex: 1 }}>
+                          <input
+                            type="email" id="signupEmail"
+                            placeholder="yourname@gmail.com"
+                            value={signupEmail} disabled={signupOtpSent}
+                            onChange={e => setSignupEmail(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          type="button" className="btn-inline"
+                          onClick={handleEmailOtpSend} disabled={loading || signupOtpSent}
+                        >
+                          {signupOtpSent ? '✓ Sent' : 'Send OTP'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {signupOtpSent && (
+                      <div className="form-field">
+                        <label className="form-label" htmlFor="signupOtp">
+                          Enter OTP sent to your email
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                          <div className="input-wrap" style={{ flex: 1 }}>
+                            <input
+                              type="text" id="signupOtp" placeholder="6-digit OTP" maxLength={6}
+                              value={signupOtp} onChange={e => setSignupOtp(e.target.value)}
+                            />
+                          </div>
+                          <button
+                            type="button" className="btn-verify"
+                            onClick={handleEmailOtpVerify} disabled={loading}
+                          >
+                            Verify
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: '0.8rem', padding: '4px 0', marginTop: '4px' }}
+                          onClick={() => { setSignupOtpSent(false); setSignupOtp(''); setSignupError(''); }}
+                        >
+                          ← Change email
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
-            </div>
 
-            {otpSent && !otpVerified && (
-              <div className="form-field">
-                <label className="form-label" htmlFor="claimOtp">6-digit OTP</label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
-                  <div className="input-wrap" style={{ flex: 1 }}>
-                    <input
-                      type="text" id="claimOtp" placeholder="123456" maxLength={6}
-                      value={claimOtp} onChange={e => setClaimOtp(e.target.value)}
-                    />
-                  </div>
-                  <button type="button" className="btn-verify" onClick={handleVerifyOtp} disabled={loading}>
-                    Verify
-                  </button>
-                </div>
-              </div>
+                {signupVerified && (
+                  <>
+                    <div className="alert-success">✓ {signupEmail} verified!</div>
+
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="signupFullName">
+                        Full Name <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <div className="input-wrap">
+                        <input
+                          type="text" id="signupFullName" placeholder="e.g. Anoop Kumar"
+                          value={signupFullName} onChange={e => setSignupFullName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="signupPassword">Set Password</label>
+                      <div className="input-wrap">
+                        <input
+                          type="password" id="signupPassword"
+                          placeholder="Min 8 chars, 1 uppercase & 1 digit"
+                          value={signupPassword} onChange={e => setSignupPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="dpdp-row">
+                      <input
+                        type="checkbox" id="signupDpdp"
+                        checked={signupDpdp} onChange={e => setSignupDpdp(e.target.checked)}
+                      />
+                      <label htmlFor="signupDpdp">
+                        I consent under India's DPDP Act 2023 for my data processing.
+                      </label>
+                    </div>
+
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                      {loading ? <><span className="btn-spinner" />&nbsp;Creating Account…</> : 'Create Account & Sign In'}
+                    </button>
+                  </>
+                )}
+              </form>
             )}
 
-            {otpVerified && (
-              <>
-                <div className="alert-success">✓ Phone number verified successfully.</div>
+            {/* ── Claim Existing Student Record (phone OTP + roll no) ── */}
+            {signupMode === 'claim' && (
+              <form className="login-form" onSubmit={handleCompleteClaim}>
+                <div className="invite-note">
+                  For students who were pre-imported by your institution — verify your phone number to claim your existing academic record.
+                </div>
+                {claimStepError && <div className="alert-error">{claimStepError}</div>}
 
                 <div className="form-field">
-                  <label className="form-label" htmlFor="claimPassword">Set Password</label>
+                  <label className="form-label" htmlFor="claimRoll">Roll Number</label>
                   <div className="input-wrap">
                     <input
-                      type="password" id="claimPassword"
-                      placeholder="Min 8 chars, 1 uppercase & 1 digit"
-                      value={claimPassword} onChange={e => setClaimPassword(e.target.value)}
+                      type="text" id="claimRoll" placeholder="e.g. CS21B1042"
+                      value={claimRollNo}
+                      onChange={e => setClaimRollNo(e.target.value.toUpperCase())}
                     />
                   </div>
                 </div>
 
-                <div className="dpdp-row">
-                  <input type="checkbox" id="dpdpCheck" checked={claimDpdp} onChange={e => setClaimDpdp(e.target.checked)} />
-                  <label htmlFor="dpdpCheck">
-                    I consent under India's DPDP Act 2023 for my academic profile &amp; placement data processing.
-                  </label>
+                <div className="form-field">
+                  <label className="form-label" htmlFor="claimPhone">Phone Number (OTP Verification)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                    <div className="input-wrap" style={{ flex: 1 }}>
+                      <input
+                        type="tel" id="claimPhone" placeholder="10-digit mobile number"
+                        value={claimPhone} disabled={otpVerified}
+                        onChange={e => setClaimPhone(e.target.value)}
+                      />
+                    </div>
+                    {!otpVerified && (
+                      <button type="button" className="btn-inline" onClick={handleSendOtp} disabled={loading}>
+                        {otpSent ? 'Resend OTP' : 'Send OTP'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <><span className="btn-spinner" />&nbsp;Activating…</> : 'Activate & Complete Claim'}
-                </button>
-              </>
+                {otpSent && !otpVerified && (
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="claimOtp">6-digit OTP</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                      <div className="input-wrap" style={{ flex: 1 }}>
+                        <input
+                          type="text" id="claimOtp" placeholder="123456" maxLength={6}
+                          value={claimOtp} onChange={e => setClaimOtp(e.target.value)}
+                        />
+                      </div>
+                      <button type="button" className="btn-verify" onClick={handleVerifyOtp} disabled={loading}>
+                        Verify
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {otpVerified && (
+                  <>
+                    <div className="alert-success">✓ Phone number verified successfully.</div>
+
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="claimPassword">Set Password</label>
+                      <div className="input-wrap">
+                        <input
+                          type="password" id="claimPassword"
+                          placeholder="Min 8 chars, 1 uppercase & 1 digit"
+                          value={claimPassword} onChange={e => setClaimPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="dpdp-row">
+                      <input type="checkbox" id="dpdpCheck" checked={claimDpdp} onChange={e => setClaimDpdp(e.target.checked)} />
+                      <label htmlFor="dpdpCheck">
+                        I consent under India's DPDP Act 2023 for my academic profile & placement data processing.
+                      </label>
+                    </div>
+
+                    <button type="submit" className="btn-primary" disabled={loading}>
+                      {loading ? <><span className="btn-spinner" />&nbsp;Activating…</> : 'Activate & Complete Claim'}
+                    </button>
+                  </>
+                )}
+              </form>
             )}
-          </form>
+
+          </div>
         )}
+
 
         {/* ─── MODE 3: ACCEPT STAFF INVITE ─────────────────────────────── */}
         {mode === 'accept_invite' && (

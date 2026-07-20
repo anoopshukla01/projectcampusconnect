@@ -1,3 +1,4 @@
+from app.models.college import College
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile, StudentResume
 from app.models.professor import ProfessorProfile, ApprovalStatus
@@ -40,6 +41,7 @@ from app.models.notification import Notification
 from app.models.rule import SystemRule
 
 __all__ = [
+    "College",
     "User", "UserRole",
     "StudentProfile", "StudentResume",
     "ProfessorProfile", "ApprovalStatus",

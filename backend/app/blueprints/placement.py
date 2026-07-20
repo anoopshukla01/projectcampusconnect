@@ -40,9 +40,10 @@ import uuid as uuid_lib
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
+from flask import g
 from marshmallow import ValidationError
 
-from app.auth.permissions import require_auth, require_roles, require_self_or_roles, get_current_user
+from app.auth.permissions import require_auth, require_roles, require_self_or_roles, get_current_user, assert_college_match
 from app.extensions import db
 from app.models.placement import (
     DriveApplication, DriveShortlist, PlacementDrive, PlacementOffer,
@@ -104,12 +105,12 @@ def create_drive():
     # Link to existing company or create a new one
     company = None
     if company_id:
-        company = Company.query.filter_by(id=company_id, is_deleted=False).first()
+        company = Company.query.filter_by(id=company_id, college_id=g.current_user.college_id, is_deleted=False).first()
     if not company:
-        company = Company.query.filter_by(name=company_name, is_deleted=False).first()
+        company = Company.query.filter_by(name=company_name, college_id=g.current_user.college_id, is_deleted=False).first()
     if not company:
         try:
-            company = Company(name=company_name, sector="Tech")
+            company = Company(college_id=g.current_user.college_id, name=company_name, sector="Tech")
             db.session.add(company)
             db.session.flush()
         except Exception as exc:
@@ -118,6 +119,7 @@ def create_drive():
 
     try:
         drive = PlacementDrive(
+            college_id=g.current_user.college_id,
             company_id=company.id,
             company_name=company.name,
             role_title=data["role_title"],
@@ -156,7 +158,10 @@ def list_drives():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
-    query = db.session.query(PlacementDrive).filter(PlacementDrive.is_deleted == False)  # noqa: E712
+    query = db.session.query(PlacementDrive).filter(
+        PlacementDrive.college_id == g.current_user.college_id,
+        PlacementDrive.is_deleted == False
+    )  # noqa: E712
 
     if user.role == UserRole.STUDENT:
         # Students only see active drives
@@ -203,12 +208,11 @@ def list_drives():
 @placement_bp.get("/drives/<uuid:drive_id>")
 @require_auth
 def get_drive(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
     user = get_current_user()
-    # Students can only see active drives
     if user.role == UserRole.STUDENT and drive.status != DriveStatus.ACTIVE:
         return error_response("Drive not found.", 404)
 
@@ -221,7 +225,7 @@ def get_drive(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def update_drive(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -257,7 +261,7 @@ def update_drive(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def delete_drive(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -291,7 +295,7 @@ def get_eligible_students(drive_id):
     from app.models.academic import Grade
     from app.models.community import EventRegistration
 
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -420,7 +424,7 @@ def override_eligibility(drive_id):
     TPO manually overrides rank, excludes or adds notes to a student's eligibility.
     """
     from app.models.placement import PlacementDrive, EligibilityOverride
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -461,7 +465,7 @@ def override_eligibility(drive_id):
 @require_auth
 @require_roles("student")
 def apply_for_drive(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -537,6 +541,9 @@ def withdraw_application(drive_id):
     drive = db.session.get(PlacementDrive, drive_id)
     if not drive or drive.is_deleted:
         return error_response("Drive not found.", 404)
+    err = assert_college_match(drive, g.current_user)
+    if err:
+        return err
 
     now = datetime.now(timezone.utc)
     deadline = drive.registration_deadline
@@ -561,7 +568,7 @@ def withdraw_application(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def list_drive_applications(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -593,7 +600,7 @@ def list_drive_applications(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def bulk_shortlist(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -730,7 +737,7 @@ def get_shortlist(drive_id):
 @require_auth
 @require_roles("admin", "placement_cell")
 def create_offer(drive_id):
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 
@@ -935,8 +942,9 @@ def get_placement_stats():
     from app.models.placement import PlacementDrive, DriveApplication, PlacementOffer, OfferStatus, BranchPlacement
     from app.models.student import StudentProfile
 
-    total_students = db.session.query(StudentProfile).filter_by(is_deleted=False).count()
-    total_drives   = db.session.query(PlacementDrive).filter_by(is_deleted=False).count()
+    college_id = g.current_user.college_id
+    total_students = db.session.query(StudentProfile).filter_by(is_deleted=False, college_id=college_id).count()
+    total_drives   = db.session.query(PlacementDrive).filter_by(is_deleted=False, college_id=college_id).count()
     accepted_offers = db.session.query(PlacementOffer).filter_by(
         status=OfferStatus.ACCEPTED, is_deleted=False
     ).count()
@@ -954,8 +962,8 @@ def get_placement_stats():
     ).filter_by(status=OfferStatus.ACCEPTED, is_deleted=False).scalar()
     max_ctc = round(float(max_ctc_row), 2) if max_ctc_row else 0.0
 
-    # Branch stats — use actual model field names
-    branch_rows = db.session.query(BranchPlacement).all()
+    # Branch stats — scoped to this college's BranchPlacement rows
+    branch_rows = db.session.query(BranchPlacement).filter_by(college_id=g.current_user.college_id).all()
     branch_stats = [{
         "branch":      b.branch,
         "placed":      b.placed_count,
@@ -966,7 +974,7 @@ def get_placement_stats():
     } for b in branch_rows]
 
     # Recent drives (last 5)
-    recent = db.session.query(PlacementDrive).filter_by(is_deleted=False).order_by(
+    recent = db.session.query(PlacementDrive).filter_by(is_deleted=False, college_id=g.current_user.college_id).order_by(
         PlacementDrive.created_at.desc()
     ).limit(5).all()
     recent_drives = [{
@@ -990,8 +998,8 @@ def get_placement_stats():
         "branch_stats":       branch_stats,
         "recent_drives":      recent_drives,
         "pipeline":           [
-            {"label": "Applied",     "count": db.session.query(DriveApplication).filter_by(is_deleted=False).count(), "color": "#6366f1"},
-            {"label": "Shortlisted", "count": db.session.query(DriveShortlist).filter_by(is_deleted=False).count(), "color": "#3b82f6"},
+            {"label": "Applied",     "count": db.session.query(DriveApplication).filter(DriveApplication.drive_id.in_([d.id for d in recent])).filter_by(is_deleted=False).count(), "color": "#6366f1"},
+            {"label": "Shortlisted", "count": db.session.query(DriveShortlist).filter(DriveShortlist.drive_id.in_([d.id for d in recent])).filter_by(is_deleted=False).count(), "color": "#3b82f6"},
             {"label": "Offered",     "count": accepted_offers, "color": "#10b981"},
         ],
         "top_recruiters":     [],
@@ -1012,7 +1020,7 @@ def create_interview_booking(drive_id):
     """
     from app.models.academic import TimetableBooking
     from app.models.placement import PlacementDrive
-    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False).first()
+    drive = db.session.query(PlacementDrive).filter_by(id=drive_id, is_deleted=False, college_id=g.current_user.college_id).first()
     if not drive:
         return error_response("Drive not found.", 404)
 

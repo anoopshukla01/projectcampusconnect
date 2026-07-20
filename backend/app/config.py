@@ -72,9 +72,13 @@ class BaseConfig:
     # In production, list exact frontend origin(s).
     CORS_ORIGINS: list = []              # overridden per env
 
-    # ── College-level settings ────────────────────────────────────────────────
-    ALLOWED_EMAIL_DOMAIN: str            # set per-subclass or from env
-    COLLEGE_NAME: str                    # set per-subclass or from env
+    # ── College-level settings (DEPRECATED — now DB-driven) ──────────────────
+    # ALLOWED_EMAIL_DOMAIN and COLLEGE_NAME have been removed from production
+    # config. College identity is now stored in the `colleges` table and
+    # referenced via User.college_id / StudentProfile.college_id.
+    # They remain in DevelopmentConfig and TestingConfig only for demo tooling.
+    # DO NOT re-add these to ProductionConfig — doing so re-introduces
+    # single-tenant assumptions.
 
     # ── OTP ───────────────────────────────────────────────────────────────────
     OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "10"))
@@ -170,8 +174,8 @@ class ProductionConfig(BaseConfig):
     RATELIMIT_ENABLED = True
     RATELIMIT_STORAGE_URL = None
     CORS_ORIGINS = []
-    ALLOWED_EMAIL_DOMAIN = None
-    COLLEGE_NAME = None
+    # NOT SET: ALLOWED_EMAIL_DOMAIN / COLLEGE_NAME are no longer production config.
+    # College identity is stored in the `colleges` table (see migration f1a2b3c4d5e6).
     MOCK_OTP = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
     # ── Supabase / pgBouncer (transaction mode) engine options ────────────────
@@ -201,10 +205,25 @@ class ProductionConfig(BaseConfig):
         cls.SECRET_KEY = _require_env("SECRET_KEY")
         cls.JWT_SECRET_KEY = _require_env("JWT_SECRET_KEY")
         cls.SQLALCHEMY_DATABASE_URI = _require_env("DATABASE_URL")
-        cls.RATELIMIT_STORAGE_URL = os.environ.get("REDIS_URL", "memory://")
-        cls.ALLOWED_EMAIL_DOMAIN = _require_env("ALLOWED_EMAIL_DOMAIN")
-        cls.COLLEGE_NAME = _require_env("COLLEGE_NAME")
+
+        redis_url = os.environ.get("REDIS_URL", "")
+        if not redis_url or redis_url == "memory://":
+            import logging
+            logging.getLogger(__name__).warning(
+                "REDIS_URL is not set or is 'memory://'. Rate-limiting and JWT blocklisting "
+                "will NOT work correctly across multiple gunicorn workers. "
+                "Provision a real Redis instance and set REDIS_URL before onboarding users."
+            )
+            redis_url = redis_url or "memory://"
+        cls.RATELIMIT_STORAGE_URL = redis_url
+
         cls.MOCK_OTP = os.environ.get("MOCK_OTP", "false").lower() == "true"
+        if cls.MOCK_OTP:
+            import logging
+            logging.getLogger(__name__).warning(
+                "MOCK_OTP is True in production. Real OTP verification is bypassed. "
+                "This MUST be disabled before onboarding any students."
+            )
 
         origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
         for fallback in ["http://localhost", "capacitor://localhost"]:

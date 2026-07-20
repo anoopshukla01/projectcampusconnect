@@ -1,13 +1,17 @@
 import uuid
 from datetime import datetime, timezone
 from app.extensions import db
+from app.models.college import DEFAULT_COLLEGE_ID
 
 class StudentProfile(db.Model):
     __tablename__ = "student_profiles"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), unique=True, nullable=False)
-    roll_no = db.Column(db.String(20), unique=True, nullable=False)
+    # college_id is nullable during migration backfill only; becomes NOT NULL via Alembic.
+    # Global unique on roll_no is removed — replaced by composite (college_id, roll_no) below.
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
+    roll_no = db.Column(db.String(20), nullable=False)
     full_name = db.Column(db.String(255), nullable=False)
     branch = db.Column(db.String(50), nullable=False)
     batch_year = db.Column(db.Integer, nullable=False)
@@ -34,6 +38,11 @@ class StudentProfile(db.Model):
 
     # Relationships
     user = db.relationship("User", back_populates="student_profile")
+    college = db.relationship("College", foreign_keys=[college_id], lazy="joined")
+
+    __table_args__ = (
+        db.UniqueConstraint("college_id", "roll_no", name="uq_college_roll_no"),
+    )
 
 
 class StudentResume(db.Model):

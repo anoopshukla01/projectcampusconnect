@@ -4,6 +4,9 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt && flask db upgrade
+    # NOTE: --workers 2 with a real Redis REDIS_URL is required for correct
+    # rate-limiting and JWT blocklisting across workers (memory:// only works
+    # with --workers 1 and is not suitable for production multi-tenancy).
     startCommand: gunicorn "app:create_app('production')" --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     plan: free
     region: oregon
@@ -15,15 +18,20 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        sync: false   # Set this manually in Render dashboard (your Supabase URL)
+        sync: false   # Set manually in Render dashboard (your Supabase connection string)
+      # REDIS_URL: MUST be a real Redis instance (e.g. Render Redis, Upstash, or Railway Redis).
+      # memory:// only works with a single worker and is NOT safe for production multi-tenancy.
+      # Rate-limiting and JWT blocklisting require a shared store across all workers.
+      # After provisioning Redis, set this to the Redis connection URL and remove this comment.
       - key: REDIS_URL
-        value: memory://
-      - key: ALLOWED_EMAIL_DOMAIN
-        value: college.edu.in
-      - key: COLLEGE_NAME
-        value: Campus Connect College
+        sync: false   # Set manually in Render dashboard to your Redis URL
+      # REMOVED: ALLOWED_EMAIL_DOMAIN and COLLEGE_NAME.
+      # These were single-tenant config. College identity is now stored in the
+      # `colleges` DB table. Refer to the multi-tenancy migration (f1a2b3c4d5e6).
+      # MOCK_OTP: Set to "false" in production. "true" bypasses real SMS OTP verification
+      # and must NEVER be used when real students are registered on the platform.
       - key: MOCK_OTP
-        value: "true"
+        value: "false"
       - key: CORS_ORIGINS
         value: https://projectcampusconnect.vercel.app,http://localhost:5173,http://localhost:3000
       - key: PYTHON_VERSION

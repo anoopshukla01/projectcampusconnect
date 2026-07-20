@@ -23,7 +23,7 @@ import os
 from flask import Flask
 
 from .config import config_map, ProductionConfig
-from .extensions import cors, db, jwt, limiter, migrate
+from .extensions import cors, db, jwt, limiter, migrate, mail
 from .utils.errors import register_error_handlers
 
 logger = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ def create_app(config_name: str | None = None) -> Flask:
         resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
         supports_credentials=True,
     )
+    mail.init_app(app)
 
     # ── JWT blocklist (revoked tokens) ────────────────────────────────────
     _register_jwt_callbacks(app)

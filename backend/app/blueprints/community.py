@@ -3,7 +3,7 @@ Community Blueprint — Announcements, Events, Marketplace, Lost & Found, Notes,
 """
 
 from flask import Blueprint, jsonify, request, g
-from app.auth.permissions import require_auth, require_roles, get_current_user
+from app.auth.permissions import require_auth, require_roles, get_current_user, assert_college_match
 from app.extensions import db
 from app.models.community import Announcement, CampusEvent, MarketplaceItem, LostFoundItem, StudyNote, LibraryResource
 from app.utils.errors import error_response, internal_error_response
@@ -14,7 +14,8 @@ community_bp = Blueprint("community", __name__)
 @community_bp.route("/announcements", methods=["GET"])
 @require_auth
 def get_announcements():
-    announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
+    user = get_current_user()
+    announcements = Announcement.query.filter_by(college_id=user.college_id).order_by(Announcement.created_at.desc()).all()
     res = [{
         "id": str(a.id),
         "title": a.title,
@@ -38,6 +39,7 @@ def create_announcement():
 
     role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
     a = Announcement(
+        college_id=user.college_id,
         title=title,
         content=content,
         author_name=data.get("author_name") or (user.email or "").split("@")[0].capitalize(),
@@ -56,7 +58,7 @@ def create_announcement():
         if role_str == "admin":
             # Notify up to 500 active users (avoid unbounded mass inserts)
             target_branch = a.target_branch
-            q = _User.query.filter_by(is_active=True, is_deleted=False)
+            q = _User.query.filter_by(college_id=user.college_id, is_active=True, is_deleted=False)
             uids = [u.id for u in q.limit(500).all()]
             notify(
                 uids,
@@ -68,7 +70,7 @@ def create_announcement():
         elif role_str == "professor" and a.target_branch:
             from app.models.student import StudentProfile as _SP
             uids = [sp.user_id for sp in _SP.query.filter_by(
-                branch=a.target_branch, is_deleted=False
+                college_id=user.college_id, branch=a.target_branch, is_deleted=False
             ).limit(200).all()]
             notify(
                 uids,
@@ -87,7 +89,7 @@ def create_announcement():
 @require_roles("admin", "professor", "placement_cell")
 def delete_announcement(announcement_id):
     user = get_current_user()
-    a = Announcement.query.filter_by(id=announcement_id).first()
+    a = Announcement.query.filter_by(id=announcement_id, college_id=user.college_id).first()
     if not a:
         return error_response("Announcement not found.", 404)
     # professors can only delete their own
@@ -110,7 +112,7 @@ def delete_announcement(announcement_id):
 def get_events():
     from app.models.user import UserRole
     user = get_current_user()
-    q = CampusEvent.query
+    q = CampusEvent.query.filter_by(college_id=user.college_id)
     # Students and professors see only approved/live events
     if user.role in (UserRole.STUDENT, UserRole.PROFESSOR):
         q = q.filter(CampusEvent.approval_status.in_(["live", "approved"]))
@@ -149,6 +151,7 @@ def get_marketplace():
     user = get_current_user()
     expiry_limit = datetime.now(timezone.utc) - timedelta(days=30)
     items = MarketplaceItem.query.filter(
+        MarketplaceItem.college_id == user.college_id,
         MarketplaceItem.status == "active",
         MarketplaceItem.created_at >= expiry_limit
     ).order_by(MarketplaceItem.created_at.desc()).all()
@@ -174,7 +177,7 @@ def get_marketplace():
 def get_lost_found():
     from app.models.user import UserRole
     user = get_current_user()
-    items = LostFoundItem.query.filter_by(status="open").order_by(LostFoundItem.created_at.desc()).all()
+    items = LostFoundItem.query.filter_by(college_id=user.college_id, status="open").order_by(LostFoundItem.created_at.desc()).all()
     res = []
     for i in items:
         is_owner = str(i.reporter_id) == str(user.id)
@@ -201,7 +204,7 @@ def get_notes():
     user = get_current_user()
     all_branches = request.args.get("all_branches", "false").lower() == "true" or request.args.get("all", "false").lower() == "true"
 
-    q = StudyNote.query.filter_by(approved=True)
+    q = StudyNote.query.filter_by(college_id=user.college_id, approved=True)
 
     if not all_branches and user.role == UserRole.STUDENT and user.student_profile:
         q = q.filter_by(branch=user.student_profile.branch, semester=user.student_profile.semester)
@@ -225,7 +228,8 @@ def get_notes():
 @community_bp.route("/elibrary", methods=["GET"])
 @require_auth
 def get_elibrary():
-    resources = LibraryResource.query.filter_by(approved=True).order_by(
+    user = get_current_user()
+    resources = LibraryResource.query.filter_by(college_id=user.college_id, approved=True).order_by(
         LibraryResource.created_at.desc()
     ).all()
     res = [{
@@ -907,6 +911,9 @@ def request_library_resource():
     resource = db.session.get(LibraryResource, res_uuid)
     if not resource or not resource.approved:
         return error_response("Library resource not found or not approved", 404)
+    err = assert_college_match(resource, user)
+    if err:
+        return err
 
     # Check active requests limit (max 3 active)
     active_count = LibraryRequest.query.filter(
@@ -963,6 +970,10 @@ def manage_library_request(request_id):
     req = db.session.get(LibraryRequest, request_id)
     if not req:
         return error_response("Request not found", 404)
+    if req.resource:
+        err = assert_college_match(req.resource, g.current_user)
+        if err:
+            return err
 
     data = request.get_json() or {}
     status_str = data.get("status")
@@ -996,6 +1007,9 @@ def register_event_student(event_id):
     event = db.session.get(CampusEvent, event_id)
     if not event:
         return error_response("Event not found", 404)
+    err = assert_college_match(event, user)
+    if err:
+        return err
 
     existing = EventRegistration.query.filter_by(event_id=event.id, student_id=student.id).first()
     if existing:

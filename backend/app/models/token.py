@@ -43,6 +43,9 @@ class Invite(db.Model):
     email = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(30), nullable=False) # e.g. "admin", "placement_cell"
     invited_by = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    # college_id is set from the inviting Admin's own college — never from client input.
+    # This ensures faculty/TPO accounts can only be created in the Admin's own tenant.
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=True)
     token_hash = db.Column(db.String(255), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_used = db.Column(db.Boolean, default=False, nullable=False)
@@ -50,3 +53,4 @@ class Invite(db.Model):
 
     # Relationships
     inviter = db.relationship("User", foreign_keys=[invited_by])
+    college = db.relationship("College", foreign_keys=[college_id])

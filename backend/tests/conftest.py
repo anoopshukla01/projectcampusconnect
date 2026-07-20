@@ -41,6 +41,17 @@ def db_session(app):
     not by rollback. This is safe and reliable on SQLite.
     """
     _db.create_all()
+    from app.models.college import College, DEFAULT_COLLEGE_ID
+    default_college = College(
+        id=DEFAULT_COLLEGE_ID,
+        name="Default College",
+        slug="default-college",
+        code="CC2024",
+        is_active=True
+    )
+    _db.session.add(default_college)
+    _db.session.commit()
+
     yield _db.session
     _db.session.remove()
     _db.drop_all()

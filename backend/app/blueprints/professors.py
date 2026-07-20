@@ -27,7 +27,7 @@ SELF-REVIEW CHECKLIST:
 
 from datetime import datetime, timezone, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from marshmallow import ValidationError
 from sqlalchemy import func
 
@@ -151,7 +151,7 @@ def update_own_profile():
 @require_roles("admin")
 def get_professor_by_id(prof_id):
     profile = db.session.query(ProfessorProfile).filter_by(
-        id=prof_id, is_deleted=False
+        id=prof_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -171,7 +171,10 @@ def list_professors():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
 
-    query = db.session.query(ProfessorProfile).filter(ProfessorProfile.is_deleted == False) # noqa: E712
+    query = db.session.query(ProfessorProfile).filter(
+        ProfessorProfile.college_id == g.current_user.college_id,
+        ProfessorProfile.is_deleted == False
+    ) # noqa: E712
 
     if department:
         query = query.filter(ProfessorProfile.department == department)
@@ -196,7 +199,7 @@ def list_professors():
 @require_roles("admin")
 def admin_update_professor(prof_id):
     profile = db.session.query(ProfessorProfile).filter_by(
-        id=prof_id, is_deleted=False
+        id=prof_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -251,7 +254,7 @@ def admin_update_professor(prof_id):
 @require_roles("admin")
 def admin_delete_professor(prof_id):
     profile = db.session.query(ProfessorProfile).filter_by(
-        id=prof_id, is_deleted=False
+        id=prof_id, college_id=g.current_user.college_id, is_deleted=False
     ).first()
 
     if not profile:
@@ -309,6 +312,7 @@ def get_class_roster(code):
         return error_response("You are not assigned to this class.", 403)
 
     students = StudentProfile.query.filter_by(
+        college_id=user.college_id,
         branch=assignment.branch,
         semester=assignment.semester,
         is_deleted=False,
@@ -356,7 +360,7 @@ def get_student_academic_profile(code, sid):
     if not assignment:
         return error_response("You are not assigned to this class.", 403)
 
-    sp = StudentProfile.query.filter_by(id=sid, is_deleted=False).first()
+    sp = StudentProfile.query.filter_by(id=sid, college_id=user.college_id, is_deleted=False).first()
     if not sp:
         return error_response("Student not found.", 404)
 
@@ -434,7 +438,7 @@ def get_dashboard_stats():
     student_ids = set()
     for a in assignments:
         students = StudentProfile.query.filter_by(
-            branch=a.branch, semester=a.semester, is_deleted=False
+            college_id=user.college_id, branch=a.branch, semester=a.semester, is_deleted=False
         ).with_entities(StudentProfile.id).all()
         for (sid,) in students:
             student_ids.add(sid)
@@ -516,7 +520,7 @@ def request_admin_details():
     except (ValueError, AttributeError):
         return error_response("Invalid student_id.", 400)
 
-    sp = StudentProfile.query.filter_by(id=student_uuid, is_deleted=False).first()
+    sp = StudentProfile.query.filter_by(id=student_uuid, college_id=user.college_id, is_deleted=False).first()
     if not sp:
         return error_response("Student not found.", 404)
 

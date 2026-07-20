@@ -2,6 +2,7 @@ import uuid
 import enum
 from datetime import datetime, timezone
 from app.extensions import db
+from app.models.college import DEFAULT_COLLEGE_ID
 
 class DriveType(enum.Enum):
     FULL_TIME = "full_time"
@@ -35,17 +36,27 @@ class Company(db.Model):
     __tablename__ = "companies"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = db.Column(db.String(255), nullable=False, unique=True)
+    # college_id: nullable during migration backfill only; becomes NOT NULL via Alembic.
+    # Global unique on name is removed — replaced by composite (college_id, name) below.
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
+    name = db.Column(db.String(255), nullable=False)
     sector = db.Column(db.String(255), nullable=True)
     website = db.Column(db.String(255), nullable=True)
     description = db.Column(db.Text, nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    college = db.relationship("College", foreign_keys=[college_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("college_id", "name", name="uq_college_company_name"),
+    )
+
 class PlacementDrive(db.Model):
     __tablename__ = "placement_drives"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     company_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("companies.id"), nullable=True)
     company_name = db.Column(db.String(255), nullable=False)
     role_title = db.Column(db.String(255), nullable=False)
@@ -141,10 +152,19 @@ class BranchPlacement(db.Model):
     __tablename__ = "branch_placements"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    branch = db.Column(db.String(100), nullable=False, unique=True)
+    # college_id: nullable during migration backfill only; becomes NOT NULL via Alembic.
+    # Global unique on branch is removed — replaced by composite (college_id, branch) below.
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=True, index=True)
+    branch = db.Column(db.String(100), nullable=False)
     placed_count = db.Column(db.Integer, nullable=False, default=0)
     total_count = db.Column(db.Integer, nullable=False, default=0)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    college = db.relationship("College", foreign_keys=[college_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("college_id", "branch", name="uq_college_branch_placement"),
+    )
 
 
 class EligibilityOverride(db.Model):

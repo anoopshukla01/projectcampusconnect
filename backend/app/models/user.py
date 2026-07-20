@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from app.extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
+from app.models.college import DEFAULT_COLLEGE_ID
 
 class UserRole(enum.Enum):
     STUDENT = "student"
@@ -14,8 +15,13 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = db.Column(db.String(255), unique=True, nullable=True)
-    phone = db.Column(db.String(15), unique=True, nullable=True)
+    # college_id is nullable during migration backfill only; becomes NOT NULL via Alembic.
+    # Global unique constraints on email/phone are intentionally removed here — they are
+    # replaced by composite (college_id, email) and (college_id, phone) constraints
+    # defined in the Alembic migration (add_multi_tenancy).
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
+    email = db.Column(db.String(255), nullable=True)
+    phone = db.Column(db.String(15), nullable=True)
     password_hash = db.Column(db.String(255), nullable=True) # NULL for OTP-only registration phase
     role = db.Column(db.Enum(UserRole), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
@@ -28,6 +34,7 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
+    college = db.relationship("College", foreign_keys=[college_id], lazy="joined")
     student_profile = db.relationship("StudentProfile", back_populates="user", uselist=False)
     professor_profile = db.relationship(
         "ProfessorProfile",

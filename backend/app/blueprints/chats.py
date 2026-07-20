@@ -3,7 +3,7 @@ Chats Blueprint — WhatsApp-Style Messaging
 """
 
 from flask import Blueprint, jsonify, request
-from app.auth.permissions import require_auth, get_current_user
+from app.auth.permissions import require_auth, get_current_user, assert_college_match
 from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
@@ -54,7 +54,7 @@ def get_conversations():
                 GroupMembership.user_id != user.id
             ).first()
             if other_mem:
-                other_user = User.query.get(other_mem.user_id)
+                other_user = db.session.get(User, other_mem.user_id)
                 if other_user:
                     username = (other_user.email or "user").split("@")[0]
                     if user.role in (UserRole.ADMIN, UserRole.PLACEMENT_CELL):
@@ -107,8 +107,8 @@ def get_contacts():
     """List students and professors to start a new direct message conversation."""
     user = get_current_user()
     
-    students = StudentProfile.query.filter_by(is_deleted=False).all()
-    professors = ProfessorProfile.query.filter_by(is_deleted=False).all()
+    students = StudentProfile.query.filter_by(college_id=user.college_id, is_deleted=False).all()
+    professors = ProfessorProfile.query.filter_by(college_id=user.college_id, is_deleted=False).all()
 
     student_list = [{
         "user_id": str(s.user_id),
@@ -158,12 +158,15 @@ def create_conversation():
         ).group_by(GroupMembership.conversation_id).having(db.func.count(GroupMembership.conversation_id) == 2).first()
 
         if existing_mem:
-            c = Conversation.query.get(existing_mem.conversation_id)
+            c = db.session.get(Conversation, existing_mem.conversation_id)
             return jsonify({"conversation_id": str(c.id), "name": c.name, "type": "direct"}), 200
 
-        recipient = User.query.get(recipient_id)
+        recipient = db.session.get(User, recipient_id)
         if not recipient:
             return error_response("Recipient user not found", 404)
+        err = assert_college_match(recipient, user)
+        if err:
+            return err
 
         # TPO chat scope restriction
         if user.role == UserRole.PLACEMENT_CELL and recipient.role == UserRole.STUDENT:
@@ -628,9 +631,12 @@ def block_student():
     if user.id == target_id:
         return error_response("Cannot block yourself", 400)
 
-    target_user = User.query.get(target_id)
+    target_user = db.session.get(User, target_id)
     if not target_user:
         return error_response("User not found", 404)
+    err = assert_college_match(target_user, user)
+    if err:
+        return err
 
     # Enforce student-to-student only
     if user.role != UserRole.STUDENT or target_user.role != UserRole.STUDENT:
@@ -675,9 +681,12 @@ def report_student():
     if not target_id or not reason or not reason.strip():
         return error_response("Valid reported_user_id and reason are required", 400)
 
-    target_user = User.query.get(target_id)
+    target_user = db.session.get(User, target_id)
     if not target_user:
         return error_response("User not found", 404)
+    err = assert_college_match(target_user, user)
+    if err:
+        return err
 
     # Report student for misbehavior
     if user.role != UserRole.STUDENT or target_user.role != UserRole.STUDENT:

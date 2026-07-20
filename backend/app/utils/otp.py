@@ -1,5 +1,5 @@
 """
-OTP Utility — Generation, Hashing, and Verification
+OTP Utility — Generation, Hashing, Verification, and Delivery
 
 SECURITY NOTES:
   - OTPs are 6-digit numeric codes generated with secrets.randbelow()
@@ -8,9 +8,8 @@ SECURITY NOTES:
   - bcrypt is used even for short-lived OTPs because:
       a) It prevents a DB dump from revealing valid OTPs
       b) It is consistent with our password hashing strategy
-  - MOCK_OTP mode: when enabled (always true in dev/test), the OTP is
-    logged to the console rather than sent via SMS. This makes local
-    development safe and simple.
+  - MOCK_OTP mode: when enabled (dev/test), the OTP is logged to the
+    console instead of sent. This makes local development safe and simple.
 """
 
 import logging
@@ -55,6 +54,8 @@ def verify_otp(otp: str, otp_hash: str) -> bool:
         return False
 
 
+# ── SMS OTP delivery ──────────────────────────────────────────────────────────
+
 def send_otp(phone: str, otp: str) -> None:
     """
     Dispatch an OTP to the given phone number via the configured SMS provider.
@@ -65,7 +66,6 @@ def send_otp(phone: str, otp: str) -> None:
 
     In production, delegates to the appropriate provider adapter.
     Currently supports: fast2sms, msg91, twilio.
-    Add new providers by adding a branch below — the interface is the same.
     """
     if current_app.config.get("MOCK_OTP", True):
         # Safe to log — this only runs in dev/test, never in production.
@@ -93,6 +93,79 @@ def send_otp(phone: str, otp: str) -> None:
             "Falling back. Stored OTP in DB for manual/verification logs: %s",
             phone, provider, str(exc), otp
         )
+
+
+# ── Email OTP delivery ────────────────────────────────────────────────────────
+
+def send_otp_email(email: str, otp: str) -> bool:
+    """
+    Send a 6-digit OTP to the given email address via SMTP (Flask-Mail).
+
+    In MOCK_OTP mode, logs the OTP instead of sending — also returns True
+    so the registration flow can continue in dev without real SMTP.
+
+    Returns True on success, False on failure.
+    """
+    if current_app.config.get("MOCK_OTP", False):
+        logger.warning(
+            "⚠️  MOCK EMAIL OTP (development only) — email=%s OTP=%s", email, otp
+        )
+        return True
+
+    mail_username = current_app.config.get("MAIL_USERNAME", "")
+    if not mail_username:
+        # SMTP not configured — fall back to mock mode warning
+        logger.warning(
+            "⚠️  MAIL_USERNAME not set. OTP not sent. email=%s OTP=%s", email, otp
+        )
+        return True   # still return True so dev flow isn't blocked
+
+    try:
+        from flask_mail import Mail, Message  # lazy import — only needed for email OTP
+        mail = Mail(current_app)
+
+        college_name = current_app.config.get("COLLEGE_NAME", "Campus Connect")
+        msg = Message(
+            subject=f"Your {college_name} OTP",
+            sender=current_app.config.get("MAIL_DEFAULT_SENDER") or current_app.config.get("MAIL_USERNAME"),
+            recipients=[email],
+        )
+        msg.body = (
+            f"Hello,\n\n"
+            f"Your one-time password (OTP) for {college_name} is:\n\n"
+            f"    {otp}\n\n"
+            f"This OTP is valid for {current_app.config.get('OTP_EXPIRY_MINUTES', 10)} minutes.\n"
+            f"Do NOT share this code with anyone.\n\n"
+            f"If you did not request this, ignore this email.\n\n"
+            f"— {college_name} Team"
+        )
+        msg.html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px 24px;
+                    background:#0f172a;color:#e2e8f0;border-radius:12px;">
+          <h2 style="color:#818cf8;margin-bottom:4px;">Campus Connect</h2>
+          <p style="color:#94a3b8;margin-top:0;font-size:14px;">{college_name}</p>
+          <hr style="border:none;border-top:1px solid #1e293b;margin:20px 0;" />
+          <p style="font-size:15px;">Your One-Time Password is:</p>
+          <div style="background:#1e293b;border-radius:8px;padding:20px;text-align:center;
+                      font-size:36px;font-weight:bold;letter-spacing:10px;color:#818cf8;">
+            {otp}
+          </div>
+          <p style="font-size:13px;color:#94a3b8;margin-top:20px;">
+            Valid for <b>{current_app.config.get('OTP_EXPIRY_MINUTES', 10)} minutes</b>.
+            Do not share this code with anyone.
+          </p>
+          <hr style="border:none;border-top:1px solid #1e293b;margin:20px 0;" />
+          <p style="font-size:12px;color:#475569;">
+            If you did not request this OTP, please ignore this email.
+          </p>
+        </div>
+        """
+        mail.send(msg)
+        logger.info("✅ Email OTP sent successfully to %s", email)
+        return True
+    except Exception as exc:
+        logger.error("❌ Failed to send email OTP to %s: %s", email, str(exc))
+        return False
 
 
 # ── Private SMS provider adapters ─────────────────────────────────────────────

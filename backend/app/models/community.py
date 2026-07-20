@@ -1,11 +1,14 @@
 import uuid
+import sqlalchemy as sa
 from datetime import datetime, timezone
 from app.extensions import db
+from app.models.college import DEFAULT_COLLEGE_ID
 
 class Announcement(db.Model):
     __tablename__ = "announcements"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     title = db.Column(db.String(255), nullable=False)
     content = db.Column(db.Text, nullable=False)
     author_name = db.Column(db.String(255), nullable=False)
@@ -17,6 +20,7 @@ class CampusEvent(db.Model):
     __tablename__ = "campus_events"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     title = db.Column(db.String(255), nullable=False)
     event_type = db.Column(db.String(50), nullable=False, default="hackathon")
     date_time = db.Column(db.String(100), nullable=False)
@@ -39,6 +43,7 @@ class MarketplaceItem(db.Model):
     __tablename__ = "marketplace_items"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     seller_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     seller_name = db.Column(db.String(255), nullable=False)
     title = db.Column(db.String(255), nullable=False)
@@ -53,6 +58,7 @@ class LostFoundItem(db.Model):
     __tablename__ = "lost_found_items"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     reporter_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     reporter_name = db.Column(db.String(255), nullable=False)
     title = db.Column(db.String(255), nullable=False)
@@ -68,6 +74,7 @@ class StudyNote(db.Model):
     __tablename__ = "study_notes"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     title = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     semester = db.Column(db.Integer, nullable=False, default=1)
@@ -88,6 +95,7 @@ class LibraryResource(db.Model):
     __tablename__ = "library_resources"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, default=lambda: DEFAULT_COLLEGE_ID, index=True)
     title = db.Column(db.String(255), nullable=False)
     author = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=False)

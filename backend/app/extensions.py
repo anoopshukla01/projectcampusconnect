@@ -13,6 +13,7 @@ from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
+from flask_mail import Mail
 
 # ORM — all models are registered against this instance.
 db = SQLAlchemy()
@@ -28,3 +29,6 @@ limiter = Limiter(key_func=get_remote_address)
 
 # CORS — origins are restricted in config, not here.
 cors = CORS()
+
+# Email (Flask-Mail) — used for OTP delivery.
+mail = Mail()

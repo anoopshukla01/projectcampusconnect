@@ -1,19 +1,21 @@
 """
-Centralised Access-Control — Auth, RBAC, and IDOR Guards
+Centralised Access-Control — Auth, RBAC, IDOR, and Tenant Isolation Guards
 
 SECURITY CONTRACT — every protected route MUST stack these decorators
 in this order:
 
     @bp.route("/students/<uuid:student_id>", methods=["GET"])
     @require_auth
+    @require_same_college(lambda **kw: db.session.get(User, kw["student_id"]).college_id)
     @require_roles("admin", "placement_cell")
     def get_student(student_id):
         ...
 
-THREE-GATE CHECK (per the implementation plan):
-  Gate 1: Is the user authenticated?           → @require_auth
-  Gate 2: Does their role permit this action?  → @require_roles(*roles)
-  Gate 3: Are they accessing their own record? → require_self_or_admin(url_id, roles)
+FOUR-GATE CHECK (per the multi-tenancy implementation plan):
+  Gate 0: Is the resource in the same college?   → @require_same_college(fn)
+  Gate 1: Is the user authenticated?             → @require_auth
+  Gate 2: Does their role permit this action?    → @require_roles(*roles)
+  Gate 3: Are they accessing their own record?   → require_self_or_admin(url_id, roles)
 
   Never skip a gate. Never inline these checks in route bodies.
   Duplicated checks are where bugs hide.
@@ -21,6 +23,9 @@ THREE-GATE CHECK (per the implementation plan):
 IMPORTANT: g.current_user is set by @require_auth and is ALWAYS a real,
 non-deleted User object from the database. It is safe to read g.current_user
 in any downstream function inside a protected request.
+
+g.current_user.college_id is populated automatically from the User row —
+no extra step needed after Gate 1 passes. Use it freely in Gate 0 checks.
 """
 
 import functools
@@ -31,6 +36,36 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
 
 from app.extensions import db
 from app.models.user import User, UserRole
+
+
+# ── Shared inline college-boundary check ─────────────────────────────────────
+
+def assert_college_match(resource, current_user):
+    """
+    Inline Gate 0 helper for use inside route bodies after a db.session.get() call.
+
+    Returns a 403 JSON response tuple if the resource belongs to a different college
+    than current_user, or if the resource has no college_id set. Returns None when
+    the check passes (caller continues normally).
+
+    Use this when @require_same_college cannot be applied at the decorator level
+    (e.g. when the resource is fetched mid-function as part of a chain of lookups).
+
+    Usage:
+        obj = db.session.get(Assignment, assignment_id)
+        if not obj:
+            return error_response("Not found.", 404)
+        err = assert_college_match(obj, g.current_user)
+        if err:
+            return err
+        # ... rest of handler
+    """
+    if resource is None:
+        return None  # let the caller handle "not found" separately
+    resource_college_id = getattr(resource, "college_id", None)
+    if resource_college_id is None or str(resource_college_id) != str(current_user.college_id):
+        return jsonify({"error": "You do not have permission to access this resource."}), 403
+    return None
 
 
 # ── Gate 1: Authentication ────────────────────────────────────────────────────
@@ -97,6 +132,59 @@ def require_roles(*roles: str):
             return fn(*args, **kwargs)
         return decorated
 
+    return decorator
+
+
+# ── Gate 0: Tenant Isolation (college scoping) ────────────────────────────────
+# TODO: When a future SUPER_ADMIN role is introduced (platform-owner only,
+# for cross-college support/billing), it will need to explicitly bypass
+# require_same_college. Every other role — including ADMIN — must NEVER gain
+# that bypass. Gate 0 must be the outermost guard on any cross-tenant-risk route.
+
+def require_same_college(get_resource_college_id_fn):
+    """
+    Decorator factory — Gate 0: Tenant Isolation Guard.
+
+    Calls get_resource_college_id_fn(*args, **kwargs) to retrieve the target
+    resource's college_id, then compares it to g.current_user.college_id.
+
+    Returns 403 (not 404) on a mismatch — consistent with the IDOR guard's
+    reasoning: do NOT confirm or deny that a resource exists to a user from
+    a different college. Leaking existence alone can be a data breach.
+
+    Must run AFTER @require_auth (depends on g.current_user.college_id).
+    Apply BEFORE @require_roles / @require_self_or_roles on any route that
+    touches a resource not already scoped through a college-scoped user join.
+
+    Usage:
+        @require_auth
+        @require_same_college(lambda **kw: db.session.get(Assignment, kw["assignment_id"]).college_id)
+        @require_roles("professor", "admin")
+        def get_assignment(assignment_id):
+            ...
+
+    The lambda receives the same *args/**kwargs as the route function.
+    It should return a UUID (or None). None is treated as a mismatch — a
+    resource with no college_id should never be accessible without explicit
+    handling at the route level.
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        def decorated(*args, **kwargs):
+            user = g.current_user
+
+            resource_college_id = get_resource_college_id_fn(*args, **kwargs)
+
+            if resource_college_id is None or str(resource_college_id) != str(user.college_id):
+                # 403 — not 404. Do not reveal whether the resource exists
+                # to users from a different college.
+                return jsonify({
+                    "error": "You do not have permission to access this resource."
+                }), 403
+
+            return fn(*args, **kwargs)
+
+        return decorated
     return decorator
 
 
