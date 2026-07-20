@@ -45,35 +45,39 @@ INITIAL_COLLEGE_CODE = "CC2024"
 
 def upgrade():
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
 
     # ── 1. Create colleges table ─────────────────────────────────────────────
-    op.create_table(
-        "colleges",
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("slug", sa.String(length=255), nullable=False),
-        sa.Column("code", sa.String(length=20), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("name", name="uq_college_name"),
-        sa.UniqueConstraint("slug", name="uq_college_slug"),
-        sa.UniqueConstraint("code", name="uq_college_code"),
-    )
+    if not inspector.has_table("colleges"):
+        op.create_table(
+            "colleges",
+            sa.Column("id", sa.UUID(), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("slug", sa.String(length=255), nullable=False),
+            sa.Column("code", sa.String(length=20), nullable=False),
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
+            sa.Column("created_at", sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("name", name="uq_college_name"),
+            sa.UniqueConstraint("slug", name="uq_college_slug"),
+            sa.UniqueConstraint("code", name="uq_college_code"),
+        )
 
     # ── 2. Insert the initial college row ────────────────────────────────────
-    conn.execute(
-        text(
-            "INSERT INTO colleges (id, name, slug, code, is_active, created_at) "
-            "VALUES (:id, :name, :slug, :code, true, NOW())"
-        ),
-        {
-            "id": DEFAULT_COLLEGE_ID,
-            "name": INITIAL_COLLEGE_NAME,
-            "slug": INITIAL_COLLEGE_SLUG,
-            "code": INITIAL_COLLEGE_CODE,
-        },
-    )
+    res = conn.execute(text("SELECT id FROM colleges WHERE id = :id"), {"id": DEFAULT_COLLEGE_ID}).fetchone()
+    if not res:
+        conn.execute(
+            text(
+                "INSERT INTO colleges (id, name, slug, code, is_active, created_at) "
+                "VALUES (:id, :name, :slug, :code, true, NOW())"
+            ),
+            {
+                "id": DEFAULT_COLLEGE_ID,
+                "name": INITIAL_COLLEGE_NAME,
+                "slug": INITIAL_COLLEGE_SLUG,
+                "code": INITIAL_COLLEGE_CODE,
+            },
+        )
 
     # ── 3. Add college_id (nullable) to the six tables ───────────────────────
     tables_needing_college_id = [
@@ -91,8 +95,29 @@ def upgrade():
         "library_resources",
     ]
     for table in tables_needing_college_id:
+        cols = [c["name"] for c in inspector.get_columns(table)]
+        if "college_id" not in cols:
+            op.add_column(
+                table,
+                sa.Column(
+                    "college_id",
+                    sa.UUID(),
+                    sa.ForeignKey("colleges.id"),
+                    nullable=True,
+                ),
+            )
+            op.create_index(
+                f"ix_{table}_college_id",
+                table,
+                ["college_id"],
+            )
+
+    # invites.college_id: nullable so existing invite rows without a college are preserved.
+    # New invites issued post-migration MUST set college_id from g.current_user.college_id.
+    inv_cols = [c["name"] for c in inspector.get_columns("invites")]
+    if "college_id" not in inv_cols:
         op.add_column(
-            table,
+            "invites",
             sa.Column(
                 "college_id",
                 sa.UUID(),
@@ -100,23 +125,6 @@ def upgrade():
                 nullable=True,
             ),
         )
-        op.create_index(
-            f"ix_{table}_college_id",
-            table,
-            ["college_id"],
-        )
-
-    # invites.college_id: nullable so existing invite rows without a college are preserved.
-    # New invites issued post-migration MUST set college_id from g.current_user.college_id.
-    op.add_column(
-        "invites",
-        sa.Column(
-            "college_id",
-            sa.UUID(),
-            sa.ForeignKey("colleges.id"),
-            nullable=True,
-        ),
-    )
     # Backfill existing invites with the initial college
     conn.execute(
         text("UPDATE invites SET college_id = :cid WHERE college_id IS NULL"),
