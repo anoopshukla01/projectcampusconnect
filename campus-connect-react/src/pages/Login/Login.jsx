@@ -101,6 +101,7 @@ export default function Login() {
   const [pwError,    setPwError]    = useState('');
 
   /* Claim Student */
+  const [claimCollegeCode, setClaimCollegeCode] = useState('');
   const [claimRollNo,    setClaimRollNo]    = useState('');
   const [claimPhone,     setClaimPhone]     = useState('');
   const [claimOtp,       setClaimOtp]       = useState('');
@@ -314,6 +315,7 @@ export default function Login() {
   /* ── Complete Claim (roll number) ── */
   async function handleCompleteClaim(e) {
     e.preventDefault();
+    if (!claimCollegeCode.trim() || claimCollegeCode.trim().length < 2) { setClaimStepError('College code is required (ask your Admin if unsure).'); return; }
     if (!claimRollNo.trim()) { setClaimStepError('Roll number is required.'); return; }
     if (!claimPassword || claimPassword.length < 8) { setClaimStepError('Password must be at least 8 characters.'); return; }
     if (!claimDpdp) { setClaimStepError('DPDP Act consent is mandatory.'); return; }
@@ -321,7 +323,7 @@ export default function Login() {
     try {
       const res = await fetch('/api/v1/auth/register/student', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp_verified_token: otpToken, roll_no: claimRollNo.trim(), password: claimPassword, dpdp_consent: claimDpdp }),
+        body: JSON.stringify({ otp_verified_token: otpToken, college_code: claimCollegeCode.trim().toUpperCase(), roll_no: claimRollNo.trim(), password: claimPassword, dpdp_consent: claimDpdp }),
       });
       const data = await res.json();
       setLoading(false);
@@ -612,6 +614,21 @@ export default function Login() {
                   For students who were pre-imported by your institution — verify your phone number to claim your existing academic record.
                 </div>
                 {claimStepError && <div className="alert-error">{claimStepError}</div>}
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="claimCollegeCode">College Code</label>
+                  <div className="input-wrap">
+                    <input
+                      type="text" id="claimCollegeCode" placeholder="e.g. VIT2024"
+                      maxLength={20}
+                      value={claimCollegeCode}
+                      onChange={e => setClaimCollegeCode(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                    Provided by your institution's Admin.
+                  </span>
+                </div>
 
                 <div className="form-field">
                   <label className="form-label" htmlFor="claimRoll">Roll Number</label>

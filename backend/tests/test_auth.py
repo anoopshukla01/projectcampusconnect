@@ -41,6 +41,7 @@ def test_otp_verify_and_register_student_with_mock_otp(client, db_session, monke
 
     profile = StudentProfile(
         user_id=stub_user.id,
+        college_id=DEFAULT_COLLEGE_ID,
         roll_no="CS202601",
         full_name="Rohan Sharma",
         branch="Computer Science",
@@ -69,6 +70,7 @@ def test_otp_verify_and_register_student_with_mock_otp(client, db_session, monke
     # Student claim registration
     reg_data = {
         "otp_verified_token": token,
+        "college_code": "CC2024",
         "roll_no": "CS202601",
         "password": "Password123",
         "dpdp_consent": True
