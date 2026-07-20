@@ -44,12 +44,12 @@ def assert_college_match(resource, current_user):
     """
     Inline Gate 0 helper for use inside route bodies after a db.session.get() call.
 
-    Returns a 403 JSON response tuple if the resource belongs to a different college
+    Returns a 404 JSON response tuple if the resource belongs to a different college
     than current_user, or if the resource has no college_id set. Returns None when
     the check passes (caller continues normally).
 
-    Use this when @require_same_college cannot be applied at the decorator level
-    (e.g. when the resource is fetched mid-function as part of a chain of lookups).
+    We return 404 (not 403) so cross-tenant access attempts do not confirm or deny
+    resource existence across college boundaries (preventing tenant resource enumeration).
 
     Usage:
         obj = db.session.get(Assignment, assignment_id)
@@ -64,7 +64,7 @@ def assert_college_match(resource, current_user):
         return None  # let the caller handle "not found" separately
     resource_college_id = getattr(resource, "college_id", None)
     if resource_college_id is None or str(resource_college_id) != str(current_user.college_id):
-        return jsonify({"error": "You do not have permission to access this resource."}), 403
+        return jsonify({"error": "Resource not found."}), 404
     return None
 
 
@@ -148,9 +148,9 @@ def require_same_college(get_resource_college_id_fn):
     Calls get_resource_college_id_fn(*args, **kwargs) to retrieve the target
     resource's college_id, then compares it to g.current_user.college_id.
 
-    Returns 403 (not 404) on a mismatch — consistent with the IDOR guard's
-    reasoning: do NOT confirm or deny that a resource exists to a user from
-    a different college. Leaking existence alone can be a data breach.
+    Returns 404 (not 403) on a mismatch to prevent cross-tenant resource enumeration.
+    A 404 response ensures that accessing another college's resource is indistinguishable
+    from accessing a non-existent resource ID.
 
     Must run AFTER @require_auth (depends on g.current_user.college_id).
     Apply BEFORE @require_roles / @require_self_or_roles on any route that
@@ -176,11 +176,9 @@ def require_same_college(get_resource_college_id_fn):
             resource_college_id = get_resource_college_id_fn(*args, **kwargs)
 
             if resource_college_id is None or str(resource_college_id) != str(user.college_id):
-                # 403 — not 404. Do not reveal whether the resource exists
-                # to users from a different college.
                 return jsonify({
-                    "error": "You do not have permission to access this resource."
-                }), 403
+                    "error": "Resource not found."
+                }), 404
 
             return fn(*args, **kwargs)
 

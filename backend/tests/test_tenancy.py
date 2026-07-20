@@ -131,3 +131,42 @@ def test_manage_library_request_missing_resource_404(client, db_session, tenancy
     headers1 = {"Authorization": f"Bearer {t['tokens']['admin1']}"}
     res = client.patch(f"/api/v1/community/library/requests/{req.id}", json={"status": "approved"}, headers=headers1)
     assert res.status_code == 404
+
+
+def test_cross_college_student_applications_returns_404(client, db_session, tenancy_setup):
+    t = tenancy_setup
+    # Admin 2 attempts to fetch applications for Student 1 (College 1)
+    headers2 = {"Authorization": f"Bearer {t['tokens']['admin2']}"}
+    res = client.get(f"/api/v1/students/{t['stud1'].id}/applications", headers=headers2)
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "Resource not found."
+
+
+def test_cross_college_assignment_update_returns_404(client, db_session, tenancy_setup):
+    t = tenancy_setup
+    from app.models.academic import Assignment
+    from datetime import date
+    asgn1 = Assignment(
+        professor_id=t["prof1"].id,
+        title="Col 1 Assignment", subject="Physics", due_date=str(date.today()), points=100
+    )
+    db_session.add(asgn1)
+    db_session.commit()
+
+    # Professor 2 (College 2) attempts to update Assignment 1
+    headers2 = {"Authorization": f"Bearer {t['tokens']['prof2']}"}
+    res = client.patch(f"/api/v1/academics/assignments/{asgn1.id}", json={"title": "Hacked Assignment"}, headers=headers2)
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "Resource not found."
+
+
+def test_cross_college_direct_chat_creation_returns_404(client, db_session, tenancy_setup):
+    t = tenancy_setup
+    # Student 1 (College 1) attempts to initiate direct chat with Student 2 (College 2)
+    headers1 = {"Authorization": f"Bearer {t['tokens']['stud1']}"}
+    res = client.post("/api/v1/career/chats/create", json={
+        "type": "direct",
+        "recipient_id": str(t["stud2"].id)
+    }, headers=headers1)
+    assert res.status_code == 404
+    assert res.get_json()["error"] == "Resource not found."
