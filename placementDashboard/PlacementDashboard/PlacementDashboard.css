@@ -24,10 +24,10 @@
 .pd-stat-card:hover { transform: translateY(-5px); }
 
 /* Coloured gradient backgrounds */
-.pd-stat-blue   { background: linear-gradient(135deg,#4f46e5 0%,#6366f1 60%,#818cf8 100%); box-shadow: 0 8px 28px rgba(99,102,241,.35); }
-.pd-stat-green  { background: linear-gradient(135deg,#059669 0%,#10b981 60%,#34d399 100%); box-shadow: 0 8px 28px rgba(16,185,129,.35); }
+.pd-stat-blue   { background: linear-gradient(135deg,var(--clr-secondary) 0%,var(--clr-secondary) 60%,var(--clr-secondary-soft) 100%); box-shadow: 0 8px 28px rgba(99,102,241,.35); }
+.pd-stat-green  { background: linear-gradient(135deg,var(--clr-success) 0%,var(--clr-success) 60%,#34d399 100%); box-shadow: 0 8px 28px rgba(16,185,129,.35); }
 .pd-stat-purple { background: linear-gradient(135deg,#7c3aed 0%,#a855f7 60%,#c084fc 100%); box-shadow: 0 8px 28px rgba(168,85,247,.35); }
-.pd-stat-amber  { background: linear-gradient(135deg,#d97706 0%,#f59e0b 60%,#fbbf24 100%); box-shadow: 0 8px 28px rgba(245,158,11,.35); }
+.pd-stat-amber  { background: linear-gradient(135deg,var(--clr-warning) 0%,var(--clr-warning) 60%,var(--clr-warning) 100%); box-shadow: 0 8px 28px rgba(245,158,11,.35); }
 
 /* decorative circle */
 .pd-stat-card::after {
@@ -98,7 +98,7 @@
   margin-bottom: 1.1rem;
 }
 .pd-card-title { font-size: .95rem; font-weight: 700; color: var(--text-primary); margin: 0; }
-.pd-link { background: none; border: none; color: #6366f1; font-size: .82rem; cursor: pointer; font-weight: 600; padding: 0; }
+.pd-link { background: none; border: none; color: var(--clr-secondary); font-size: .82rem; cursor: pointer; font-weight: 600; padding: 0; }
 .pd-link:hover { text-decoration: underline; }
 
 /* ─── Table ─── */
@@ -116,13 +116,13 @@
 .pd-table tr:last-child td { border-bottom: none; }
 .pd-table tbody tr { transition: background .15s; }
 .pd-table tbody tr:hover td { background: rgba(99,102,241,.06); }
-.pd-ctc { font-weight: 700; color: #4ade80; }
+.pd-ctc { font-weight: 700; color: var(--clr-success); }
 .pd-badge {
   display: inline-flex; align-items: center; gap: .25rem;
   padding: .22rem .65rem; border-radius: 999px; font-size: .73rem; font-weight: 600;
 }
-.pd-badge-upcoming  { background: rgba(99,102,241,.15); color: #818cf8; }
-.pd-badge-completed { background: rgba(34,197,94,.15);  color: #4ade80; }
+.pd-badge-upcoming  { background: rgba(99,102,241,.15); color: var(--clr-secondary-soft); }
+.pd-badge-completed { background: rgba(34,197,94,.15);  color: var(--clr-success); }
 
 /* ─── Right column ─── */
 .pd-right-col { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -140,7 +140,7 @@
 .pd-branch-row { display: flex; align-items: center; gap: .75rem; }
 .pd-branch-name { font-size: .82rem; font-weight: 700; color: var(--text-primary); width: 32px; flex-shrink: 0; }
 .pd-branch-bar-wrap { flex: 1; height: 9px; background: var(--border); border-radius: 999px; overflow: hidden; }
-.pd-branch-bar { height: 100%; background: linear-gradient(90deg,#6366f1,#a855f7); border-radius: 999px; transition: width .7s; }
+.pd-branch-bar { height: 100%; background: linear-gradient(90deg,var(--clr-secondary),#a855f7); border-radius: 999px; transition: width .7s; }
 .pd-branch-pct { font-size: .75rem; color: var(--text-secondary); width: 110px; text-align: right; }
 
 /* ─── Activity Feed ─── */
@@ -178,7 +178,7 @@
   transition: all .22s cubic-bezier(.4,0,.2,1);
 }
 .pd-quick-btn:hover {
-  border-color: #6366f1;
+  border-color: var(--clr-secondary);
   background: rgba(99,102,241,.08);
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(99,102,241,.15);
@@ -194,7 +194,7 @@
   cursor: pointer; border: none; transition: all .18s;
 }
 .pd-btn svg { width: 15px; height: 15px; }
-.pd-btn-primary { background: #6366f1; color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,.35); }
-.pd-btn-primary:hover { background: #4f46e5; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,.45); }
+.pd-btn-primary { background: var(--clr-secondary); color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,.35); }
+.pd-btn-primary:hover { background: var(--clr-secondary); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,.45); }
 .pd-btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text-primary); }
-.pd-btn-outline:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,.07); }
+.pd-btn-outline:hover { border-color: var(--clr-secondary); color: var(--clr-secondary); background: rgba(99,102,241,.07); }

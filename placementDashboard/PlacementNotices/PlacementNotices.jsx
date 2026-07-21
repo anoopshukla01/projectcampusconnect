@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * PlacementNotices — TPO Portal  (PL16)
  * Fetch, create placement notices from backend.
@@ -86,8 +87,8 @@ export default function PlacementNotices() {
             <div key={n.id} className={`pn-notice${n.pinned ? ' pn-pinned' : ''}${n.urgent ? ' pn-urgent' : ''}`}>
               <div className="pn-notice-header">
                 <div className="pn-title-row">
-                  {n.pinned && <span className="pn-pin-badge">📌 Pinned</span>}
-                  {n.urgent && <span className="pn-urgent-badge">🔴 Urgent</span>}
+                  {n.pinned && <span className="pn-pin-badge">Pinned</span>}
+                  {n.urgent && <span className="pn-urgent-badge">Urgent</span>}
                   <h3 className="pn-title">{n.title}</h3>
                 </div>
                 <div className="pn-actions">
@@ -103,7 +104,7 @@ export default function PlacementNotices() {
               </div>
               <p className="pn-content">{n.content}</p>
               <div className="pn-meta">
-                <span className="pn-audience-chip">👥 {n.audience}</span>
+                <span className="pn-audience-chip">{n.audience}</span>
                 <span className="pn-time">
                   {n.created_at ? new Date(n.created_at).toLocaleDateString() : n.time || ''}
                 </span>
@@ -122,7 +123,7 @@ export default function PlacementNotices() {
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Post New Notice</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <label className="co-field">

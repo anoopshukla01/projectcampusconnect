@@ -25,10 +25,10 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 const APPROVAL_BADGE = {
-  pending:  { label: '⏳ Pending Approval', color: 'var(--clr-warning)' },
-  approved: { label: '✅ Approved', color: 'var(--clr-success)' },
-  rejected: { label: '❌ Rejected', color: 'var(--clr-danger)' },
-  live:     { label: '🟢 Live', color: 'var(--clr-success)' },
+  pending:  { label: ' Pending Approval', color: 'var(--clr-warning)' },
+  approved: { label: ' Approved', color: 'var(--clr-success)' },
+  rejected: { label: ' Rejected', color: 'var(--clr-danger)' },
+  live:     { label: ' Live', color: 'var(--clr-success)' },
 };
 
 export default function Events() {
@@ -77,8 +77,8 @@ export default function Events() {
       if (res.ok) {
         showToast(
           body.approval_status === 'pending'
-            ? '📨 Event submitted — awaiting Admin approval'
-            : '🎉 Event created!',
+            ? ' Event submitted — awaiting Admin approval'
+            : ' Event created!',
           'success', 3000
         );
         setForm({ title: '', event_type: 'general', date_time: '', venue: '', description: '', class_course_code: '' });
@@ -124,13 +124,13 @@ export default function Events() {
             ) : filteredBrowse.map(ev => (
               <div className="event-full-card" key={ev.id}>
                 <div className={`event-banner ${ev.tag}`} aria-hidden="true">
-                  <span className="event-banner-icon">{ev.tag === 'hackathon' ? '⚡' : ev.tag === 'workshop' ? '🎓' : '🎉'}</span>
+                  <span className="event-banner-icon">{ev.tag === 'hackathon' ? '' : ev.tag === 'workshop' ? '' : ''}</span>
                 </div>
                 <div className="event-card-body">
                   <h3 className="event-full-title">{ev.name || ev.title}</h3>
                   <div className="event-details">
-                    <span>📅 {ev.meta || ev.date_time}</span>
-                    <span>📍 {ev.venue}</span>
+                    <span> {ev.meta || ev.date_time}</span>
+                    <span>{ev.venue}</span>
                   </div>
                   {ev.desc && <p style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', marginTop: '0.5rem' }}>{ev.desc}</p>}
                 </div>
@@ -177,7 +177,7 @@ export default function Events() {
           <h2 style={{ marginBottom: '1rem', fontSize: '1rem' }}>
             Create Event
             <span style={{ marginLeft: '0.75rem', fontSize: '0.78rem', color: 'var(--clr-warning)', fontWeight: 400 }}>
-              ⏳ Professor-created events require Admin approval before going live
+               Professor-created events require Admin approval before going live
             </span>
           </h2>
           <form onSubmit={handleCreate} className="sell-form" style={{ maxWidth: '520px' }}>

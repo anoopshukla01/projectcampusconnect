@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * Eligibility — TPO Portal (PL6)
  * Select a drive → auto-filter and rank eligible students using weighted scoring,
@@ -126,7 +127,7 @@ export default function Eligibility() {
         </div>
         <div className="pd-header-actions">
           <button className="pd-btn pd-btn-outline" onClick={exportCSV} disabled={!selectedDrive || filtered.length === 0}>
-            ↓ Export CSV
+            Export CSV
           </button>
           <button className="pd-btn pd-btn-primary" onClick={shortlistAll}
             disabled={shortlisting || !selectedDrive || filtered.length === 0}>
@@ -230,9 +231,9 @@ export default function Eligibility() {
                     </td>
                     <td>
                       {s.is_excluded ? (
-                        <span className="pd-badge pd-badge-inactive">✕ Excluded</span>
+                        <span className="pd-badge pd-badge-inactive">Excluded</span>
                       ) : (
-                        <span className="pd-badge pd-badge-completed">✅ Eligible</span>
+                        <span className="pd-badge pd-badge-completed">Eligible</span>
                       )}
                     </td>
                     <td>
@@ -258,7 +259,7 @@ export default function Eligibility() {
           <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Override Eligibility: {overrideStudent.full_name}</h2>
-              <button className="modal-close" onClick={() => setShowOverrideModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowOverrideModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#fff' }}>

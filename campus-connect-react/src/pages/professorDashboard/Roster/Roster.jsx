@@ -1,3 +1,4 @@
+import { Home, Clock, Unlock } from "lucide-react";
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -198,11 +199,11 @@ export default function Roster() {
                       <td>
                         {student.admin_access_granted || approvedRequests.has(student.id) ? (
                           <span style={{ fontSize: '0.78rem', color: 'var(--clr-text)' }}>
-                            🏠 {student.hostel_address !== '***' ? student.hostel_address : 'N/A'}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Home size={14} aria-hidden="true" /> {student.hostel_address !== '***' ? student.hostel_address : 'N/A'}</span>
                           </span>
                         ) : pendingRequests.has(student.id) ? (
                           <span style={{ fontSize: '0.75rem', color: 'var(--clr-warning)', fontWeight: 600 }}>
-                            ⏳ Pending
+                            Pending
                           </span>
                         ) : (
                           <button
@@ -212,7 +213,7 @@ export default function Roster() {
                             onClick={e => { e.stopPropagation(); handleRequestAccess(student.id, student.full_name); }}
                             title="Request access to administrative details"
                           >
-                            {requestingFor === student.id ? '…' : '🔓 Request'}
+                            {requestingFor === student.id ? '…' : 'Request'}
                           </button>
                         )}
                       </td>

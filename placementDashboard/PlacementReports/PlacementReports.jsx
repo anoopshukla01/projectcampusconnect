@@ -97,8 +97,8 @@ export default function PlacementReports() {
       {activeTab === 'naac' ? (
         <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginBottom: '1rem' }}>
-            <button className="pd-btn pd-btn-outline" onClick={exportCSV}>↓ Export CSV</button>
-            <button className="pd-btn pd-btn-primary" onClick={printReport}>🖨 Print PDF</button>
+            <button className="pd-btn pd-btn-outline" onClick={exportCSV}>Export CSV</button>
+            <button className="pd-btn pd-btn-primary" onClick={printReport}>Print PDF</button>
           </div>
 
           {/* NAAC Summary */}

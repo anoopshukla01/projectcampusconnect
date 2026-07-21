@@ -24,9 +24,9 @@
 .card-pts     { font-size: 0.72rem; font-weight: 600; color: var(--clr-muted); }
 
 .status-badge { font-size: 0.65rem; font-weight: 700; text-transform: capitalize; padding: 0.15rem 0.5rem; border-radius: 99px; white-space: nowrap; }
-.status-badge.pending   { background: #fee2e2; color: #b91c1c; }
-.status-badge.submitted { background: #fef9c3; color: #854d0e; }
-.status-badge.graded    { background: #dcfce7; color: #15803d; }
+.status-badge.pending   { background: var(--clr-danger-soft); color: var(--clr-danger); }
+.status-badge.submitted { background: var(--clr-warning-soft); color: #854d0e; }
+.status-badge.graded    { background: var(--clr-success-soft); color: var(--clr-success); }
 
 .detail-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -51,8 +51,8 @@
 .attachment-section svg { width: 15px; height: 15px; color: var(--clr-primary); flex-shrink: 0; }
 .attachment-section a { color: var(--clr-primary); font-weight: 600; }
 
-.graded-section { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 1rem; }
-.grade-score    { font-size: 2rem; font-weight: 800; color: #15803d; margin-bottom: 0.4rem; }
+.graded-section { background: var(--clr-success-soft); border: 1px solid var(--clr-success-soft); border-radius: var(--radius-md); padding: 1rem; }
+.grade-score    { font-size: 2rem; font-weight: 800; color: var(--clr-success); margin-bottom: 0.4rem; }
 .grade-feedback { font-size: 0.82rem; color: var(--clr-text-2); line-height: 1.5; }
 
 .drop-zone {

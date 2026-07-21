@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { User, Lock, Settings, X, Bell, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { notificationsApi } from '../services/api';
@@ -207,7 +208,7 @@ export default function Topbar({ onMenuToggle }) {
               <div className="notif-dropdown-body">
                 {loadingNotifs ? (
                   <div className="notif-empty">
-                    <span>⏳</span><p>Loading…</p>
+                    <Loader2 size={16} className="animate-spin" /><p>Loading…</p>
                   </div>
                 ) : notifs.map(n => (
                   <div key={n.id} className={`notif-item${n.unread ? ' unread' : ''}`}>
@@ -218,12 +219,12 @@ export default function Topbar({ onMenuToggle }) {
                       <p>{n.text}</p>
                       <span>{n.time}</span>
                     </div>
-                    <button className="notif-item-close" onClick={(e) => removeNotif(n.id, e)}>✕</button>
+                    <button className="notif-item-close" onClick={(e) => removeNotif(n.id, e)}><X size={14} /></button>
                   </div>
                 ))}
                 {!loadingNotifs && notifs.length === 0 && (
                   <div className="notif-empty">
-                    <span>🔔</span>
+                    <Bell size={18} />
                     <p>No new notifications</p>
                   </div>
                 )}
@@ -258,20 +259,20 @@ export default function Topbar({ onMenuToggle }) {
           <div className="modal-box profile-settings-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 580 }}>
             <div className="modal-header">
               <h2>Account Settings</h2>
-              <button className="modal-close" onClick={() => setModalOpen(false)}>✕</button>
+              <button className="modal-close" onClick={() => setModalOpen(false)}><X size={16} /></button>
             </div>
             
             <div className="profile-settings-layout">
               {/* Sidebar Tabs */}
               <div className="profile-settings-sidebar">
                 <button className={`ps-tab-btn${activeTab === 'profile' ? ' active' : ''}`} onClick={() => setActiveTab('profile')}>
-                  👤 Profile Info
+                  <User size={14} style={{ display: 'inline', marginRight: '4px' }} /> Profile Info
                 </button>
                 <button className={`ps-tab-btn${activeTab === 'security' ? ' active' : ''}`} onClick={() => setActiveTab('security')}>
-                  🔒 Security
+                  <Lock size={14} style={{ display: 'inline', marginRight: '4px' }} /> Security
                 </button>
                 <button className={`ps-tab-btn${activeTab === 'preferences' ? ' active' : ''}`} onClick={() => setActiveTab('preferences')}>
-                  ⚙️ Preferences
+                  <Settings size={14} style={{ display: 'inline', marginRight: '4px' }} /> Preferences
                 </button>
               </div>
 

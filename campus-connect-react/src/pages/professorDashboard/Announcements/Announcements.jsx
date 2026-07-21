@@ -1,3 +1,4 @@
+import { Megaphone, X } from "lucide-react";
 /**
  * Announcements — Professor Portal
  *
@@ -87,7 +88,7 @@ export default function Announcements() {
         </div>
         {isProfessor && (
           <button className="action-btn" onClick={() => setModal(true)}>
-            📢 Post Announcement
+            Post Announcement
           </button>
         )}
       </div>
@@ -113,7 +114,7 @@ export default function Announcements() {
               <div className={`ann-card ${ann.author_role || 'general'}`} key={ann.id}>
                 <div className="ann-card-header">
                   <span className="ann-source" style={{ color: dotColor }}>
-                    ✍️ {ann.source || ann.author_name || 'Staff'}
+                    {ann.source || ann.author_name || 'Staff'}
                     {ann.target_branch && <span style={{ opacity: 0.7 }}> · {ann.target_branch}</span>}
                   </span>
                   <span className="ann-time">{ann.time || new Date(ann.created_at || Date.now()).toLocaleDateString()}</span>
@@ -145,7 +146,7 @@ export default function Announcements() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Post New Announcement</h2>
-              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handlePost} className="sell-form">
               <label>

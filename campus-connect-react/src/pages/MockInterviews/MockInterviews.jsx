@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
 import { careerApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
+import { Target, FileText, RotateCcw, MessageCircle, Laptop, Calendar, Link as LinkIcon } from 'lucide-react';
 import './MockInterviews.css';
 
 const DIFF_COLORS = { Easy: '#15803d', Medium: '#854d0e', Hard: '#b91c1c' };
@@ -88,10 +89,10 @@ export default function MockInterviews() {
       {tab === 'available' && (
         <div className="tips-grid">
           {[
-            '🎯 Review core CS fundamentals before each session',
-            '📝 Take notes and track your weak areas',
-            '🔄 Re-book rounds you struggled with to improve',
-            '💬 Request feedback from your interviewer after each session',
+            'Review core CS fundamentals before each session',
+            'Take notes and track your weak areas',
+            'Re-book rounds you struggled with to improve',
+            'Request feedback from your interviewer after each session',
           ].map((tip, i) => (
             <div className="tip-card" key={i}><p>{tip}</p></div>
           ))}
@@ -109,7 +110,7 @@ export default function MockInterviews() {
             <div className="mock-grid">
               {sessions.map(s => (
                 <div className="mock-card" key={s.id}>
-                  <div className="mock-icon">💻</div>
+                  <div className="mock-icon"><Laptop size={20} aria-hidden="true" /></div>
                   <div className="mock-body">
                     <h3 className="mock-type">{s.type}</h3>
                     <p className="mock-company">{s.company}</p>
@@ -118,14 +119,14 @@ export default function MockInterviews() {
                         {s.difficulty}
                       </span>
                       <span>{s.duration} min</span>
-                      <span>📅 {s.slots}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14} aria-hidden="true" /> {s.slots}</span>
                     </div>
                   </div>
                   <button
                     className={`action-btn mock-book-btn${s.booked ? ' applied' : ''}`}
                     disabled={booking[s.id]}
                     onClick={() => handleBook(s)}>
-                    {booking[s.id] ? '…' : s.booked ? 'Booked ✓' : 'Book Slot'}
+                    {booking[s.id] ? '…' : s.booked ? 'Booked' : 'Book Slot'}
                   </button>
                 </div>
               ))}
@@ -195,7 +196,7 @@ export default function MockInterviews() {
                             <a href={b.room_url} target="_blank" rel="noopener noreferrer"
                               className="action-btn"
                               style={{ fontSize: '0.78rem', padding: '0.25rem 0.6rem', textDecoration: 'none' }}>
-                              Join Room 🔗
+                              Join Room
                             </a>
                           ) : (
                             <span style={{ color: 'var(--clr-muted)', fontSize: '0.82rem' }}>—</span>

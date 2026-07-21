@@ -9,6 +9,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Save, Calculator } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -158,7 +159,7 @@ export default function Attendance() {
             Load Roster
           </button>
           <button className="action-btn" onClick={saveAttendance} disabled={saving || roster.length === 0}>
-            {saving ? 'Saving…' : '💾 Save Attendance'}
+            {saving ? 'Saving…' : <><Save size={14} style={{ display: 'inline', marginRight: '4px' }} /> Save Attendance</>}
           </button>
         </div>
 
@@ -250,7 +251,9 @@ export default function Attendance() {
 
         {/* Bunk Calculator */}
         <section className="panel calc-card" aria-labelledby="calcTitle">
-          <h2 className="panel-title" id="calcTitle">🧮 Bunk Calculator</h2>
+          <h2 className="panel-title" id="calcTitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Calculator size={18} /> Bunk Calculator
+          </h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.75rem' }}>
             Check if you can safely skip a class.
           </p>

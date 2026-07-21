@@ -7,7 +7,8 @@
  * Role enforced server-side; we only gate the UI for convenience.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { Calendar, MapPin, Check, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -192,8 +193,8 @@ export default function Events() {
                   </div>
                   <h3 className="event-full-name" style={{ fontSize: '1.15rem' }}>{ev.name || ev.title}</h3>
                   <div className="event-details" style={{ margin: '0.4rem 0' }}>
-                    <span>📅 {ev.meta || ev.date_time}</span>
-                    <span>📍 {ev.venue || ev.location}</span>
+                    <span><Calendar size={12} style={{ display: 'inline', marginRight: '3px' }} /> {ev.meta || ev.date_time}</span>
+                    <span><MapPin size={12} style={{ display: 'inline', marginRight: '3px' }} /> {ev.venue || ev.location}</span>
                   </div>
                   {ev.desc || ev.description ? (
                     <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', margin: '0.5rem 0' }}>
@@ -277,8 +278,8 @@ export default function Events() {
 
               <h2 className="event-full-name">{ev.name || ev.title}</h2>
               <div className="event-details">
-                <span>📅 {ev.meta || ev.date_time || ev.date}</span>
-                <span>📍 {ev.venue || ev.location}</span>
+                <span><Calendar size={12} style={{ display: 'inline', marginRight: '3px' }} /> {ev.meta || ev.date_time || ev.date}</span>
+                <span><MapPin size={12} style={{ display: 'inline', marginRight: '3px' }} /> {ev.venue || ev.location}</span>
               </div>
               {ev.desc || ev.description ? (
                 <p style={{ fontSize: '0.825rem', color: 'var(--clr-muted)', margin: '0.5rem 0 1rem' }}>
@@ -292,7 +293,7 @@ export default function Events() {
                 disabled={registering[ev.id]}
                 onClick={() => handleRegister(ev)}>
                 {registering[ev.id] ? '…'
-                  : isReg ? 'Registered ✓'
+                  : isReg ? <><Check size={14} style={{ display: 'inline', marginRight: '3px' }} /> Registered</>
                   : 'Register Now'}
               </button>
             </div>
@@ -307,7 +308,7 @@ export default function Events() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>{editTarget ? 'Edit Event' : 'Create Event'}</h2>
-              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={handleSave} className="sell-form">
               <label>

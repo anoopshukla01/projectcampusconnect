@@ -5,6 +5,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -222,9 +223,9 @@ export default function Internships() {
                         : 'Open registration'}
                     </span>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      <button className="action-btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem' }}
+                      <button className="action-btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                         onClick={() => { setReportTarget(d); setShowReportModal(true); }}>
-                        ⚠️ Report
+                        <AlertTriangle size={12} /> Report
                       </button>
                       {hasApplied ? (
                         <button className="action-btn btn-secondary"
@@ -320,7 +321,7 @@ export default function Internships() {
                       <button className="action-btn"
                         disabled={responding[o.id]}
                         onClick={() => respondOffer(o.id, true)}>
-                        {responding[o.id] ? '…' : '✅ Accept Offer'}
+                        {responding[o.id] ? '…' : <><Check size={14} style={{ display: 'inline', marginRight: '4px' }} /> Accept Offer</>}
                       </button>
                       <button className="action-btn btn-secondary"
                         disabled={responding[o.id]}
@@ -342,7 +343,7 @@ export default function Internships() {
           <div className="modal-box" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Report Issue / Complaint</h2>
-              <button className="modal-close" onClick={() => setShowReportModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowReportModal(false)}><X size={16} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>

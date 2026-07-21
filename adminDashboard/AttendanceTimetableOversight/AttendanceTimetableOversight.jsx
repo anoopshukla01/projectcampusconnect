@@ -1,3 +1,4 @@
+import { MapPin, User, X, Calendar } from "lucide-react";
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
@@ -240,10 +241,10 @@ export default function AttendanceTimetableOversight() {
                         <div className="slot-name" title={s.course_name}>{s.course_name}</div>
                         <div className="slot-code-room">
                           <span className="slot-code">{s.course_code}</span>
-                          <span className="slot-room">📍 {s.room}</span>
+                          <span className="slot-room">{s.room}</span>
                         </div>
-                        <div className="slot-prof">👤 {s.professor_name}</div>
-                        <button className="slot-delete-btn" onClick={() => handleDeleteSlot(s.id)} title="Delete Slot">✕</button>
+                        <div className="slot-prof">{s.professor_name}</div>
+                        <button className="slot-delete-btn" onClick={() => handleDeleteSlot(s.id)} title="Delete Slot" aria-label="Delete Slot"><X size={14} aria-hidden="true" /></button>
                       </div>
                     ))
                   )}
@@ -263,7 +264,7 @@ export default function AttendanceTimetableOversight() {
             </div>
             {bookings.length === 0 ? (
               <div className="empty-state-layout">
-                <span className="empty-icon">📅</span>
+                <span className="empty-icon"><Calendar size={32} aria-hidden="true" /></span>
                 <p>No pending interview timetable booking requests.</p>
               </div>
             ) : (
@@ -288,7 +289,7 @@ export default function AttendanceTimetableOversight() {
                         <td><code className="roll-pill">{b.student_roll}</code></td>
                         <td>{b.day_of_week}</td>
                         <td><span className="time-badge">{b.time_slot}</span></td>
-                        <td>📍 {b.room}</td>
+                        <td>{b.room}</td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                             <button className="pd-btn pd-btn-sm pd-btn-success" onClick={() => handleApproveBooking(b.id)}>
@@ -383,7 +384,7 @@ export default function AttendanceTimetableOversight() {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Create Master Timetable Slot</h2>
-              <button className="modal-close-btn" onClick={() => setShowAddModal(false)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setShowAddModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleAddSlot}>
               <div className="form-grid-2">

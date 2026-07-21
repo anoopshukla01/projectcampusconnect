@@ -6,7 +6,8 @@
  * IDOR enforced server-side.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, MapPin, Calendar, Check, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -118,12 +119,12 @@ export default function LostAndFound() {
             const isOwner = item.reporter_id === user?.id;
             return (
               <div className={`laf-card ${typeVal}`} key={item.id}>
-                <div className="laf-icon-wrap">🔍</div>
+                <div className="laf-icon-wrap"><Search size={20} /></div>
                 <div className="laf-body">
                   <span className={`laf-badge ${typeVal}`}>{typeVal.toUpperCase()}</span>
                   <h3 className="laf-title">{item.title}</h3>
                   <p className="laf-meta">
-                    📍 {item.location} · 📅 {item.date || item.date_reported}
+                    <MapPin size={12} style={{ display: 'inline', marginRight: '2px' }} /> {item.location} · <Calendar size={12} style={{ display: 'inline', marginRight: '2px' }} /> {item.date || item.date_reported}
                   </p>
                   <p className="laf-contact">
                     Reporter: {item.reporter || item.reporter_name}
@@ -136,19 +137,19 @@ export default function LostAndFound() {
                     {isOwner && (
                       <>
                         <button className="action-btn btn-secondary"
-                          style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                          style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           disabled={resolving[item.id]}
                           onClick={() => handleResolve(item.id, item.title)}>
-                          {resolving[item.id] ? '…' : '✅ Resolved'}
+                          {resolving[item.id] ? '…' : <><Check size={12} /> Resolved</>}
                         </button>
                         <button
                           style={{ background: 'none', border: 'none',
                                    color: 'var(--clr-danger, #ef4444)',
-                                   cursor: 'pointer', fontSize: '1rem', padding: '0.35rem' }}
+                                   cursor: 'pointer', fontSize: '1rem', padding: '0.35rem', display: 'inline-flex', alignItems: 'center' }}
                           disabled={deleting[item.id]}
                           onClick={() => handleDelete(item.id, item.title)}
                           title="Delete report">
-                          {deleting[item.id] ? '…' : '🗑'}
+                          {deleting[item.id] ? '…' : <Trash2 size={16} />}
                         </button>
                       </>
                     )}

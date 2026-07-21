@@ -9,7 +9,8 @@
  * Role enforced server-side.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { FileText, BarChart2, ClipboardList, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -18,8 +19,12 @@ import { StateContainer } from '../../components/StateContainer';
 import './Notes.css';
 
 const TYPES = ['all', 'notes', 'slides', 'pyq'];
-const TYPE_LABELS = { notes: 'Notes', slides: 'Slides', pyq: 'PYQ Papers' };
-const NOTE_ICONS  = { notes: '📄', slides: '📊', pyq: '📋' };
+const TYPE_LABELS = { notes: 'Notes', slides: 'Slides', pyq: 'PYQ / Papers' };
+const NOTE_ICONS  = {
+  notes: <FileText size={18} />,
+  slides: <BarChart2 size={18} />,
+  pyq: <ClipboardList size={18} />,
+};
 
 const BLANK = { title: '', subject: '', note_type: 'notes', branch: '', semester: '', description: '', file_url: '' };
 
@@ -152,7 +157,7 @@ export default function Notes() {
           <div className="notes-list">
             {pending.map(p => (
               <div className="note-card" key={p.id}>
-                <div className="note-icon-wrap">{NOTE_ICONS[p.type || p.note_type] || '📄'}</div>
+                <div className="note-icon-wrap">{NOTE_ICONS[p.type || p.note_type] || <FileText size={18} />}</div>
                 <div className="note-body">
                   <span className="note-subject">{p.subject}</span>
                   <h3 className="note-title">{p.title}</h3>
@@ -220,7 +225,7 @@ export default function Notes() {
           {filtered.map(n => (
             <div className="note-card" key={n.id}>
               <div className="note-icon-wrap">
-                {NOTE_ICONS[n.type || n.note_type] || '📄'}
+                {NOTE_ICONS[n.type || n.note_type] || <FileText size={18} />}
               </div>
               <div className="note-body">
                 <span className="note-subject">{n.subject}</span>
@@ -250,10 +255,10 @@ export default function Notes() {
                 {canManage && (
                   <button
                     style={{ background: 'none', border: 'none',
-                             color: 'var(--clr-danger, #ef4444)', cursor: 'pointer', fontSize: '0.9rem' }}
+                             color: 'var(--clr-danger, #ef4444)', cursor: 'pointer', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center' }}
                     disabled={deleting[n.id]}
                     onClick={() => handleDelete(n.id, n.title)}>
-                    {deleting[n.id] ? '…' : '🗑'}
+                    {deleting[n.id] ? '…' : <Trash2 size={16} />}
                   </button>
                 )}
               </div>
@@ -269,7 +274,7 @@ export default function Notes() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>{canManage ? 'Publish Study Material' : 'Upload Resource'}</h2>
-              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={handleUpload} className="sell-form">
               <label>

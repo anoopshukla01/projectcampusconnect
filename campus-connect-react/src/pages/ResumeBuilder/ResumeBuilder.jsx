@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Lightbulb, Save, Download, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { careerApi } from '../../services/api';
@@ -94,12 +95,16 @@ export default function ResumeBuilder() {
           <p className="page-sub">Build, save & export your professional resume</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button className="btn-secondary" onClick={fetchSuggestions}>💡 Suggestions</button>
-          <button className="btn-secondary" onClick={handleTemplate}>LaTeX Template</button>
-          <button className="btn-secondary" disabled={saving} onClick={handleSave}>
-            {saving ? 'Saving…' : '💾 Save Version'}
+          <button className="btn-secondary" onClick={fetchSuggestions} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Lightbulb size={14} /> Suggestions
           </button>
-          <button className="action-btn" onClick={handleDownload}>⬇ Download PDF</button>
+          <button className="btn-secondary" onClick={handleTemplate}>LaTeX Template</button>
+          <button className="btn-secondary" disabled={saving} onClick={handleSave} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            {saving ? 'Saving…' : <><Save size={14} /> Save Version</>}
+          </button>
+          <button className="action-btn" onClick={handleDownload} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Download size={14} /> Download PDF
+          </button>
         </div>
       </div>
 
@@ -107,8 +112,10 @@ export default function ResumeBuilder() {
       {showSuggest && suggestions.length > 0 && (
         <section className="panel" style={{ marginBottom: '1rem', borderLeft: '3px solid var(--clr-primary)' }}>
           <div className="panel-header">
-            <h2 className="panel-title" style={{ fontSize: '1rem' }}>💡 Profile Suggestions</h2>
-            <button className="modal-close" onClick={() => setShowSuggest(false)}>✕</button>
+            <h2 className="panel-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Lightbulb size={16} /> Profile Suggestions
+            </h2>
+            <button className="modal-close" onClick={() => setShowSuggest(false)}><X size={16} /></button>
           </div>
           <ul style={{ margin: '0 0 0 1.25rem', padding: 0 }}>
             {suggestions.map((s, i) => (

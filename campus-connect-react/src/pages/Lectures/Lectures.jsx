@@ -5,7 +5,8 @@
  * Professor: upload new recording, update syllabus progress %, view own uploads.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Upload, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -91,7 +92,7 @@ export default function Lectures() {
         </div>
         {isProfessor && (
           <button className="action-btn" onClick={() => setUploadModal(true)}>
-            📤 Upload Recording
+            <Upload size={14} style={{ display: 'inline', marginRight: '4px' }} /> Upload Recording
           </button>
         )}
       </div>
@@ -206,7 +207,7 @@ export default function Lectures() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Upload Lecture Recording</h2>
-              <button className="modal-close" onClick={() => setUploadModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setUploadModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={handleUpload} className="sell-form">
               <label>

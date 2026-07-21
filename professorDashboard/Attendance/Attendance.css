@@ -64,9 +64,9 @@
 .bar-pct  { font-size: 0.78rem; font-weight: 600; color: var(--clr-text); white-space: nowrap; }
 
 .status-pill { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 99px; }
-.status-pill.safe     { background: #dcfce7; color: #15803d; }
-.status-pill.warning  { background: #fef9c3; color: #854d0e; }
-.status-pill.critical { background: #fee2e2; color: #b91c1c; }
+.status-pill.safe     { background: var(--clr-success-soft); color: var(--clr-success); }
+.status-pill.warning  { background: var(--clr-warning-soft); color: #854d0e; }
+.status-pill.critical { background: var(--clr-danger-soft); color: var(--clr-danger); }
 
 @media (max-width: 768px) {
   .attend-top-row { grid-template-columns: 1fr; }

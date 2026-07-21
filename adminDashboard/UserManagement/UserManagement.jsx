@@ -287,14 +287,14 @@ export default function UserManagement() {
                           style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
                           onClick={() => openRestrictionsModal(u)}
                         >
-                          ⚙️ Restrictions
+                          Restrictions
                         </button>
                         <button
                           className="ad-btn ad-btn-outline"
                           style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
                           onClick={() => navigate(`/admin/audit?actor=${encodeURIComponent(u.email || u.id)}`)}
                         >
-                          🔍 Logs
+                          Logs
                         </button>
                       </div>
                     </td>
@@ -332,7 +332,7 @@ export default function UserManagement() {
 
             {inviteTokenResult ? (
               <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', padding: '1rem', borderRadius: '10px', color: '#10b981', marginBottom: '1rem' }}>
-                <p style={{ fontWeight: 700, marginBottom: '0.5rem' }}>✓ Invite Token Generated Successfully:</p>
+                <p style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Invite Token Generated Successfully:</p>
                 <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border)', padding: '0.5rem', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', marginBottom: '0.5rem' }}>
                   {inviteTokenResult}
                 </div>
@@ -651,7 +651,7 @@ export default function UserManagement() {
                   userTags.map(tag => (
                     <span key={tag} className="ad-badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.5rem', borderRadius: '6px' }}>
                       {tag}
-                      <button type="button" onClick={() => handleRemoveTag(tag)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontWeight: 700, fontSize: '0.75rem' }}>✕</button>
+                      <button type="button" onClick={() => handleRemoveTag(tag)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0, fontWeight: 700, fontSize: '0.75rem' }} aria-label="Remove tag">x</button>
                     </span>
                   ))
                 )}

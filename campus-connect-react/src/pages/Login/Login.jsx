@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Mail, GraduationCap, Check, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import './Login.css';
@@ -437,7 +438,7 @@ export default function Login() {
                   className={idError ? 'has-error' : ''}
                 />
               </div>
-              {idError && <span className="field-error" role="alert">⚠ {idError}</span>}
+              {idError && <span className="field-error" role="alert"><AlertTriangle size={12} style={{ display: 'inline', marginRight: '4px' }} /> {idError}</span>}
             </div>
 
             <div className="form-field">
@@ -456,7 +457,7 @@ export default function Login() {
                   {showPw ? <EyeClose /> : <EyeOpen />}
                 </button>
               </div>
-              {pwError && <span className="field-error" role="alert">⚠ {pwError}</span>}
+              {pwError && <span className="field-error" role="alert"><AlertTriangle size={12} style={{ display: 'inline', marginRight: '4px' }} /> {pwError}</span>}
             </div>
 
             <div className="forgot-row">
@@ -497,14 +498,14 @@ export default function Login() {
                 className={`signup-tab${signupMode === 'email' ? ' active' : ''}`}
                 onClick={() => setSignupMode('email')}
               >
-                ✉ Sign Up with Email
+                Sign Up with Email
               </button>
               <button
                 type="button"
                 className={`signup-tab${signupMode === 'claim' ? ' active' : ''}`}
                 onClick={() => setSignupMode('claim')}
               >
-                🎓 Claim Student Record
+                Claim Student Record
               </button>
             </div>
 
@@ -530,7 +531,7 @@ export default function Login() {
                           type="button" className="btn-inline"
                           onClick={handleEmailOtpSend} disabled={loading || signupOtpSent}
                         >
-                          {signupOtpSent ? '✓ Sent' : 'Send OTP'}
+                          {signupOtpSent ? 'Sent' : 'Send OTP'}
                         </button>
                       </div>
                     </div>
@@ -568,7 +569,7 @@ export default function Login() {
 
                 {signupVerified && (
                   <>
-                    <div className="alert-success">✓ {signupEmail} verified!</div>
+                    <div className="alert-success"><Check size={14} style={{ display: 'inline', marginRight: '4px' }} /> {signupEmail} verified!</div>
 
                     <div className="form-field">
                       <label className="form-label" htmlFor="signupFullName">
@@ -682,7 +683,7 @@ export default function Login() {
 
                 {otpVerified && (
                   <>
-                    <div className="alert-success">✓ Phone number verified successfully.</div>
+                    <div className="alert-success"><Check size={14} style={{ display: 'inline', marginRight: '4px' }} /> Phone number verified successfully.</div>
 
                     <div className="form-field">
                       <label className="form-label" htmlFor="claimPassword">Set Password</label>
@@ -864,7 +865,7 @@ export default function Login() {
                   onChange={e => { setResetEmail(e.target.value); if (resetError && e.target.value.trim()) setResetError(''); }}
                 />
               </div>
-              {resetError && <span className="field-error" id="resetEmail-error" role="alert">⚠ {resetError}</span>}
+              {resetError && <span className="field-error" id="resetEmail-error" role="alert"><AlertTriangle size={12} style={{ display: 'inline', marginRight: '4px' }} /> {resetError}</span>}
             </div>
 
             <div className="modal-actions">

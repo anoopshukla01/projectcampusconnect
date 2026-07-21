@@ -15,7 +15,7 @@ const branchMap = {
 };
 
 const STATUS_OPTS = ['All','good','warn','low'];
-const STATUS_LABEL = { good:'🟢 Strong', warn:'🟡 Needs Attention', low:'🔴 Lagging' };
+const STATUS_LABEL = { good:'Strong', warn:'Needs Attention', low:'Lagging' };
 const TAG_CLASS    = { good:'ad-branch-tag-good', warn:'ad-branch-tag-warn', low:'ad-branch-tag-low' };
 
 export default function BranchComparison() {
@@ -127,7 +127,7 @@ export default function BranchComparison() {
         <div style={{display:'flex',gap:'.3rem'}}>
           {['cards','table'].map(v => (
             <button key={v} className={`ad-tab${view===v?' active':''}`} onClick={() => setView(v)} style={{padding:'.4rem .75rem'}}>
-              {v==='cards'?'⊞ Cards':'☰ Table'}
+              {v==='cards'?'Cards':'Table'}
             </button>
           ))}
         </div>
@@ -156,12 +156,12 @@ export default function BranchComparison() {
               </div>
               {b.rec && (
                 <div style={{marginTop:'.75rem',padding:'.5rem .7rem',borderRadius:'.6rem',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',fontSize:'.73rem',color:'#f87171'}}>
-                  ⚠ {b.rec}
+                  {b.rec}
                 </div>
               )}
               <div style={{marginTop:'.75rem',display:'flex',gap:'.4rem'}}>
-                <button className="ad-btn ad-btn-outline" style={{flex:1,padding:'.35rem',fontSize:'.72rem',justifyContent:'center'}} onClick={() => contactHOD(b)}>📧 HOD</button>
-                {b.status!=='good' && <button className="ad-btn ad-btn-primary" style={{flex:1,padding:'.35rem',fontSize:'.72rem',justifyContent:'center'}} onClick={() => allocateTraining(b)}>📚 Train</button>}
+                <button className="ad-btn ad-btn-outline" style={{flex:1,padding:'.35rem',fontSize:'.72rem',justifyContent:'center'}} onClick={() => contactHOD(b)}>HOD</button>
+                {b.status!=='good' && <button className="ad-btn ad-btn-primary" style={{flex:1,padding:'.35rem',fontSize:'.72rem',justifyContent:'center'}} onClick={() => allocateTraining(b)}>Train</button>}
               </div>
             </div>
           )) : (
@@ -193,8 +193,8 @@ export default function BranchComparison() {
                     <td><span className={`ad-branch-tag ${TAG_CLASS[b.status]}`}>{STATUS_LABEL[b.status]}</span></td>
                     <td>
                       <div style={{display:'flex',gap:'.35rem'}}>
-                        <button className="ad-btn ad-btn-outline" style={{padding:'.28rem .6rem',fontSize:'.72rem'}} onClick={() => contactHOD(b)}>📧</button>
-                        {b.status!=='good' && <button className="ad-btn ad-btn-primary" style={{padding:'.28rem .6rem',fontSize:'.72rem'}} onClick={() => allocateTraining(b)}>📚</button>}
+                        <button className="ad-btn ad-btn-outline" style={{padding:'.28rem .6rem',fontSize:'.72rem'}} onClick={() => contactHOD(b)}>HOD</button>
+                        {b.status!=='good' && <button className="ad-btn ad-btn-primary" style={{padding:'.28rem .6rem',fontSize:'.72rem'}} onClick={() => allocateTraining(b)}>Train</button>}
                       </div>
                     </td>
                   </tr>

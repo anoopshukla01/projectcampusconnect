@@ -8,5 +8,5 @@
 .note-meta  { font-size:0.72rem; color:var(--clr-muted); }
 .note-type-badge { font-size:0.65rem; font-weight:700; padding:0.2rem 0.5rem; border-radius:99px; white-space:nowrap; }
 .note-type-badge.notes  { background:#ede9fe; color:#6d28d9; }
-.note-type-badge.slides { background:#dbeafe; color:#1e40af; }
-.note-type-badge.pyq    { background:#dcfce7; color:#15803d; }
+.note-type-badge.slides { background:var(--clr-primary-soft); color:#1e40af; }
+.note-type-badge.pyq    { background:var(--clr-success-soft); color:var(--clr-success); }

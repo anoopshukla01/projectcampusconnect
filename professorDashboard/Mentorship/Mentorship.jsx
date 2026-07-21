@@ -4,12 +4,12 @@ import { useToast } from '../../context/ToastContext';
 import './Mentorship.css';
 
 const MENTORS = [
-  { id:1, name:'Dr. Vikram Singh',   role:'Professor, CS Dept.',    expertise:['DSA','Compilers','Research'],    rating:4.9, sessions:48, available:true, img:'👨‍🏫' },
-  { id:2, name:'Priya Gupta',        role:'SDE-2 at Google',        expertise:['System Design','DSA','OOP'],     rating:4.8, sessions:32, available:true, img:'👩‍💻' },
-  { id:3, name:'Arjun Kapoor',       role:'PM at Razorpay',         expertise:['Product','Analytics','Strategy'],rating:4.7, sessions:21, available:false,img:'👨‍💼' },
-  { id:4, name:'Dr. Sneha Menon',    role:'Research Scientist, IISc',expertise:['ML','NLP','CV'],                rating:5.0, sessions:15, available:true, img:'👩‍🔬' },
-  { id:5, name:'Rohit Sharma',       role:'Startup Founder, EdTech', expertise:['Startups','Fundraising','MVP'],  rating:4.6, sessions:27, available:true, img:'🧑‍🚀' },
-  { id:6, name:'Kavya Nair',         role:'Data Scientist at Amazon',expertise:['Python','ML','SQL'],            rating:4.8, sessions:38, available:false,img:'👩‍💻' },
+  { id:1, name:'Dr. Vikram Singh',   role:'Professor, CS Dept.',    expertise:['DSA','Compilers','Research'],    rating:4.9, sessions:48, available:true, img:'' },
+  { id:2, name:'Priya Gupta',        role:'SDE-2 at Google',        expertise:['System Design','DSA','OOP'],     rating:4.8, sessions:32, available:true, img:'' },
+  { id:3, name:'Arjun Kapoor',       role:'PM at Razorpay',         expertise:['Product','Analytics','Strategy'],rating:4.7, sessions:21, available:false,img:'' },
+  { id:4, name:'Dr. Sneha Menon',    role:'Research Scientist, IISc',expertise:['ML','NLP','CV'],                rating:5.0, sessions:15, available:true, img:'' },
+  { id:5, name:'Rohit Sharma',       role:'Startup Founder, EdTech', expertise:['Startups','Fundraising','MVP'],  rating:4.6, sessions:27, available:true, img:'' },
+  { id:6, name:'Kavya Nair',         role:'Data Scientist at Amazon',expertise:['Python','ML','SQL'],            rating:4.8, sessions:38, available:false,img:'' },
 ];
 
 export default function Mentorship() {
@@ -54,7 +54,7 @@ export default function Mentorship() {
           <div className="mentor-grid">
             {profRequests.map(req => (
               <div className="mentor-card" key={req.id} style={{ alignItems: 'flex-start', textAlign: 'left' }}>
-                <div className="mentor-avatar" style={{ alignSelf: 'center', marginBottom: '0.5rem' }}>👨‍🎓</div>
+                <div className="mentor-avatar" style={{ alignSelf: 'center', marginBottom: '0.5rem' }}></div>
                 <div className="mentor-info" style={{ alignItems: 'flex-start', width: '100%' }}>
                   <h3 className="mentor-name">{req.studentName}</h3>
                   <p className="mentor-role">Roll: {req.roll}</p>
@@ -96,13 +96,13 @@ export default function Mentorship() {
               <p className="mentor-role">{m.role}</p>
               <div className="mentor-tags">{m.expertise.map(e=><span key={e} className="intern-tag">{e}</span>)}</div>
               <div className="mentor-stats">
-                <span>⭐ {m.rating}</span>
-                <span>🗓 {m.sessions} sessions</span>
+                <span>{m.rating}</span>
+                <span>{m.sessions} sessions</span>
                 <span className={m.available?'avail-text':'unavail-text'}>{m.available?'Available':'Unavailable'}</span>
               </div>
             </div>
             <button className={`action-btn mentor-req-btn${requested.has(m.id)?' applied':''}`} onClick={()=>handleRequest(m)}>
-              {requested.has(m.id)?'Requested ✓':'Request Session'}
+              {requested.has(m.id)?'Requested':'Request Session'}
             </button>
           </div>
         ))}

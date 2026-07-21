@@ -3,7 +3,7 @@
   background: linear-gradient(135deg, rgba(99,102,241,.15), rgba(168,85,247,.12));
   border: 1px solid rgba(99,102,241,.3); border-radius: 1rem; padding: 1.25rem 1.5rem;
 }
-.pr-naac-title { font-size: .82rem; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .85rem; }
+.pr-naac-title { font-size: .82rem; font-weight: 700; color: var(--clr-secondary-soft); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .85rem; }
 .pr-naac-stats { display: flex; gap: 2rem; flex-wrap: wrap; }
 .pr-naac-stat { display: flex; flex-direction: column; gap: .1rem; }
 .pr-naac-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
@@ -18,11 +18,11 @@
 .pr-bar-val { font-size: .8rem; font-weight: 700; color: var(--text-primary); }
 .pr-bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; }
 .pr-bar {
-  width: 100%; background: linear-gradient(to top, #6366f1, #a855f7); border-radius: .4rem .4rem 0 0;
+  width: 100%; background: linear-gradient(to top, var(--clr-secondary), #a855f7); border-radius: .4rem .4rem 0 0;
   min-height: 8px; transition: height .6s cubic-bezier(.4,0,.2,1);
 }
 .pr-bar-label { font-size: .75rem; font-weight: 700; color: var(--text-secondary); text-align: center; }
-.pr-bar-pct { font-size: .7rem; color: var(--text-muted, #64748b); }
+.pr-bar-pct { font-size: .7rem; color: var(--text-muted, var(--clr-muted)); }
 
 /* Recruiters */
 .pr-recruiter-list { display: flex; flex-direction: column; gap: .6rem; }
@@ -30,7 +30,7 @@
 .pr-rank { font-size: .72rem; font-weight: 800; color: var(--text-secondary); width: 20px; text-align: center; }
 .pr-recruiter-name { flex: 1; font-size: .85rem; font-weight: 600; color: var(--text-primary); }
 .pr-recruiter-hired { font-size: .78rem; color: var(--text-secondary); }
-.pr-recruiter-ctc { font-size: .82rem; font-weight: 700; color: #4ade80; }
+.pr-recruiter-ctc { font-size: .82rem; font-weight: 700; color: var(--clr-success); }
 
 /* Print */
 @media print {

@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { ShoppingBag, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -109,7 +110,7 @@ export default function Marketplace() {
           {filtered.map(l => (
             <div className="listing-card" key={l.id}>
               <div className="listing-img-box">
-                <span className="listing-emoji">🛍️</span>
+                <span className="listing-emoji"><ShoppingBag size={24} /></span>
                 <span className="listing-badge">{(l.category || 'ITEM').toUpperCase()}</span>
               </div>
               <div className="listing-body">
@@ -145,7 +146,7 @@ export default function Marketplace() {
                         disabled={deleting[l.id]}
                         onClick={() => handleDelete(l.id, l.title)}
                         title="Remove listing">
-                        {deleting[l.id] ? '…' : '🗑'}
+                        {deleting[l.id] ? '…' : <Trash2 size={16} />}
                       </button>
                     </>
                   )}

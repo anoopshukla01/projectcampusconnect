@@ -3,8 +3,8 @@
 .event-full-card:hover { box-shadow:var(--shadow-panel); transform:translateY(-2px); }
 .event-banner { height:100px; display:flex; align-items:center; justify-content:center; }
 .event-banner.hackathon { background:linear-gradient(135deg,#7e22ce,#a855f7); }
-.event-banner.fest      { background:linear-gradient(135deg,#b45309,#f59e0b); }
-.event-banner.workshop  { background:linear-gradient(135deg,#1e40af,#3b82f6); }
+.event-banner.fest      { background:linear-gradient(135deg,#b45309,var(--clr-warning)); }
+.event-banner.workshop  { background:linear-gradient(135deg,#1e40af,var(--clr-primary)); }
 .event-banner-icon { font-size:2.5rem; }
 .event-card-body { padding:1.125rem; display:flex; flex-direction:column; gap:0.5rem; }
 .event-org { font-size:0.68rem; font-weight:700; color:var(--clr-muted); text-transform:uppercase; letter-spacing:0.05em; }

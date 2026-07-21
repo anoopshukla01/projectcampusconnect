@@ -29,10 +29,10 @@ const INITIAL_RULES = {
 };
 
 const SECTION_LABELS = {
-  eligibility:'🎯 Eligibility Rules',
-  drive:      '🏢 Drive Rules',
-  blackout:   '🚫 Blackout Periods',
-  data:       '🔐 Data Access Rules',
+  eligibility:'Eligibility Rules',
+  drive:      'Drive Rules',
+  blackout:   'Blackout Periods',
+  data:       'Data Access Rules',
 };
 
 export default function RulesEngine() {
@@ -104,14 +104,14 @@ export default function RulesEngine() {
           <button className="ad-btn ad-btn-outline" onClick={reset}>Reset Defaults</button>
           <button className="ad-btn ad-btn-primary" onClick={save} disabled={saving} style={{position:'relative'}}>
             {dirty && !saving && <span style={{position:'absolute',top:'-4px',right:'-4px',width:'10px',height:'10px',borderRadius:'50%',background:'#f59e0b'}}/>}
-            {saving ? 'Publishing…' : '💾 Publish Rules'}
+            {saving ? 'Publishing…' : 'Publish Rules'}
           </button>
         </div>
       </div>
 
       {dirty && (
         <div style={{padding:'.75rem 1.1rem',borderRadius:'.875rem',background:'rgba(245,158,11,.12)',border:'1px solid rgba(245,158,11,.3)',color:'#fbbf24',fontSize:'.83rem',fontWeight:600}}>
-          ⚠ You have unsaved changes. Click <strong>Publish Rules</strong> to apply them.
+          You have unsaved changes. Click <strong>Publish Rules</strong> to apply them.
         </div>
       )}
 

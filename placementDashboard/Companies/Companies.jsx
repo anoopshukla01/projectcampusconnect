@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * Companies — TPO Portal
  * Manage the company database via placementApi.listCompanies / createCompany.
@@ -190,7 +191,7 @@ export default function Companies() {
           <div className="modal-box co-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editTarget ? 'Edit Company' : 'Add New Company'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <div className="co-form-grid">
               {[

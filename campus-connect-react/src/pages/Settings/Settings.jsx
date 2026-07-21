@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { studentsApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import './Settings.css';
@@ -75,7 +76,7 @@ export default function Settings() {
 
         <form onSubmit={handleSaveSettings}>
           <p className="dpdp-consent-notice">
-            ⚠️ <strong>DPDP Act Compliance:</strong> Connecting your platform accounts will NOT automatically expose them on your resume. You must explicitly check the boxes below to grant consent for placement cell and recruiters to view each link.
+            <AlertTriangle size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} /> <strong>DPDP Act Compliance:</strong> Connecting your platform accounts will NOT automatically expose them on your resume. You must explicitly check the boxes below to grant consent for placement cell and recruiters to view each link.
           </p>
 
           <div className="settings-form-group">

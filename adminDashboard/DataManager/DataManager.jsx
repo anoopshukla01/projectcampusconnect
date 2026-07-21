@@ -154,7 +154,7 @@ export default function DataManager() {
             onChange={handleCsvUpload}
           />
           <button className="ad-btn ad-btn-primary" onClick={() => fileInputRef.current?.click()}>
-            📥 Bulk Import Student CSV
+            Bulk Import Student CSV
           </button>
         </div>
       </div>
@@ -223,7 +223,7 @@ export default function DataManager() {
                           style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                           onClick={() => handleOpenEdit(s)}
                         >
-                          ✏️ Edit
+                          Edit
                         </button>
                       </td>
                     </tr>
@@ -254,7 +254,7 @@ export default function DataManager() {
                           style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                           onClick={() => handleOpenEdit(p)}
                         >
-                          ✏️ Edit
+                          Edit
                         </button>
                       </td>
                     </tr>

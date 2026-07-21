@@ -25,7 +25,7 @@ export default defineConfig({
   resolve: {
     // Ensure only one copy of React & react-router-dom is used even when
     // importing from outside the src/ tree
-    dedupe: ['react', 'react-dom', 'react-router-dom'],
+    dedupe: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@placement': path.resolve(__dirname, '../placementDashboard'),
@@ -36,6 +36,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     // Pre-bundle these so Rollup can find them from outside the src/ root
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
   },
 })

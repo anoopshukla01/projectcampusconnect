@@ -99,17 +99,17 @@ export default function DataHealth() {
       <div className="page-header">
         <div><h1 className="page-title">Data Health & Compliance</h1><p className="page-sub">Profile completeness · DPDP Act compliance · Consent status</p></div>
         <div className="ad-header-actions">
-          <button className="ad-btn ad-btn-outline" onClick={exportDPDP}>📋 DPDP Report</button>
+          <button className="ad-btn ad-btn-outline" onClick={exportDPDP}>DPDP Report</button>
         </div>
       </div>
 
       {/* Overview Cards */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'1.25rem'}}>
         {[
-          { label:'Profiles Complete',  value: data.loading ? '...' : `${data.completePct}%`,     color:'#4ade80', icon:'✅', sub:`${data.totalStudents - visible.length} of ${data.totalStudents} students` },
-          { label:'Missing Fields',     value: data.loading ? '...' : totalMissing,        color:'#f87171', icon:'⚠️',  sub:`Across ${visible.length} students`       },
-          { label:'Pending Verify',     value: data.loading ? '...' : visible.filter(i=>i.severity==='high').length, color:'#fbbf24', icon:'🔍', sub:'High severity items' },
-          { label:'DPDP Compliant',     value: data.loading ? '...' : `${data.consentedPct}%`,               color:'#818cf8', icon:'🛡️',  sub:`${data.consentedCount} of ${data.totalStudents} students`                 },
+          { label:'Profiles Complete',  value: data.loading ? '...' : `${data.completePct}%`,     color:'#4ade80', icon:'', sub:`${data.totalStudents - visible.length} of ${data.totalStudents} students` },
+          { label:'Missing Fields',     value: data.loading ? '...' : totalMissing,        color:'#f87171', icon:'',  sub:`Across ${visible.length} students`       },
+          { label:'Pending Verify',     value: data.loading ? '...' : visible.filter(i=>i.severity==='high').length, color:'#fbbf24', icon:'', sub:'High severity items' },
+          { label:'DPDP Compliant',     value: data.loading ? '...' : `${data.consentedPct}%`,               color:'#818cf8', icon:'',  sub:`${data.consentedCount} of ${data.totalStudents} students`                 },
         ].map(c => (
           <div key={c.label} className="ad-card" style={{padding:'1.25rem 1.35rem'}}>
             <div style={{fontSize:'1.6rem',marginBottom:'.35rem'}}>{c.icon}</div>
@@ -143,13 +143,13 @@ export default function DataHealth() {
                   <td><span className={`ad-badge ${SEV_COLOR[i.severity]}`} style={{textTransform:'capitalize'}}>{i.severity}</span></td>
                   <td>
                     <div style={{display:'flex',gap:'.4rem'}}>
-                      <button className="ad-btn ad-btn-outline" style={{padding:'.28rem .7rem',fontSize:'.73rem'}} onClick={() => remind(i.id)}>📩 Remind</button>
-                      <button className="ad-btn ad-btn-primary" style={{padding:'.28rem .7rem',fontSize:'.73rem'}} onClick={() => dismiss(i.id)}>✓ Resolve</button>
+                      <button className="ad-btn ad-btn-outline" style={{padding:'.28rem .7rem',fontSize:'.73rem'}} onClick={() => remind(i.id)}>Remind</button>
+                      <button className="ad-btn ad-btn-primary" style={{padding:'.28rem .7rem',fontSize:'.73rem'}} onClick={() => dismiss(i.id)}>Resolve</button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {visible.length===0 && <tr><td colSpan={6} style={{textAlign:'center',color:'#4ade80',padding:'2rem',fontWeight:600}}>🎉 All profiles are complete!</td></tr>}
+              {visible.length===0 && <tr><td colSpan={6} style={{textAlign:'center',color:'#4ade80',padding:'2rem',fontWeight:600}}>All profiles are complete!</td></tr>}
             </tbody>
           </table>
         </div>
@@ -200,7 +200,7 @@ export default function DataHealth() {
             ))}
           </div>
           <div style={{marginTop:'1rem',padding:'.75rem',borderRadius:'.75rem',background:'rgba(99,102,241,.08)',fontSize:'.78rem',color:'var(--text-secondary)'}}>
-            🛡️ Logs retained for 3 years per DPDP Act 2023 requirements.
+            Logs retained for 3 years per DPDP Act 2023 requirements.
           </div>
         </div>
       </div>

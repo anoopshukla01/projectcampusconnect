@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 export function StateContainer({ loading, error, isEmpty, emptyMessage, onRetry, children }) {
   if (loading) {
@@ -30,7 +31,9 @@ export function StateContainer({ loading, error, isEmpty, emptyMessage, onRetry,
         color: 'var(--clr-danger)',
         textAlign: 'center'
       }}>
-        <p style={{ fontWeight: '600', marginBottom: '0.5rem' }}>⚠️ Couldn't load your data</p>
+        <p style={{ fontWeight: '600', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+          <AlertTriangle size={18} /> Couldn't load your data
+        </p>
         <p style={{ fontSize: '0.85rem', marginBottom: '1rem', opacity: 0.9 }}>{error}</p>
         {onRetry && (
           <button

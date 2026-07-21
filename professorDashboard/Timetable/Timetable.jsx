@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * Professor Timetable Portal
  *
@@ -272,7 +273,7 @@ export default function Timetable() {
               className={`day-column${isToday ? ' today-col' : ''}${isMobile ? ' active-day-col' : ''}`}>
               <div className="day-header">
                 <span className="day-title">{day.label}</span>
-                <span className="day-subtitle">{isToday ? '📍 Today' : day.sub}</span>
+                <span className="day-subtitle">{isToday ? 'Today' : day.sub}</span>
               </div>
               <div className="classes-list">
                 {classes.length > 0 ? classes.map(cls => (
@@ -325,7 +326,7 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Add New Slot</h2>
-              <button className="modal-close" onClick={() => { setCreateModal(false); setConflictSlots([]); }}>✕</button>
+              <button className="modal-close" onClick={() => { setCreateModal(false); setConflictSlots([]); }} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleCreate} className="sell-form">
               {/* Course selector — only assigned classes; no free-text */}
@@ -365,7 +366,7 @@ export default function Timetable() {
               {conflictSlots.length > 0 && (
                 <div style={{ background: 'var(--clr-danger-alpha, rgba(239,68,68,.12))', border: '1px solid var(--clr-danger)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.5rem' }}>
                   <p style={{ color: 'var(--clr-danger)', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>
-                    ⚠ Conflict! Free slots today:
+                    Conflict! Free slots today:
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                     {conflictSlots.map(slot => (
@@ -395,7 +396,7 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Reschedule Session</h2>
-              <button className="modal-close" onClick={() => setEditModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setEditModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleSaveEdit} className="sell-form">
               <div style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>
@@ -436,7 +437,7 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Schedule Extra / Makeup Class</h2>
-              <button className="modal-close" onClick={() => setExtraModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setExtraModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleAddExtra} className="sell-form">
               <label>Day

@@ -22,7 +22,7 @@ export default function Classes() {
           <div className="class-page-card" key={cls.code}>
             <div className="class-card-header">
               <span className="class-code">{cls.code}</span>
-              <span className="student-count-badge">👥 {cls.students} Enrolled</span>
+              <span className="student-count-badge"> {cls.students} Enrolled</span>
             </div>
             <h2 className="class-name-large">{cls.name}</h2>
             <p className="class-card-desc">B.Tech Semester 6 · Section A</p>

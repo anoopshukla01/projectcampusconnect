@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * Applications — TPO Portal  (PL9, PL10, PL11, PL12)
  * Select a drive → view all applications → shortlist / offer.
@@ -147,7 +148,7 @@ export default function Applications() {
           <div className="modal-box" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Issue Offer Letter</h2>
-              <button className="modal-close" onClick={() => setOfferModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setOfferModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
               Offering to <strong>{offerStudent?.full_name}</strong> ({offerStudent?.roll_no})

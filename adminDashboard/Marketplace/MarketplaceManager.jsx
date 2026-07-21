@@ -1,3 +1,4 @@
+import { ShoppingBag, Package, X } from "lucide-react";
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
@@ -152,7 +153,7 @@ export default function MarketplaceManager() {
 
           {listings.length === 0 ? (
             <div className="empty-state-layout">
-              <span className="empty-icon">🛍️</span>
+              <span className="empty-icon"><ShoppingBag size={32} aria-hidden="true" /></span>
               <p>No official merchandise listed yet. Click button above to add items.</p>
             </div>
           ) : (
@@ -194,7 +195,7 @@ export default function MarketplaceManager() {
             </div>
             {orders.length === 0 ? (
               <div className="empty-state-layout">
-                <span className="empty-icon">📦</span>
+                <span className="empty-icon"><Package size={32} aria-hidden="true" /></span>
                 <p>No customer orders placed yet.</p>
               </div>
             ) : (
@@ -256,7 +257,7 @@ export default function MarketplaceManager() {
           <div className="modal-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">List Official Merchandise</h2>
-              <button className="modal-close-btn" onClick={() => setShowAddForm(false)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setShowAddForm(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleAddListing}>
               <div className="form-group">

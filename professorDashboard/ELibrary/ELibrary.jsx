@@ -1,3 +1,4 @@
+import { BookOpen } from "lucide-react";
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -56,7 +57,7 @@ export default function ELibrary() {
     const req = requests.find(r => r.id === reqId);
     setRequests(prev => prev.filter(r => r.id !== reqId));
     if (action === 'approve') {
-      showToast(`Approved borrow request for "${req.title}"! 📖`, 'success', 3000);
+      showToast(`Approved borrow request for "${req.title}"! `, 'success', 3000);
     } else {
       showToast(`Declined borrow request for "${req.title}".`, 'info', 2000);
     }

@@ -232,7 +232,11 @@ part meant to stop regressions.
   `load_default="CC2024"` silent fallback from `StudentRegisterSchema`
   (made `required=True`); updated `test_auth.py` to supply `college_code`
   and `college_id` on the fixture `StudentProfile`. All 62 tests pass.
+- **`Dashboard.jsx` error handling completed**: Destructured and rendered `profileError` and `annError` with retry buttons and `.dash-error` error styling in `Dashboard.jsx`/`Dashboard.css`.
+- **Emoji-as-icon codebase sweep completed**: Replaced functional UI emojis across all app pages with `lucide-react` stroke SVG icons.
+- **Design-token CSS migration completed**: Migrated hardcoded hex colors across `adminDashboard/`, `placementDashboard/`, and `professorDashboard/` CSS files to `global.css` CSS variables (`var(--clr-...)`).
 - Multi-tenancy retrofit: `college_id` scoping across all blueprints/models,
+
   the 39 direct-lookup IDOR gaps, 2 raw-SQL cross-college leaks, the
   branch/semester-matching roster bug in `professors.py`, the migration
   `NameError`, the silently-wrong-college `/register/email` endpoint

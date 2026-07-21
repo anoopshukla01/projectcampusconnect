@@ -105,7 +105,7 @@ export default function Announcements() {
               ))}
             </div>
             <button className="ad-btn ad-btn-primary" onClick={send} disabled={sending}>
-              {sending ? 'Broadcasting…' : '📢 Broadcast Notice'}
+              {sending ? 'Broadcasting…' : 'Broadcast Notice'}
             </button>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function Announcements() {
                   style={{ background: 'none', border: 'none', color: '#ef4444',
                            cursor: 'pointer', fontSize: '1rem', padding: '0.25rem', flexShrink: 0 }}
                   title="Delete announcement">
-                  {deleting[a.id] ? '…' : '🗑'}
+                  {deleting[a.id] ? '…' : ''}
                 </button>
               </div>
             ))}

@@ -12,6 +12,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { Trash2, X, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -224,15 +225,15 @@ export default function ELibrary() {
                   <button className="listing-btn"
                     disabled={downloading[book.id]}
                     onClick={() => handleDownload(book.id, book.title)}>
-                    {downloading[book.id] ? '…' : '⬇ Download'}
+                    {downloading[book.id] ? '…' : <><Download size={14} style={{ display: 'inline', marginRight: '4px' }} /> Download</>}
                   </button>
                   {canManage && (
                     <button
                       style={{ background: 'none', border: 'none', color: 'var(--clr-danger, #ef4444)',
-                               cursor: 'pointer', fontSize: '0.8rem' }}
+                               cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       disabled={deleting[book.id]}
                       onClick={() => handleDelete(book.id, book.title)}>
-                      {deleting[book.id] ? '…' : '🗑 Remove'}
+                      {deleting[book.id] ? '…' : <><Trash2 size={14} /> Remove</>}
                     </button>
                   )}
                 </div>
@@ -249,7 +250,7 @@ export default function ELibrary() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>{canManage ? 'Add Library Resource' : 'Upload Resource'}</h2>
-              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={handleUpload} className="sell-form">
               <label>

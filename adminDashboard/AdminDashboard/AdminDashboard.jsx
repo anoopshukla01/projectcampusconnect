@@ -1,3 +1,4 @@
+import { BarChart2, Users, Database, Search, Settings, Megaphone, Shield, Building, AlertTriangle, X } from "lucide-react";
 import { useState, useEffect, Component } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi, placementApi } from '@/services/api';
@@ -40,8 +41,8 @@ const iconMap = { students: <IconStudents/>, faculty: <IconFaculty/>, place: <Ic
 
 const statusPill = (s) => {
   if (s === 'up')   return <span className="ad-status-pill ad-pill-up">● Operational</span>;
-  if (s === 'warn') return <span className="ad-status-pill ad-pill-warn">⚠ Degraded</span>;
-  return                   <span className="ad-status-pill ad-pill-down">✕ Down</span>;
+  if (s === 'warn') return <span className="ad-status-pill ad-pill-warn"><AlertTriangle size={12} aria-hidden="true" /> Degraded</span>;
+  return                   <span className="ad-status-pill ad-pill-down"><X size={12} aria-hidden="true" /> Down</span>;
 };
 
 export default function AdminDashboard() {
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
         const placementRatePct = totalStudents > 0 ? Math.round((totalPlaced / totalStudents) * 100) : 0;
 
         const activityLogs = (auditRes?.audit_logs || auditRes?.logs || []).map(log => ({
-          icon: log.action?.includes('invite') ? '✉️' : log.action?.includes('approve') ? '✅' : '📋',
+          icon: 'log',
           text: `${(log.action || '').replace('admin.', '').replace('.', ' ')}: ${log.detail?.email || log.target_type || ''}`,
           time: (log.timestamp || log.created_at) ? new Date(log.timestamp || log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           cls:  log.action?.includes('reject') ? 'ad-act-rose' : 'ad-act-blue',
@@ -193,14 +194,14 @@ export default function AdminDashboard() {
   ];
 
   const quickActions = [
-    { label: 'Analytics',     icon: '📊', path: '/admin/analytics'    },
-    { label: 'Users',         icon: '👥', path: '/admin/users'        },
-    { label: 'Data Manager',  icon: '🗄️', path: '/admin/data'         },
-    { label: 'Audit Log',     icon: '🔍', path: '/admin/audit'        },
-    { label: 'Rules Engine',  icon: '⚙️',  path: '/admin/rules'        },
-    { label: 'Broadcast',     icon: '📢', path: '/admin/announcements'},
-    { label: 'Data Health',   icon: '🛡️',  path: '/admin/datahealth'  },
-    { label: 'Branches',      icon: '🏛️',  path: '/admin/branches'    },
+    { label: 'Analytics',     icon: <BarChart2 size={18} aria-hidden='true' />, path: '/admin/analytics'    },
+    { label: 'Users',         icon: <Users size={18} aria-hidden='true' />, path: '/admin/users'        },
+    { label: 'Data Manager',  icon: <Database size={18} aria-hidden='true' />, path: '/admin/data'         },
+    { label: 'Audit Log',     icon: <Search size={18} aria-hidden='true' />, path: '/admin/audit'        },
+    { label: 'Rules Engine',  icon: <Settings size={18} aria-hidden='true' />, path: '/admin/rules'        },
+    { label: 'Broadcast',     icon: <Megaphone size={18} aria-hidden='true' />, path: '/admin/announcements'},
+    { label: 'Data Health',   icon: <Shield size={18} aria-hidden='true' />, path: '/admin/datahealth'  },
+    { label: 'Branches',      icon: <Building size={18} aria-hidden='true' />, path: '/admin/branches'    },
   ];
 
   return (

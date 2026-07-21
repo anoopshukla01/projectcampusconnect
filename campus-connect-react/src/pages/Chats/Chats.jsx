@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Megaphone, BookOpen, Users, MessageCircle, Plus, Mail, Check, X, Clock, Settings, Link as LinkIcon, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -20,7 +21,12 @@ import { chatsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Chats.css';
 
-const CATEGORY_ICONS = { official: '📢', subject: '📚', private: '👥', direct: '💬' };
+const CATEGORY_ICONS = {
+  official: <Megaphone size={16} aria-hidden="true" />,
+  subject: <BookOpen size={16} aria-hidden="true" />,
+  private: <Users size={16} aria-hidden="true" />,
+  direct: <MessageCircle size={16} aria-hidden="true" />
+};
 
 export default function Chats() {
   const { user } = useAuth();
@@ -219,7 +225,7 @@ export default function Chats() {
       <aside className="chats-list-panel panel" aria-label="Conversations">
         <div className="chats-list-header">
           <h1 className="page-title" style={{ fontSize: '1.1rem', margin: 0 }}>Messages</h1>
-          <button className="action-btn start-conv-btn" onClick={openModal}>➕ Start Chat</button>
+          <button className="action-btn start-conv-btn" onClick={openModal}><Plus size={16} aria-hidden='true' /> Start Chat</button>
         </div>
         <StateContainer loading={loading} error={error} isEmpty={isEmpty}
           emptyMessage="No active chats. Start one below!">
@@ -233,12 +239,12 @@ export default function Chats() {
               padding: '0.5rem 0.75rem',
             }}>
               <p style={{ fontSize: '0.78rem', fontWeight: 700, color: '#92400e', margin: '0 0 0.4rem' }}>
-                📬 {pendingInvites.length} Pending Group Invite{pendingInvites.length > 1 ? 's' : ''}
+                <Mail size={14} aria-hidden='true' style={{ display: 'inline', verticalAlign: 'middle' }} /> {pendingInvites.length} Pending Group Invite{pendingInvites.length > 1 ? 's' : ''}
               </p>
               {pendingInvites.map(r => (
                 <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#78350f' }}>
-                    👥 {r.name}
+                    <Users size={14} aria-hidden='true' style={{ display: 'inline', verticalAlign: 'middle' }} /> {r.name}
                   </span>
                   <div style={{ display: 'flex', gap: '0.3rem' }}>
                     <button
@@ -246,14 +252,14 @@ export default function Chats() {
                       style={{ fontSize: '0.73rem', padding: '0.18rem 0.5rem' }}
                       disabled={!!respondingInvite[r.id]}
                       onClick={() => handleRespondInvite(r.id, 'accept')}>
-                      {respondingInvite[r.id] === 'accept' ? '…' : '✓ Join'}
+                      {respondingInvite[r.id] === 'accept' ? '…' : <><Check size={12} aria-hidden='true' /> Join</>}
                     </button>
                     <button
                       className="btn-secondary"
                       style={{ fontSize: '0.73rem', padding: '0.18rem 0.5rem' }}
                       disabled={!!respondingInvite[r.id]}
                       onClick={() => handleRespondInvite(r.id, 'decline')}>
-                      {respondingInvite[r.id] === 'decline' ? '…' : '✕ Decline'}
+                      {respondingInvite[r.id] === 'decline' ? '…' : <><X size={12} aria-hidden='true' /> Decline</>}
                     </button>
                   </div>
                 </div>
@@ -266,7 +272,7 @@ export default function Chats() {
                 <button
                   className={`chat-item${activeId === r.id ? ' active' : ''}${!r.is_accepted ? ' pending-dm' : ''}`}
                   onClick={() => setActiveId(r.id)}>
-                  <div className="chat-avatar">{CATEGORY_ICONS[r.type] || '💬'}</div>
+                  <div className="chat-avatar">{CATEGORY_ICONS[r.type] || <MessageCircle size={16} aria-hidden='true' />}</div>
                   <div className="chat-item-body">
                     <div className="chat-item-row">
                       <span className="chat-name">{r.name}</span>
@@ -274,7 +280,7 @@ export default function Chats() {
                     </div>
                     <span className="chat-preview">
                       {!r.is_accepted
-                        ? <em style={{ color: 'var(--clr-muted)', fontSize: '0.78rem' }}>⏳ Awaiting approval</em>
+                        ? <em style={{ color: 'var(--clr-muted)', fontSize: '0.78rem' }}>Awaiting approval</em>
                         : (r.lastMessage || 'No messages yet')}
                     </span>
                   </div>
@@ -291,7 +297,7 @@ export default function Chats() {
       <section className="chat-window panel" aria-label="Active chat messages">
         {!activeChat ? (
           <div className="chat-empty">
-            <span style={{ fontSize: '2.5rem' }}>💬</span>
+            <MessageCircle size={40} style={{ color: 'var(--clr-muted)', marginBottom: '0.5rem' }} aria-hidden='true' />
             <h3>Stay connected with Campus</h3>
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
               Select a conversation or click <strong>Start Chat</strong> to begin.
@@ -301,7 +307,7 @@ export default function Chats() {
           <>
             {/* Header */}
             <div className="chat-window-header">
-              <div className="chat-avatar-lg">{CATEGORY_ICONS[activeChat.type] || '💬'}</div>
+              <div className="chat-avatar-lg">{CATEGORY_ICONS[activeChat.type] || <MessageCircle size={20} aria-hidden='true' />}</div>
               <div style={{ flex: 1 }}>
                 <div className="chat-window-name">{activeChat.name}</div>
                 <div className="chat-window-meta">
@@ -314,7 +320,7 @@ export default function Chats() {
                 <div className="group-actions-container">
                   <button className="action-btn btn-sm"
                     onClick={() => setShowAdminPanel(p => !p)}>
-                    ⚙️ Group Info
+                    <Settings size={14} aria-hidden='true' /> Group Info
                   </button>
                   {showAdminPanel && (
                     <div className="group-admin-dropdown">
@@ -430,16 +436,16 @@ export default function Chats() {
               {startStep === 'menu' && (
                 <div className="menu-options-list">
                   <button className="menu-opt" onClick={() => handleMenuOption('direct_student')}>
-                    💬 Message a Student
+                    Message a Student
                   </button>
                   <button className="menu-opt" onClick={() => handleMenuOption('direct_professor')}>
-                    🎓 Message a Professor
+                    Message a Professor
                   </button>
                   <button className="menu-opt" onClick={() => handleMenuOption('create_group')}>
-                    👥 Create Group
+                    Create Group
                   </button>
                   <button className="menu-opt" onClick={() => handleMenuOption('join_group')}>
-                    🔗 Join Group by ID
+                    Join Group by ID
                   </button>
                 </div>
               )}

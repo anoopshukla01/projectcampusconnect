@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 /**
  * Drives — TPO Portal (PL1–PL5, PL17)
  * Manage recruitment drives and schedule interview slots awaiting Admin approval.
@@ -373,7 +374,7 @@ export default function Drives() {
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editTarget ? 'Edit Drive' : 'Schedule Placement Drive'}</h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {[
@@ -457,7 +458,7 @@ export default function Drives() {
           <div className="modal-box" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Book Interview Slot</h2>
-              <button className="modal-close" onClick={() => setShowSchedModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowSchedModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <label style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>

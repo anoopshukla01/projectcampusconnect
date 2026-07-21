@@ -1,4 +1,5 @@
 import { usePermissions } from '../../context/PermissionContext';
+import { Lock, X } from 'lucide-react';
 import './PermissionModal.css';
 
 export function PermissionModal() {
@@ -13,7 +14,9 @@ export function PermissionModal() {
       <div className="perm-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="perm-modal-header">
           <div className="perm-modal-badge">{config.icon}</div>
-          <button className="perm-modal-close" onClick={denyPermission} aria-label="Close">✕</button>
+          <button className="perm-modal-close" onClick={denyPermission} aria-label="Close">
+            <X size={16} />
+          </button>
         </div>
 
         <div className="perm-modal-body">
@@ -26,7 +29,7 @@ export function PermissionModal() {
           </div>
 
           <div className="perm-privacy-note">
-            <span className="perm-lock-icon">🔒</span>
+            <span className="perm-lock-icon"><Lock size={14} /></span>
             <span>{config.privacyNote}</span>
           </div>
         </div>

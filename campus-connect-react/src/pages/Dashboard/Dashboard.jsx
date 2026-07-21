@@ -38,13 +38,22 @@ export default function Dashboard() {
   const [reminderDone, setReminderDone] = useState(false);
 
   // Student specific API data
-  const { data: studentProfile, loading: profileLoading } = useApiData(
+  const {
+    data: studentProfile,
+    loading: profileLoading,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useApiData(
     user?.role !== 'professor' ? '/students/me' : null,
     null
   );
 
   // Live announcements from backend
-  const { data: annData } = useApiData('/community/announcements', { announcements: [] });
+  const {
+    data: annData,
+    error: annError,
+    refetch: refetchAnnouncements,
+  } = useApiData('/community/announcements', { announcements: [] });
   const announcements = useMemo(() => (annData?.announcements || []).slice(0, 5), [annData]);
 
   const isProf = user?.role === 'professor';
@@ -162,17 +171,25 @@ export default function Dashboard() {
               <h2 className="panel-title" id="announceTitle">Recent Announcements</h2>
               <button className="panel-link" onClick={() => go('/announcements')}>Full feed</button>
             </div>
-            <ul className="announce-list" role="list">
-              {announcements.slice(0, 3).map((a, i) => (
-                <li className="announce-item" key={i}>
-                  <div className="announce-dot" style={{ background: '#3b82f6' }} aria-hidden="true" />
-                  <div className="announce-body">
-                    <span className="announce-title">{a.title}</span>
-                    <span className="announce-meta">{a.source} &nbsp;·&nbsp; {a.time}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {annError ? (
+              <div className="dash-error" role="alert" style={{ margin: '0.5rem 0' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>{annError}</span>
+                <button className="dash-retry" onClick={refetchAnnouncements}>Try again</button>
+              </div>
+            ) : (
+              <ul className="announce-list" role="list">
+                {announcements.slice(0, 3).map((a, i) => (
+                  <li className="announce-item" key={i}>
+                    <div className="announce-dot" style={{ background: '#3b82f6' }} aria-hidden="true" />
+                    <div className="announce-body">
+                      <span className="announce-title">{a.title}</span>
+                      <span className="announce-meta">{a.source} &nbsp;·&nbsp; {a.time}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
       </>
@@ -205,6 +222,14 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {profileError && (
+        <div className="dash-error" role="alert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>{profileError}</span>
+          <button className="dash-retry" onClick={refetchProfile}>Try again</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="stats-row" role="list" aria-label="Academic statistics">
@@ -288,7 +313,7 @@ export default function Dashboard() {
               setTimeout(() => setReminderDone(false), 3000);
             }}
           >
-            {reminderDone ? 'Reminders enabled ✓' : 'Enable smart reminders'}
+            {reminderDone ? 'Reminders enabled' : 'Enable smart reminders'}
           </button>
         </section>
       </div>
@@ -333,17 +358,25 @@ export default function Dashboard() {
             <h2 className="panel-title" id="announceTitle">Announcements</h2>
             <span className="badge-new">{announcements?.length || 0} new</span>
           </div>
-          <ul className="announce-list" id="announceList" role="list">
-            {announcements.slice(0, 3).map((a, i) => (
-              <li className="announce-item" key={i}>
-                <div className="announce-dot" style={{ background: '#3b82f6' }} aria-hidden="true" />
-                <div className="announce-body">
-                  <span className="announce-title">{a.title}</span>
-                  <span className="announce-meta">{a.source} &nbsp;·&nbsp; {a.time}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {annError ? (
+            <div className="dash-error" role="alert" style={{ margin: '0.5rem 0' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>{annError}</span>
+              <button className="dash-retry" onClick={refetchAnnouncements}>Try again</button>
+            </div>
+          ) : (
+            <ul className="announce-list" id="announceList" role="list">
+              {announcements.slice(0, 3).map((a, i) => (
+                <li className="announce-item" key={i}>
+                  <div className="announce-dot" style={{ background: '#3b82f6' }} aria-hidden="true" />
+                  <div className="announce-body">
+                    <span className="announce-title">{a.title}</span>
+                    <span className="announce-meta">{a.source} &nbsp;·&nbsp; {a.time}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
 

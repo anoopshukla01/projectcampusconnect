@@ -80,8 +80,8 @@
   font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
   padding: 0.1rem 0.4rem; border-radius: 99px; margin-top: 0.15rem;
 }
-.badge-lecture { background: #dbeafe; color: #1e40af; }
-.badge-lab     { background: #dcfce7; color: #15803d; }
+.badge-lecture { background: var(--clr-primary-soft); color: #1e40af; }
+.badge-lab     { background: var(--clr-success-soft); color: var(--clr-success); }
 .badge-seminar { background: #fde8ff; color: #7e22ce; }
 
 .no-class-message {

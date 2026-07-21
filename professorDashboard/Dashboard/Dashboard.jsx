@@ -123,7 +123,7 @@ export default function Dashboard() {
           </section>
 
           <section className="panel insight-panel" aria-labelledby="quickActionsTitle">
-            <h2 className="panel-title" id="quickActionsTitle" style={{ marginBottom: '1rem' }}>⚡ Professor Actions</h2>
+            <h2 className="panel-title" id="quickActionsTitle" style={{ marginBottom: '1rem' }}> Professor Actions</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <button className="action-btn" style={{ fontSize: '0.8rem', padding: '0.75rem' }} onClick={() => go('/assignments')}>Grade Assignments</button>
               <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.75rem' }} onClick={() => go('/attendance')}>Mark Attendance</button>
@@ -265,7 +265,7 @@ export default function Dashboard() {
               setTimeout(() => setReminderDone(false), 3000);
             }}
           >
-            {reminderDone ? 'Reminders enabled ✓' : 'Enable smart reminders'}
+            {reminderDone ? 'Reminders enabled ' : 'Enable smart reminders'}
           </button>
         </section>
       </div>

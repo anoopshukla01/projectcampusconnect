@@ -1,3 +1,4 @@
+import { BookOpen } from "lucide-react";
 import { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -50,7 +51,7 @@ export default function Classes() {
 
       {classes.length === 0 ? (
         <div className="panel" style={{ textAlign: 'center', padding: '3rem', color: 'var(--clr-muted)' }}>
-          <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📚</p>
+          <p style={{ marginBottom: '0.5rem' }}><BookOpen size={32} style={{ color: 'var(--clr-muted)' }} aria-hidden="true" /></p>
           <p>No classes assigned yet. Contact Admin to set up your class assignments.</p>
         </div>
       ) : (

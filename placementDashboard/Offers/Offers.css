@@ -8,16 +8,16 @@
 .of-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.15); }
 .of-locked { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.03); }
 .of-lock-ribbon {
-  position: absolute; top: 10px; right: -24px; background: #22c55e; color: #fff;
+  position: absolute; top: 10px; right: -24px; background: var(--clr-success); color: #fff;
   font-size: .68rem; font-weight: 700; padding: .2rem 2rem; transform: rotate(40deg);
 }
 .of-card-header { display: flex; align-items: center; gap: .65rem; }
 .of-student { margin: 0; font-size: .9rem; font-weight: 700; color: var(--text-primary); }
 .of-roll { margin: .1rem 0 0; font-size: .72rem; color: var(--text-secondary); }
 .of-details { display: flex; gap: .5rem; align-items: center; }
-.of-company { font-size: .88rem; font-weight: 700; color: #818cf8; }
+.of-company { font-size: .88rem; font-weight: 700; color: var(--clr-secondary-soft); }
 .of-role { font-size: .8rem; color: var(--text-secondary); }
-.of-ctc { font-size: 1.4rem; font-weight: 800; color: #4ade80; }
+.of-ctc { font-size: 1.4rem; font-weight: 800; color: var(--clr-success); }
 .of-date { font-size: .76rem; color: var(--text-secondary); }
 .of-actions { display: flex; gap: .5rem; }
-.of-locked-card { border-left: 3px solid #22c55e; }
+.of-locked-card { border-left: 3px solid var(--clr-success); }

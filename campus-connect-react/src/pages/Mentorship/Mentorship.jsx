@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
 import { careerApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
+import { GraduationCap, User, Calendar, X, Check } from 'lucide-react';
 import './Mentorship.css';
 
 export default function Mentorship() {
@@ -99,7 +100,7 @@ export default function Mentorship() {
           <div className="mentor-grid">
             {profRequests.map(req => (
               <div className="mentor-card" key={req.id} style={{ alignItems: 'flex-start', textAlign: 'left' }}>
-                <div className="mentor-avatar" style={{ alignSelf: 'center', marginBottom: '0.5rem' }}>👨‍🎓</div>
+                <div className="mentor-avatar" style={{ alignSelf: 'center', marginBottom: '0.5rem' }}><GraduationCap size={24} aria-hidden="true" /></div>
                 <div className="mentor-info" style={{ alignItems: 'flex-start', width: '100%' }}>
                   <h3 className="mentor-name">{req.student_name}</h3>
                   <p className="mentor-role">Roll: {req.roll}</p>
@@ -149,7 +150,7 @@ export default function Mentorship() {
             <div className="mentor-card" key={m.id}>
               <div className={`mentor-avail-dot${m.available ? '' : ' offline'}`}
                    title={m.available ? 'Available' : 'Unavailable'} />
-              <div className="mentor-avatar">👨‍🏫</div>
+              <div className="mentor-avatar"><User size={24} aria-hidden="true" /></div>
               <div className="mentor-info">
                 <h3 className="mentor-name">{m.name}</h3>
                 <p className="mentor-role">{m.role}</p>
@@ -160,7 +161,7 @@ export default function Mentorship() {
                 </div>
                 <div className="mentor-stats">
                   <span>⭐ {m.rating}</span>
-                  <span>🗓 {m.sessions} sessions</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14} aria-hidden="true" /> {m.sessions} sessions</span>
                   <span className={m.available ? 'avail-text' : 'unavail-text'}>
                     {m.available ? 'Available' : 'Unavailable'}
                   </span>
@@ -170,7 +171,7 @@ export default function Mentorship() {
                 className={`action-btn mentor-req-btn${m.requested ? ' applied' : ''}`}
                 disabled={requesting[m.id]}
                 onClick={() => handleRequest(m)}>
-                {requesting[m.id] ? '…' : m.requested ? 'Requested ✓' : 'Request Session'}
+                {requesting[m.id] ? '…' : m.requested ? 'Requested' : 'Request Session'}
               </button>
             </div>
           ))}
@@ -184,7 +185,7 @@ export default function Mentorship() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Request Session — {topicModal.name}</h2>
-              <button className="modal-close" onClick={() => setTopicModal(null)}>✕</button>
+              <button className="modal-close" onClick={() => setTopicModal(null)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={submitRequest} className="sell-form">
               <label>

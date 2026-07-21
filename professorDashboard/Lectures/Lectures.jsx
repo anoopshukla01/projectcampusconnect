@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -118,7 +119,7 @@ export default function Lectures() {
         </div>
         {isProf && (
           <button className="action-btn" onClick={() => setUploadModal(true)}>
-            📤 Upload Material
+            Upload Material
           </button>
         )}
       </div>
@@ -126,7 +127,7 @@ export default function Lectures() {
       {/* Live Sessions */}
       {!isProf && user?.schedule?.length > 0 && (
         <section aria-labelledby="liveTitle">
-          <h2 className="section-heading" id="liveTitle">🔴 Today's Live Sessions</h2>
+          <h2 className="section-heading" id="liveTitle">Today's Live Sessions</h2>
           <div className="live-grid">
             {user.schedule.map((cls, i) => (
               <div className="live-card" key={i}>
@@ -192,7 +193,7 @@ export default function Lectures() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Upload Lecture Material</h2>
-              <button className="modal-close" onClick={() => setUploadModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setUploadModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleUpload} className="sell-form">
               <label>

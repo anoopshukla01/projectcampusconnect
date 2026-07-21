@@ -1,20 +1,21 @@
+import { X } from "lucide-react";
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import './Notes.css';
 
 const DEFAULT_NOTES = [
-  { id:1, subject:'Computer networks',     title:'OSI vs TCP/IP Model – Comparison',  type:'notes',  uploader:'Dr. Sneha Patel',  size:'1.2 MB', date:'Nov 22', icon:'📄', approved: true },
-  { id:2, subject:'Software engineering',  title:'Module 3: Agile & Scrum Slides',     type:'slides', uploader:'Dr. Rohan Mehra',  size:'4.5 MB', date:'Nov 20', icon:'📊', approved: true },
-  { id:3, subject:'Database systems',      title:'PYQ 2024 – DBMS End Semester Paper', type:'pyq',    uploader:'Faculty Upload',   size:'890 KB', date:'Nov 18', icon:'📋', approved: true },
-  { id:4, subject:'Theory of computation', title:'Regular Expressions Quick Reference', type:'notes',  uploader:'Ananya Sharma',    size:'340 KB', date:'Nov 15', icon:'📄', approved: true },
-  { id:5, subject:'Software engineering',  title:'PYQ 2023 – SE End Semester Paper',   type:'pyq',    uploader:'Faculty Upload',   size:'1.1 MB', date:'Nov 12', icon:'📋', approved: true },
-  { id:6, subject:'Computer networks',     title:'Routing Algorithms Cheat Sheet',     type:'notes',  uploader:'Rahul Mehta',      size:'260 KB', date:'Nov 10', icon:'📄', approved: true },
+  { id:1, subject:'Computer networks',     title:'OSI vs TCP/IP Model – Comparison',  type:'notes',  uploader:'Dr. Sneha Patel',  size:'1.2 MB', date:'Nov 22', icon:'', approved: true },
+  { id:2, subject:'Software engineering',  title:'Module 3: Agile & Scrum Slides',     type:'slides', uploader:'Dr. Rohan Mehra',  size:'4.5 MB', date:'Nov 20', icon:'', approved: true },
+  { id:3, subject:'Database systems',      title:'PYQ 2024 – DBMS End Semester Paper', type:'pyq',    uploader:'Faculty Upload',   size:'890 KB', date:'Nov 18', icon:'', approved: true },
+  { id:4, subject:'Theory of computation', title:'Regular Expressions Quick Reference', type:'notes',  uploader:'Ananya Sharma',    size:'340 KB', date:'Nov 15', icon:'', approved: true },
+  { id:5, subject:'Software engineering',  title:'PYQ 2023 – SE End Semester Paper',   type:'pyq',    uploader:'Faculty Upload',   size:'1.1 MB', date:'Nov 12', icon:'', approved: true },
+  { id:6, subject:'Computer networks',     title:'Routing Algorithms Cheat Sheet',     type:'notes',  uploader:'Rahul Mehta',      size:'260 KB', date:'Nov 10', icon:'', approved: true },
 ];
 
 const PENDING_NOTES = [
-  { id:101, subject:'Computer networks',     title:'Subnetting Practice Worksheet',    type:'notes',  uploader:'Rahul Mehta',      size:'410 KB', date:'Today',   icon:'📄', approved: false },
-  { id:102, subject:'Theory of computation', title:'DFA Minimization Step-by-Step Guide',type:'notes',  uploader:'Ananya Sharma',    size:'1.5 MB', date:'Yesterday',icon:'📄', approved: false }
+  { id:101, subject:'Computer networks',     title:'Subnetting Practice Worksheet',    type:'notes',  uploader:'Rahul Mehta',      size:'410 KB', date:'Today',   icon:'', approved: false },
+  { id:102, subject:'Theory of computation', title:'DFA Minimization Step-by-Step Guide',type:'notes',  uploader:'Ananya Sharma',    size:'1.5 MB', date:'Yesterday',icon:'', approved: false }
 ];
 
 const TYPES = ['all','notes','slides','pyq'];
@@ -45,7 +46,7 @@ export default function Notes() {
       uploader: user.name || 'Professor',
       size: '1.4 MB',
       date: 'Just now',
-      icon: form.type === 'slides' ? '📊' : form.type === 'pyq' ? '📋' : '📄',
+      icon: '',
       approved: true
     };
     setNotes(prev => [newNote, ...prev]);
@@ -126,7 +127,7 @@ export default function Notes() {
       {modal && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={e=>e.target===e.currentTarget&&setModal(false)}>
           <div className="modal-box">
-            <div className="modal-header"><h2>{isProf ? 'Publish Study Material' : 'Upload Resource'}</h2><button className="modal-close" onClick={()=>setModal(false)}>✕</button></div>
+            <div className="modal-header"><h2>{isProf ? 'Publish Study Material' : 'Upload Resource'}</h2><button className="modal-close" onClick={()=>setModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button></div>
             <form onSubmit={handleUpload} className="sell-form">
               <label>Title<input required value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="e.g. OSI Model Notes"/></label>
               <label>Subject<input required value={form.subject} onChange={e=>setForm(p=>({...p,subject:e.target.value}))} placeholder="e.g. Computer Networks"/></label>

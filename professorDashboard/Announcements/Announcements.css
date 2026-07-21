@@ -74,11 +74,11 @@
   color: var(--clr-primary);
 }
 .ann-category-tag.placement {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--clr-success-soft);
+  color: var(--clr-success);
 }
 .ann-category-tag.event {
-  background: #fef9c3;
+  background: var(--clr-warning-soft);
   color: #854d0e;
 }
 .ann-category-tag.general {

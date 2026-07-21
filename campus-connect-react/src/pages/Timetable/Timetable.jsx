@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { MapPin, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -247,7 +248,7 @@ export default function Timetable() {
               className={`day-column${isToday ? ' today-col' : ''}${isMobile ? ' active-day-col' : ''}`}>
               <div className="day-header">
                 <span className="day-title">{day.label}</span>
-                <span className="day-subtitle">{isToday ? '📍 Today' : day.sub}</span>
+                <span className="day-subtitle">{isToday ? <><MapPin size={10} style={{ display: 'inline', marginRight: '2px' }} /> Today</> : day.sub}</span>
               </div>
               <div className="classes-list">
                 {classes.length > 0 ? classes.map((cls) => (
@@ -306,7 +307,7 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Edit Timetable Slot</h2>
-              <button className="modal-close" onClick={() => setEditModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setEditModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={saveEdit} className="sell-form">
               <label>Day
@@ -365,7 +366,7 @@ export default function Timetable() {
           <div className="modal-box">
             <div className="modal-header">
               <h2>Add Timetable Slot</h2>
-              <button className="modal-close" onClick={() => setAddModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setAddModal(false)}><X size={16} /></button>
             </div>
             <form onSubmit={saveAdd} className="sell-form">
               <label>Day

@@ -1,3 +1,4 @@
+import { Building, Calendar, Target, Megaphone, Award, BarChart2 } from "lucide-react";
 /**
  * Placement Dashboard — TPO Portal
  *
@@ -75,7 +76,7 @@ export default function PlacementDashboard() {
   const recentActivity = s.recent_activity || [];
 
   const activityClass = { shortlist: 'pd-ai-shortlist', offer: 'pd-ai-offer', drive: 'pd-ai-drive', placed: 'pd-ai-placed' };
-  const activityIcon  = { shortlist: '📋', offer: '🎉', drive: '🏢', placed: '✅' };
+  const activityIcon  = { shortlist: 'Shortlist', offer: 'Offer', drive: 'Drive', placed: 'Placed' };
 
   return (
     <div className="pd-root">
@@ -211,7 +212,7 @@ export default function PlacementDashboard() {
             {recentActivity.map((a, i) => (
               <li key={a.id || i} className="pd-activity-item">
                 <span className={`pd-activity-icon-wrap ${activityClass[a.type] || ''}`}>
-                  {activityIcon[a.type] || '📌'}
+                  {activityIcon[a.type] || ''}
                 </span>
                 <span className="pd-activity-text">{a.text}</span>
                 <span className="pd-activity-time">{a.time}</span>
@@ -224,12 +225,12 @@ export default function PlacementDashboard() {
       {/* Quick Actions */}
       <div className="pd-quick-actions">
         {[
-          { label: 'Add Company',        icon: '🏢', path: '/companies'   },
-          { label: 'Schedule Drive',     icon: '📅', path: '/drives'      },
-          { label: 'Eligibility Filter', icon: '🎯', path: '/eligibility' },
-          { label: 'Post Notice',        icon: '📢', path: '/plnotices'   },
-          { label: 'View Offers',        icon: '🎉', path: '/offers'      },
-          { label: 'Export Report',      icon: '📊', path: '/plreports'   },
+          { label: 'Add Company',        icon: <Building size={18} aria-hidden='true' />, path: '/companies'   },
+          { label: 'Schedule Drive',     icon: <Calendar size={18} aria-hidden='true' />, path: '/drives'      },
+          { label: 'Eligibility Filter', icon: <Target size={18} aria-hidden='true' />, path: '/eligibility' },
+          { label: 'Post Notice',        icon: <Megaphone size={18} aria-hidden='true' />, path: '/plnotices'   },
+          { label: 'View Offers',        icon: <Award size={18} aria-hidden='true' />, path: '/offers'      },
+          { label: 'Export Report',      icon: <BarChart2 size={18} aria-hidden='true' />, path: '/plreports'   },
         ].map(a => (
           <button key={a.label} className="pd-quick-btn" onClick={() => navigate(a.path)}>
             <span className="pd-quick-icon">{a.icon}</span>

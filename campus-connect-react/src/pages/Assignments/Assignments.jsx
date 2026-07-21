@@ -9,6 +9,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
@@ -298,7 +299,7 @@ export default function Assignments() {
             <div className="modal-box">
               <div className="modal-header">
                 <h2>New Assignment</h2>
-                <button className="modal-close" onClick={() => setCreateModal(false)}>✕</button>
+                <button className="modal-close" onClick={() => setCreateModal(false)}><X size={16} /></button>
               </div>
               <form onSubmit={handleCreateAssignment} className="sell-form">
                 <label>Title

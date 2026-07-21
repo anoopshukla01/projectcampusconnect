@@ -88,7 +88,7 @@
 .method-pill {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #6366f1;
+  color: var(--clr-secondary);
   background-color: rgba(99, 102, 241, 0.08);
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
@@ -113,7 +113,7 @@
   font-size: 0.65rem;
   font-weight: 800;
   text-transform: uppercase;
-  color: #10b981;
+  color: var(--clr-success);
   background-color: rgba(16, 185, 129, 0.08);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
@@ -145,7 +145,7 @@
 }
 
 .status-update-select:focus {
-  border-color: #6366f1;
+  border-color: var(--clr-secondary);
 }
 
 /* Form Styles */
@@ -162,5 +162,5 @@
 }
 
 .form-textarea-field:focus {
-  border-color: #6366f1;
+  border-color: var(--clr-secondary);
 }

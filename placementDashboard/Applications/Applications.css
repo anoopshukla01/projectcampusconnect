@@ -1,7 +1,7 @@
 /* ===== Applications Tracker ===== */
 .ap-view-toggle { display: flex; border: 1px solid var(--border); border-radius: .65rem; overflow: hidden; }
 .ap-view-btn { padding: .45rem 1rem; border: none; background: var(--surface); color: var(--text-secondary); font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .15s; }
-.ap-view-btn.active { background: #6366f1; color: #fff; }
+.ap-view-btn.active { background: var(--clr-secondary); color: #fff; }
 
 /* Kanban */
 .ap-kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: .75rem; overflow-x: auto; padding-bottom: .5rem; }
@@ -28,21 +28,21 @@
 .ap-card-top { display: flex; align-items: center; gap: .55rem; }
 .ap-avatar {
   width: 30px; height: 30px; border-radius: 8px; background: rgba(99,102,241,.18);
-  color: #818cf8; font-weight: 800; font-size: .68rem; display: flex;
+  color: var(--clr-secondary-soft); font-weight: 800; font-size: .68rem; display: flex;
   align-items: center; justify-content: center; flex-shrink: 0;
 }
 .ap-student-name { margin: 0; font-size: .82rem; font-weight: 700; color: var(--text-primary); }
 .ap-roll { margin: .1rem 0 0; font-size: .72rem; color: var(--text-secondary); }
 .ap-card-meta { display: flex; flex-direction: column; gap: .2rem; }
-.ap-company { font-size: .8rem; font-weight: 700; color: #818cf8; }
+.ap-company { font-size: .8rem; font-weight: 700; color: var(--clr-secondary-soft); }
 .ap-role { font-size: .76rem; color: var(--text-secondary); }
-.ap-date { font-size: .72rem; color: var(--text-muted, #64748b); }
+.ap-date { font-size: .72rem; color: var(--text-muted, var(--clr-muted)); }
 .ap-advance-btn {
   padding: .3rem .6rem; border-radius: .5rem; border: 1px solid rgba(99,102,241,.3);
-  background: rgba(99,102,241,.08); color: #818cf8; font-size: .72rem; font-weight: 600;
+  background: rgba(99,102,241,.08); color: var(--clr-secondary-soft); font-size: .72rem; font-weight: 600;
   cursor: pointer; transition: all .15s;
 }
-.ap-advance-btn:hover { background: #6366f1; color: #fff; }
+.ap-advance-btn:hover { background: var(--clr-secondary); color: #fff; }
 .ap-col-empty { font-size: .8rem; color: var(--text-secondary); text-align: center; padding: 1rem .5rem; }
 
 .ap-status-badge { padding: .2rem .65rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }

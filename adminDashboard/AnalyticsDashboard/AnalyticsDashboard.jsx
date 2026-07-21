@@ -113,10 +113,10 @@ export default function AnalyticsDashboard() {
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button className="ad-btn ad-btn-primary" onClick={() => setShowBranchModal(true)}>
-            🏢 Add Branch
+            Add Branch
           </button>
           <button className="ad-btn ad-btn-outline" onClick={() => setShowPlacementModal(true)}>
-            📈 Add Placed Count
+            Add Placed Count
           </button>
         </div>
       </div>
@@ -127,19 +127,19 @@ export default function AnalyticsDashboard() {
           className={`tab-nav-btn ${selectedRole === 'student' ? 'active' : ''}`}
           onClick={() => setSelectedRole('student')}
         >
-          🎓 Student Metrics
+          Student Metrics
         </button>
         <button
           className={`tab-nav-btn ${selectedRole === 'professor' ? 'active' : ''}`}
           onClick={() => setSelectedRole('professor')}
         >
-          👤 Professor Metrics
+          Professor Metrics
         </button>
         <button
           className={`tab-nav-btn ${selectedRole === 'tpo' ? 'active' : ''}`}
           onClick={() => setSelectedRole('tpo')}
         >
-          💼 TPO Metrics
+          TPO Metrics
         </button>
       </div>
 
