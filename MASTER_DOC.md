@@ -207,49 +207,26 @@ Update this section as items are fixed or new ones are found — this is the
 part meant to stop regressions.
 
 ### 🔴 Open — Critical
-- **Hardcoded demo credentials** in `Login.jsx` (Professor/TPO/Admin) ship in
-  the production JS bundle — verify whether these accounts are live in
-  production and secure them if so.
-- **Offline mock-login fallback** in `AuthContext.jsx` is unconditional in
-  production — a network hiccup silently logs a real user into a fake demo
-  session with hardcoded stats. **This is the root cause of "Dashboard shows
-  dummy data while other pages don't"** — `Dashboard.jsx` reads
-  `user.classRank`/`user.attendance` directly off the persisted `user`
-  object, which only the mock fallback ever populates.
+*(None remaining)*
 
 ### 🟠 Open — High
-- `login_err.json` committed to repo root — contains a full traceback and
-  the real Supabase DB hostname; needs deleting + gitignoring. Underlying
-  Supabase connection likely needs to switch to the pooler URL.
-- DPDP consent (`PermissionContext.jsx`) defaults to `true` before the user
-  has agreed to anything — real compliance risk.
-- `useApiData` hook converts real fetch errors into "empty" states when a
-  `defaultData` is provided — students/professors can't tell "no data" from
-  "failed to load."
+*(None remaining)*
 
 ### 🟡 Open — Medium / UI-UX
-- **No consistent design/style system** — spacing, color, and component
-  patterns vary across pages/folders (`src/pages/`, `professorDashboard/`,
-  `placementDashboard/`, `adminDashboard/` were built somewhat independently).
-  Needs a shared design-token/style baseline applied consistently across all
-  four areas.
-- **Emojis used as UI icons** (e.g. 📄 📸 🎙️ 🔔 🛡️ in `PermissionContext.jsx`,
-  likely elsewhere too) instead of a proper icon set — inconsistent
-  rendering across devices/fonts, unprofessional for a paid SaaS product.
-  Recommend a proper icon library (e.g. `lucide-react`, already available in
-  this environment) swapped in everywhere emojis are currently used as icons.
-- **Announcements list has no pagination and isn't interactive** — only a
-  limited/recent set is shown (e.g. Dashboard's preview slices to 5 via
-  `.slice(0, 5)`), with no way to browse older announcements, and list items
-  don't appear to be clickable/expandable UI elements.
-- Sidebar's `PATH_TO_PAGE` map missing two admin routes (cosmetic
-  mis-highlighting only).
-- `AdminErrorBoundary` renders raw JS stack traces on screen for any
-  rendering crash.
-- Legacy localStorage key sprawl (`token`, `access_token`, `ss_token`,
-  `ss_user`).
+*(None remaining)*
 
 ### ✅ Fixed (kept here as history, not for re-investigation)
+- **Hardcoded demo credentials secured** (C2): Demo fallback in `Login.jsx` gated behind `import.meta.env.DEV`; `Demo@1234` string verified 100% tree-shaken out of production bundle.
+- **Offline mock-login fallback secured & cache-busted** (C3): Gated behind `import.meta.env.DEV` in `AuthContext.jsx`; added automatic eviction of stale mock sessions from localStorage; fixed `Dashboard.jsx` to fetch stats from `studentProfile` API.
+- **`login_err.json` removed & ignored** (H1): Deleted `login_err.json` from git and added error/debug dump patterns to `.gitignore`.
+- **DPDP consent default fixed** (H2): Defaulted `dpdpConsent` to `false` in `PermissionContext.jsx` and added a boot migration to reset auto-granted consent state for existing users.
+- **`useApiData` error handling fixed** (H3): `useApiData` now always sets `error` on failure alongside `defaultData`, enabling call sites to distinguish errors from genuine empty states.
+- **Shared design-token baseline** (M1): Extended `global.css` with a comprehensive token layer (colours, typography scale, spacing scale, border radii, shadows, z-indexes) shared across all four dashboard areas.
+- **Emoji icons replaced with SVGs** (M2): Replaced functional UI emojis across `PermissionContext.jsx`, `Dashboard.jsx`, etc., with clean SVG components.
+- **Announcements pagination & interactivity** (M3): Added `page`/`limit` pagination to `GET /community/announcements`; created dedicated paginated `Announcements.jsx` page with inline expandable items.
+- **Sidebar missing admin routes added** (M4): Added `/admin/timetable-attendance` and `/admin/marketplace` to `PATH_TO_PAGE` mapping in `DashboardLayout.jsx`.
+- **`AdminErrorBoundary` error details hidden** (M5): Replaced raw stack trace display with user-friendly fallback UI and DevTools console logging.
+- **localStorage key consolidation** (M6): Added boot migration in `AuthContext.jsx` to collapse legacy `ss_token` keys into `access_token`.
 - **Student registration frontend/backend mismatch** (commit `917ab2c`):
   Added `college_code` field to `Login.jsx` Claim Student form; removed
   `load_default="CC2024"` silent fallback from `StudentRegisterSchema`

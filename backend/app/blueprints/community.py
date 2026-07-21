@@ -15,15 +15,40 @@ community_bp = Blueprint("community", __name__)
 @require_auth
 def get_announcements():
     user = get_current_user()
-    announcements = Announcement.query.filter_by(college_id=user.college_id).order_by(Announcement.created_at.desc()).all()
+
+    # Pagination params (defaults keep existing callers working)
+    try:
+        page  = max(1, int(request.args.get("page",  1)))
+        limit = min(100, max(1, int(request.args.get("limit", 50))))
+    except (ValueError, TypeError):
+        page, limit = 1, 50
+
+    offset = (page - 1) * limit
+
+    base_q = (
+        Announcement.query
+        .filter_by(college_id=user.college_id)
+        .order_by(Announcement.created_at.desc())
+    )
+    total         = base_q.count()
+    announcements = base_q.offset(offset).limit(limit).all()
+    total_pages   = max(1, (total + limit - 1) // limit)
+
     res = [{
-        "id": str(a.id),
-        "title": a.title,
+        "id":      str(a.id),
+        "title":   a.title,
         "content": a.content,
-        "source": a.author_name,
-        "time": a.created_at.strftime("%b %d, %Y") if a.created_at else "Today"
+        "source":  a.author_name,
+        "time":    a.created_at.strftime("%b %d, %Y") if a.created_at else "Today"
     } for a in announcements]
-    return jsonify({"announcements": res}), 200
+
+    return jsonify({
+        "announcements": res,
+        "total":         total,
+        "page":          page,
+        "pages":         total_pages,
+    }), 200
+
 
 # ── POST /community/announcements ─────────────────────────────────────────────
 @community_bp.route("/announcements", methods=["POST"])

@@ -23,7 +23,8 @@ import MockInterviews  from './pages/MockInterviews/MockInterviews';
 // Professor-only pages
 import Classes         from './pages/professorDashboard/Classes/Classes';
 import Roster          from './pages/professorDashboard/Roster/Roster';
-import Announcements   from './pages/professorDashboard/Announcements/Announcements';
+import ProfAnnouncements from './pages/professorDashboard/Announcements/Announcements';
+import Announcements   from './pages/Announcements/Announcements';
 
 // TPO / Placement pages  (source lives at projectcampusconnect/placementDashboard/)
 import PlacementDashboard from '@placement/PlacementDashboard/PlacementDashboard';
@@ -100,10 +101,13 @@ export default function App() {
           <Route path="/mock"          element={onlyStudent(<MockInterviews />)} />
           <Route path="/settings"      element={onlyStudent(<Settings />)} />
 
+          {/* ── Shared: student can read announcements ── */}
+          <Route path="/announcements" element={<Announcements />} />
+
           {/* ── Professor-only ── */}
-          <Route path="/classes"       element={onlyProf(<Classes />)} />
-          <Route path="/roster"        element={onlyProf(<Roster />)} />
-          <Route path="/announcements" element={onlyProf(<Announcements />)} />
+          <Route path="/classes"            element={onlyProf(<Classes />)} />
+          <Route path="/roster"             element={onlyProf(<Roster />)} />
+          <Route path="/post-announcement"  element={onlyProf(<ProfAnnouncements />)} />
 
           {/* ── TPO-only ── */}
           <Route path="/placement"     element={onlyTPO(<PlacementDashboard />)} />

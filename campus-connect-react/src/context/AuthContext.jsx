@@ -128,9 +128,38 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem(KEYS.USER);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Evict stale mock-session data: real backend sessions never populate
+      // classRank or pendingTasks on the user object — only the offline mock
+      // fallback does. If we find these keys, the cached value is from a past
+      // mock-login trigger and must be discarded so real API data loads fresh.
+      if (parsed && (parsed.classRank !== undefined || parsed.pendingTasks !== undefined)) {
+        localStorage.removeItem(KEYS.USER);
+        localStorage.removeItem(KEYS.ACCESS);
+        localStorage.removeItem(KEYS.REFRESH);
+        localStorage.removeItem(KEYS.TOKEN);
+        return null;
+      }
+      return parsed;
     } catch { return null; }
   });
+
+  // ── One-time boot migration: collapse legacy storage keys ─────────────────
+  useEffect(() => {
+    // Old code wrote tokens under 'ss_token' or 'token' in addition to 'access_token'.
+    // Migrate whichever legacy key has a value to the canonical key, then clear it.
+    const legacyKeys = ['ss_token', 'token'];
+    for (const k of legacyKeys) {
+      const v = localStorage.getItem(k);
+      if (v && v !== localStorage.getItem(KEYS.ACCESS)) {
+        localStorage.setItem(KEYS.ACCESS, v);
+      }
+      if (k !== KEYS.TOKEN) {
+        localStorage.removeItem(k);  // KEYS.TOKEN === 'token' is kept by persistSession for now
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Listen for session:expired events fired by services/api.js ────────────
   useEffect(() => {
@@ -169,23 +198,35 @@ export function AuthProvider({ children }) {
       return { success: false, error: data.error ?? data.message ?? 'Invalid credentials.' };
 
     } catch {
-      // Backend is genuinely unreachable → offline dev fallback
-      const found = findOfflineUser(identifier, password);
-      if (found) {
-        persistSession(found, 'mock-token', null);
-        setUser(found);
-        return { success: true, user: found };
+      // Offline fallback — ONLY available in local dev builds.
+      // In production a network failure shows a real error message; it never
+      // silently logs the user into a fake session.
+      if (import.meta.env.DEV) {
+        const found = findOfflineUser(identifier, password);
+        if (found) {
+          persistSession(found, 'mock-token', null);
+          setUser(found);
+          return { success: true, user: found };
+        }
+        return { success: false, error: 'Cannot reach server. Check backend is running.' };
       }
-      return { success: false, error: 'Cannot reach server. Check backend is running.' };
+      return {
+        success: false,
+        error: "Can't reach the server — check your connection and try again.",
+      };
     }
   }, []);
 
   // ── Register (offline dev registration only) ──────────────────────────────
   /**
    * NOTE: Real user creation goes through the backend invite / OTP flow.
-   * This helper persists a temporary local user for offline dev/demo mode.
+   * This helper is only active in local dev (import.meta.env.DEV).
+   * In production it always returns an error directing to the real flow.
    */
   const register = useCallback((name, email, password, role) => {
+    if (!import.meta.env.DEV) {
+      return { error: 'Please use the Sign Up / Claim flow to create an account.' };
+    }
     const custom = getCustomUsers();
     const id = email.toLowerCase().trim();
 

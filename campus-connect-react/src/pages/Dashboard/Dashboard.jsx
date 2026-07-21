@@ -124,7 +124,7 @@ export default function Dashboard() {
           </section>
 
           <section className="panel insight-panel" aria-labelledby="quickActionsTitle">
-            <h2 className="panel-title" id="quickActionsTitle" style={{ marginBottom: '1rem' }}>⚡ Professor Actions</h2>
+            <h2 className="panel-title" id="quickActionsTitle" style={{ marginBottom: '1rem' }}>Professor Actions</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <button className="action-btn" style={{ fontSize: '0.8rem', padding: '0.75rem' }} onClick={() => go('/assignments')}>Grade Assignments</button>
               <button className="btn-secondary" style={{ fontSize: '0.8rem', padding: '0.75rem' }} onClick={() => go('/attendance')}>Mark Attendance</button>
@@ -144,7 +144,9 @@ export default function Dashboard() {
             <ul className="assign-list" role="list">
               {user.mentorshipRequests?.map(req => (
                 <li className="assign-item" key={req.id}>
-                  <div className="assign-icon" aria-hidden="true" style={{ background: 'var(--clr-primary-soft)', color: 'var(--clr-primary)' }}>🎓</div>
+                  <div className="assign-icon" aria-hidden="true" style={{ background: 'var(--clr-primary-soft)', color: 'var(--clr-primary)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  </div>
                   <div className="assign-body">
                     <span className="assign-name">{req.studentName}</span>
                     <span className="assign-subject">{req.topic}</span>
@@ -220,12 +222,12 @@ export default function Dashboard() {
         </div>
         <div className="stat-card" role="listitem">
           <span className="stat-label">Pending tasks</span>
-          <span className="stat-value">{user.pendingTasks ?? 0}</span>
-          <span className="stat-delta warning">{user.tasksDelta || '0 due this week'}</span>
+          <span className="stat-value">{profileLoading ? '...' : (studentProfile?.pending_tasks ?? '--')}</span>
+          <span className="stat-delta warning">{studentProfile?.pending_tasks ? `${studentProfile.pending_tasks} due this week` : 'Up to date'}</span>
         </div>
         <div className="stat-card" role="listitem">
           <span className="stat-label">Class rank</span>
-          <span className="stat-value">{user.classRank || '--'}</span>
+          <span className="stat-value">{profileLoading ? '...' : (studentProfile?.class_rank || '--')}</span>
           <span className="stat-delta neutral">Rank in division</span>
         </div>
       </div>

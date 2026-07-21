@@ -8,13 +8,23 @@ import '@admin/admin.shared.css';
 class AdminErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(err) { return { error: err }; }
+  componentDidCatch(error, info) {
+    // Log real error details to DevTools / error-tracking service (never display to users)
+    console.error('[AdminErrorBoundary] Rendering crash:', error, info?.componentStack);
+  }
   render() {
     if (this.state.error) {
       return (
-        <div style={{padding:'2rem',color:'#ef4444',fontFamily:'monospace',background:'#1e1e1e',borderRadius:'8px',margin:'1rem'}}>
-          <strong>Admin Dashboard Error:</strong><br/>
-          {this.state.error?.message || String(this.state.error)}<br/>
-          <pre style={{fontSize:'0.75rem',marginTop:'1rem',opacity:0.7,whiteSpace:'pre-wrap'}}>{this.state.error?.stack}</pre>
+        <div style={{padding:'2rem',textAlign:'center',color:'var(--clr-muted)',fontFamily:'var(--font)'}}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--clr-danger)" strokeWidth="2" width="40" height="40" style={{marginBottom:'1rem'}} aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p style={{fontWeight:600,color:'var(--clr-text)',fontSize:'1rem',marginBottom:'.5rem'}}>Something went wrong</p>
+          <p style={{fontSize:'.85rem'}}>Please refresh the page or contact support if the problem persists.</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{marginTop:'1.25rem',padding:'.5rem 1.5rem',borderRadius:'var(--radius-md)',border:'1px solid var(--clr-border)',background:'var(--clr-surface)',cursor:'pointer',fontFamily:'var(--font)',fontSize:'.85rem'}}
+          >
+            Refresh page
+          </button>
         </div>
       );
     }

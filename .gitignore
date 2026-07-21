@@ -31,3 +31,8 @@ out/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Debug / error dump files — never commit these (may contain credentials or tracebacks)
+login_err.json
+*_err.json
+*.debug.json

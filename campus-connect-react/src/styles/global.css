@@ -8,27 +8,32 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Palette */
+  /* ── Colour palette ──────────────────────────────────────────────── */
   --clr-bg:           #f3f4f8;
   --clr-surface:      #ffffff;
   --clr-primary:      #3b82f6;
   --clr-primary-soft: #dbeafe;
   --clr-primary-dark: #1d4ed8;
+  --clr-secondary:    #6366f1;     /* indigo accent used by admin area */
+  --clr-secondary-soft: #eef2ff;
   --clr-text:         #111827;
   --clr-text-2:       #374151;
   --clr-muted:        #6b7280;
   --clr-border:       #e5e7eb;
   --clr-success:      #22c55e;
+  --clr-success-soft: #dcfce7;
   --clr-warning:      #f59e0b;
+  --clr-warning-soft: #fef3c7;
   --clr-danger:       #ef4444;
+  --clr-danger-soft:  #fee2e2;
+  --clr-error:        #ef4444;
   --clr-insight-bg:   #eff6ff;
   --clr-insight-bd:   #bfdbfe;
   --clr-input-bg:     #f9fafb;
   --clr-btn:          #0f172a;
   --clr-btn-hover:    #1e293b;
-  --clr-error:        #ef4444;
 
-  /* Aliases for modern dashboard styling */
+  /* ── Aliases (used by admin.shared.css, professor, placement CSS) ── */
   --text-primary:     var(--clr-text);
   --text-secondary:   var(--clr-text-2);
   --text-muted:       var(--clr-muted);
@@ -36,26 +41,54 @@
   --surface:          var(--clr-surface);
   --bg:               var(--clr-bg);
 
-  /* Sidebar */
+  /* ── Sidebar ─────────────────────────────────────────────────────── */
   --sidebar-w:    240px;
   --sidebar-bg:   #ffffff;
   --sidebar-bd:   #f0f0f4;
 
-  /* Typography */
+  /* ── Typography ──────────────────────────────────────────────────── */
   --font: 'Inter', sans-serif;
+  --fs-xs:   0.72rem;
+  --fs-sm:   0.82rem;
+  --fs-base: 0.9rem;
+  --fs-md:   1rem;
+  --fs-lg:   1.15rem;
+  --fs-xl:   1.35rem;
+  --fs-2xl:  1.6rem;
 
-  /* Spacing */
-  --gap:       1rem;
+  /* ── Spacing scale (4px base) ────────────────────────────────────── */
+  --sp-1:  0.25rem;   /*  4px */
+  --sp-2:  0.5rem;    /*  8px */
+  --sp-3:  0.75rem;   /* 12px */
+  --sp-4:  1rem;      /* 16px */
+  --sp-5:  1.25rem;   /* 20px */
+  --sp-6:  1.5rem;    /* 24px */
+  --sp-8:  2rem;      /* 32px */
+  --sp-10: 2.5rem;    /* 40px */
+  --gap:   1rem;      /* legacy alias → --sp-4 */
+
+  /* ── Border radii ────────────────────────────────────────────────── */
   --radius-sm: 0.4rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
 
-  /* Shadows */
+  /* ── Shadows ─────────────────────────────────────────────────────── */
   --shadow-card:  0 1px 4px rgba(0,0,0,0.07);
   --shadow-panel: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg:    0 8px 30px rgba(0,0,0,0.10);
+  --shadow-focus: 0 0 0 3px rgba(99,102,241,0.25);
 
-  /* Transitions */
-  --t: 0.18s ease;
+  /* ── Z-index scale ───────────────────────────────────────────────── */
+  --z-base:    1;
+  --z-sidebar: 100;
+  --z-topbar:  200;
+  --z-modal:   300;
+  --z-toast:   400;
+
+  /* ── Transitions ─────────────────────────────────────────────────── */
+  --t:    0.18s ease;
+  --t-md: 0.28s ease;
 }
 
 body {

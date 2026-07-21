@@ -68,17 +68,21 @@ function useDemoAccounts() {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.accounts) setAccounts(d.accounts); })
       .catch(() => {
-        // hardcoded fallback if backend unreachable
-        setAccounts([
-          { role: 'student',       label: 'Student',       login_id: 'CS21DEMO01',              password: 'Demo@1234', name: 'Arjun Mehta',         color: '#4f46e5' },
-          { role: 'professor',     label: 'Professor',     login_id: 'professor@college.edu.in', password: 'Demo@1234', name: 'Dr. Priya Sharma',    color: '#0891b2' },
-          { role: 'placement_cell',label: 'TPO / Placement',login_id: 'tpo@college.edu.in',      password: 'Demo@1234', name: 'Ritu Verma (TPO)',    color: '#059669' },
-          { role: 'admin',         label: 'Admin',         login_id: 'admin@college.edu.in',    password: 'Demo@1234', name: 'Sanjay Kumar (Admin)',color: '#dc2626' },
-        ]);
+        // Hardcoded fallback is ONLY active in local dev builds.
+        // Vite strips this block entirely from production bundles.
+        if (import.meta.env.DEV) {
+          setAccounts([
+            { role: 'student',       label: 'Student',       login_id: 'CS21DEMO01',              password: 'Demo@1234', name: 'Arjun Mehta',         color: '#4f46e5' },
+            { role: 'professor',     label: 'Professor',     login_id: 'professor@college.edu.in', password: 'Demo@1234', name: 'Dr. Priya Sharma',    color: '#0891b2' },
+            { role: 'placement_cell',label: 'TPO / Placement',login_id: 'tpo@college.edu.in',      password: 'Demo@1234', name: 'Ritu Verma (TPO)',    color: '#059669' },
+            { role: 'admin',         label: 'Admin',         login_id: 'admin@college.edu.in',    password: 'Demo@1234', name: 'Sanjay Kumar (Admin)',color: '#dc2626' },
+          ]);
+        }
       });
   }, []);
   return accounts;
 }
+
 
 export default function Login() {
   const { login, register } = useAuth();
@@ -812,7 +816,7 @@ export default function Login() {
                       <span className="demo-card__label">{acc.label}</span>
                       <span className="demo-card__id">{acc.login_id}</span>
                     </span>
-                    <span className="demo-card__badge">Demo@1234</span>
+                    <span className="demo-card__badge">{acc.password}</span>
                   </button>
                 ))}
               </div>

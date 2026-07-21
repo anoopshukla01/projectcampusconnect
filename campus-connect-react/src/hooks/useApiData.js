@@ -26,23 +26,18 @@ export function useApiData(endpoint, defaultData = null, queryParams = undefined
     const result = await apiGet(endpoint, queryParams);
 
     if (result?._networkError || result?._sessionExpired) {
-      if (defaultData !== null) {
-        setData(defaultData);
-        setLoading(false);
-      } else {
-        setError(result.error ?? "Couldn't load your data — try again");
-        setLoading(false);
-      }
+      // Keep defaultData so the UI doesn't crash, but always surface the error
+      // so call sites can show "Couldn't load — try again" vs. genuine empty state.
+      setData(defaultData ?? null);
+      setError(result.error ?? "Couldn't load your data — check your connection and try again.");
+      setLoading(false);
       return;
     }
 
     if (result?.error && !result?._raw) {
-      // Server returned an error response
-      if (defaultData !== null) {
-        setData(defaultData);
-      } else {
-        setError(result.error);
-      }
+      // Server returned an error response — show it, keep defaultData as fallback
+      setData(defaultData ?? null);
+      setError(result.error);
       setLoading(false);
       return;
     }
