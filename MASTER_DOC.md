@@ -216,7 +216,9 @@ part meant to stop regressions.
 *(None remaining)*
 
 ### ✅ Fixed (kept here as history, not for re-investigation)
+- **Cross-college professor attendance data leak** (H-new): `GET /admin/attendance/professors` and `POST /admin/attendance/professors/check-in` in `admin.py` were missing `college_id` scoping — an admin from College A could read and write attendance records for professors at College B. Fixed by adding `college_id=g.current_user.college_id` filter to both queries; checkin query further tightened to use `.in_([...prof_ids])` rather than fetching all colleges' check-ins. All 62 tests pass.
 - **Hardcoded demo credentials secured** (C2): Demo fallback in `Login.jsx` gated behind `import.meta.env.DEV`; `Demo@1234` string verified 100% tree-shaken out of production bundle.
+
 - **Offline mock-login fallback secured & cache-busted** (C3): Gated behind `import.meta.env.DEV` in `AuthContext.jsx`; added automatic eviction of stale mock sessions from localStorage; fixed `Dashboard.jsx` to fetch stats from `studentProfile` API.
 - **`login_err.json` removed & ignored** (H1): Deleted `login_err.json` from git and added error/debug dump patterns to `.gitignore`.
 - **DPDP consent default fixed** (H2): Defaulted `dpdpConsent` to `false` in `PermissionContext.jsx` and added a boot migration to reset auto-granted consent state for existing users.

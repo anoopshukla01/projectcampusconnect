@@ -1880,11 +1880,18 @@ def allot_event_ticket(event_id):
 @require_auth
 @require_roles("admin")
 def list_professor_attendance():
+    cid = g.current_user.college_id
     try:
-        profs = db.session.query(ProfessorProfile).filter_by(is_deleted=False, approval_status=ApprovalStatus.APPROVED).all()
-        
+        profs = db.session.query(ProfessorProfile).filter_by(
+            college_id=cid, is_deleted=False, approval_status=ApprovalStatus.APPROVED
+        ).all()
+
         today = datetime.now(timezone.utc).date()
-        checkins = db.session.query(ProfessorCheckIn).filter_by(check_in_date=today).all()
+        prof_ids = [p.user_id for p in profs]
+        checkins = db.session.query(ProfessorCheckIn).filter(
+            ProfessorCheckIn.professor_id.in_(prof_ids),
+            ProfessorCheckIn.check_in_date == today
+        ).all()
         checkin_map = {str(c.professor_id): c for c in checkins}
 
         res = []
@@ -1917,9 +1924,11 @@ def mark_professor_checkin():
     if status not in ["Present", "Late", "Absent"]:
         return error_response("Invalid status value.", 400)
 
-    prof = db.session.query(ProfessorProfile).filter_by(user_id=prof_user_id, is_deleted=False).first()
+    prof = db.session.query(ProfessorProfile).filter_by(
+        user_id=prof_user_id, college_id=g.current_user.college_id, is_deleted=False
+    ).first()
     if not prof:
-        return error_response("Professor profile not found.", 404)
+        return error_response("Professor not found.", 404)
 
     today = datetime.now(timezone.utc).date()
     
