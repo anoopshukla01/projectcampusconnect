@@ -193,6 +193,7 @@ class OfficialMerchandise(db.Model):
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     seller_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     seller_role = db.Column(db.String(30), nullable=False) # "admin" or "placement_cell"
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=True, index=True)
     title = db.Column(db.String(255), nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     description = db.Column(db.Text, nullable=True)
@@ -203,6 +204,9 @@ class OfficialMerchandise(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     seller = db.relationship("User", foreign_keys=[seller_id])
+    college = db.relationship("College", foreign_keys=[college_id], lazy="joined")
+
+
 
 class MerchandiseOrder(db.Model):
     __tablename__ = "merchandise_orders"

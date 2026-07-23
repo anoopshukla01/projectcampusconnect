@@ -1586,6 +1586,7 @@ def create_merchandise():
         item = OfficialMerchandise(
             seller_id=user.id,
             seller_role=role_str,
+            college_id=user.college_id,
             title=title,
             price=price,
             description=data.get("description"),
@@ -1615,11 +1616,16 @@ def create_merchandise():
 @admin_bp.get("/merchandise")
 @require_auth
 def get_merchandise():
+    user = get_current_user()
     role_filter = request.args.get("role")
     try:
-        q = db.session.query(OfficialMerchandise).filter_by(status="active")
+        # Scope to current user's college; nullable college_id rows (legacy) visible to all.
+        q = db.session.query(OfficialMerchandise).filter(
+            (OfficialMerchandise.college_id == user.college_id) | (OfficialMerchandise.college_id == None),  # noqa: E711
+            OfficialMerchandise.status == "active"
+        )
         if role_filter:
-            q = q.filter_by(seller_role=role_filter)
+            q = q.filter(OfficialMerchandise.seller_role == role_filter)
         items = q.order_by(OfficialMerchandise.created_at.desc()).all()
         return jsonify({
             "merchandise": [{
@@ -1698,10 +1704,26 @@ def get_merchandise_orders():
     user = get_current_user()
     role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
     try:
+        # Scope to this college's merchandise items only — prevents cross-college order visibility.
         if role_str == "admin":
-            orders = db.session.query(MerchandiseOrder).join(OfficialMerchandise).order_by(MerchandiseOrder.created_at.desc()).all()
+            orders = (
+                db.session.query(MerchandiseOrder)
+                .join(OfficialMerchandise)
+                .filter(
+                    (OfficialMerchandise.college_id == user.college_id) | (OfficialMerchandise.college_id == None)  # noqa: E711
+                )
+                .order_by(MerchandiseOrder.created_at.desc()).all()
+            )
         else:
-            orders = db.session.query(MerchandiseOrder).join(OfficialMerchandise).filter(OfficialMerchandise.seller_role == "placement_cell").order_by(MerchandiseOrder.created_at.desc()).all()
+            orders = (
+                db.session.query(MerchandiseOrder)
+                .join(OfficialMerchandise)
+                .filter(
+                    OfficialMerchandise.seller_role == "placement_cell",
+                    (OfficialMerchandise.college_id == user.college_id) | (OfficialMerchandise.college_id == None)  # noqa: E711
+                )
+                .order_by(MerchandiseOrder.created_at.desc()).all()
+            )
 
         return jsonify({
             "orders": [{

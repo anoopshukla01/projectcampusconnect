@@ -187,6 +187,7 @@ def get_marketplace():
             contact = mask_contact(contact)
         res.append({
             "id": str(i.id),
+            "seller_id": str(i.seller_id),
             "title": i.title,
             "price": i.price,
             "category": i.category,
@@ -195,6 +196,7 @@ def get_marketplace():
             "contact": contact
         })
     return jsonify({"items": res}), 200
+
 
 # ── GET /community/lost-and-found ──────────────────────────────────────────────
 @community_bp.route("/lost-and-found", methods=["GET"])
