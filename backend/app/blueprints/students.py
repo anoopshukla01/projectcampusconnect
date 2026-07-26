@@ -88,8 +88,10 @@ def update_own_profile():
 @require_auth
 @require_roles("admin", "placement_cell")
 def get_student_by_id(student_id):
-    profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, college_id=g.current_user.college_id, is_deleted=False
+    profile = db.session.query(StudentProfile).filter(
+        (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
+        StudentProfile.college_id == g.current_user.college_id,
+        StudentProfile.is_deleted == False
     ).first()
 
     if not profile:
@@ -145,8 +147,10 @@ def list_students():
 @require_auth
 @require_roles("admin")
 def admin_update_student(student_id):
-    profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, college_id=g.current_user.college_id, is_deleted=False
+    profile = db.session.query(StudentProfile).filter(
+        (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
+        StudentProfile.college_id == g.current_user.college_id,
+        StudentProfile.is_deleted == False
     ).first()
 
     if not profile:
@@ -208,8 +212,10 @@ def admin_update_student(student_id):
 @require_auth
 @require_roles("admin")
 def admin_delete_student(student_id):
-    profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, college_id=g.current_user.college_id, is_deleted=False
+    profile = db.session.query(StudentProfile).filter(
+        (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
+        StudentProfile.college_id == g.current_user.college_id,
+        StudentProfile.is_deleted == False
     ).first()
 
     if not profile:
@@ -472,8 +478,10 @@ def get_student_detail(student_id):
     role = current_user.role
 
     # ── Fetch the base profile ──────────────────────────────────────────────
-    profile = db.session.query(StudentProfile).filter_by(
-        id=student_id, college_id=current_user.college_id, is_deleted=False
+    profile = db.session.query(StudentProfile).filter(
+        (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
+        StudentProfile.college_id == current_user.college_id,
+        StudentProfile.is_deleted == False
     ).first()
     if not profile:
         return error_response("Student profile not found.", 404)
