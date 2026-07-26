@@ -219,10 +219,16 @@ class AdminStudentUpdateSchema(Schema):
     resume_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
     profile_photo_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
     is_active = fields.Bool()
+    roll_no = fields.Str(validate=validate.Length(min=1, max=50))
+    batch_year = fields.Int(validate=validate.Range(min=2000, max=2100))
+    profile_complete = fields.Bool()
+    dpdp_consent_given = fields.Bool()
     # Admission detail fields (admin-only editable)
     entrance_exam_type = fields.Str(validate=validate.Length(max=50), allow_none=True)
     entrance_rank      = fields.Int(validate=validate.Range(min=0), allow_none=True)
     quota_category     = fields.Str(validate=validate.Length(max=50), allow_none=True)
     # Section tag for edit metadata tracking
     edited_section     = fields.Str(validate=validate.Length(max=50), load_default=None)
+
+
 
