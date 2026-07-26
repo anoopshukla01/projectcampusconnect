@@ -163,17 +163,25 @@ def admin_update_student(student_id):
 
     # Keep track of differences for auditing
     # edited_section is a metadata-only field — not a model column; skip it in setattr loop.
+    # email, phone, and is_active live on profile.user, not profile.
     diff = {}
     for field, val in data.items():
-        if field in ("is_active", "edited_section"):
+        if field in ("is_active", "edited_section", "email", "phone"):
             if field == "is_active" and profile.user.is_active != val:
                 diff["is_active"] = {"old": profile.user.is_active, "new": val}
                 profile.user.is_active = val
+            elif field == "email" and profile.user.email != val:
+                diff["email"] = {"old": profile.user.email, "new": val}
+                profile.user.email = val
+            elif field == "phone" and profile.user.phone != val:
+                diff["phone"] = {"old": profile.user.phone, "new": val}
+                profile.user.phone = val
             continue
         old_val = getattr(profile, field, None)
         if old_val != val:
             diff[field] = {"old": str(old_val) if old_val is not None else None, "new": str(val) if val is not None else None}
             setattr(profile, field, val)
+
 
     try:
         db.session.commit()

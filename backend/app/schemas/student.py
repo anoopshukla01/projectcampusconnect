@@ -212,6 +212,9 @@ class AdminStudentUpdateSchema(Schema):
     parent_contact = fields.Str(validate=validate.Length(max=50), allow_none=True)
     fees_submitted = fields.Float(validate=validate.Range(min=0), allow_none=True)
     scholarship_details = fields.Str(validate=validate.Length(max=255), allow_none=True)
+    email = fields.Email(allow_none=True)
+    phone = fields.Str(validate=validate.Length(max=50), allow_none=True)
+    github_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
     linkedin_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
     resume_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
     profile_photo_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
@@ -222,3 +225,4 @@ class AdminStudentUpdateSchema(Schema):
     quota_category     = fields.Str(validate=validate.Length(max=50), allow_none=True)
     # Section tag for edit metadata tracking
     edited_section     = fields.Str(validate=validate.Length(max=50), load_default=None)
+
