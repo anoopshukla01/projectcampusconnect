@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@ctx/ToastContext';
 import { adminApi, placementApi } from '@/services/api';
 import '@admin/admin.shared.css';
@@ -7,6 +8,7 @@ const TABS = ['Students', 'Professors', 'Placement Drives', 'Access Requests'];
 
 export default function DataManager() {
   const showToast = useToast();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const [tab, setTab]           = useState(0);
@@ -218,13 +220,22 @@ export default function DataManager() {
                         </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button
-                          className="ad-btn ad-btn-outline"
-                          style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-                          onClick={() => handleOpenEdit(s)}
-                        >
-                          Edit
-                        </button>
+                        <div style={{ display: 'flex', gap: '.4rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="ad-btn ad-btn-outline"
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                            onClick={() => navigate(`/admin/students/${s.id}`)}
+                          >
+                            View Detail
+                          </button>
+                          <button
+                            className="ad-btn ad-btn-outline"
+                            style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                            onClick={() => handleOpenEdit(s)}
+                          >
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

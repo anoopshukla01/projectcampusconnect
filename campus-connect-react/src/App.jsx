@@ -50,6 +50,12 @@ import AttendanceTimetableOversight from '@admin/AttendanceTimetableOversight/At
 import MarketplaceManager from '@admin/Marketplace/MarketplaceManager';
 import Settings from './pages/Settings/Settings';
 
+// ── Student Detail pages (4 role-specific views) ──────────────────────────────
+import AdminStudentDetail     from '@admin/StudentDetail/StudentDetail';
+import TPOStudentDetail       from '@placement/StudentDetail/StudentDetail';
+import ProfStudentDetail      from './pages/professorDashboard/StudentDetail/StudentDetail';
+import StudentSelfView        from './pages/StudentDetail/StudentDetail';
+
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
 
 export default function App() {
@@ -100,6 +106,7 @@ export default function App() {
           <Route path="/resume"        element={onlyStudent(<ResumeBuilder />)} />
           <Route path="/mock"          element={onlyStudent(<MockInterviews />)} />
           <Route path="/settings"      element={onlyStudent(<Settings />)} />
+          <Route path="/profile"        element={onlyStudent(<StudentSelfView />)} />
 
           {/* ── Shared: student can read announcements ── */}
           <Route path="/announcements" element={<Announcements />} />
@@ -107,6 +114,7 @@ export default function App() {
           {/* ── Professor-only ── */}
           <Route path="/classes"            element={onlyProf(<Classes />)} />
           <Route path="/roster"             element={onlyProf(<Roster />)} />
+          <Route path="/roster/:courseCode/students/:sid" element={onlyProf(<ProfStudentDetail />)} />
           <Route path="/post-announcement"  element={onlyProf(<ProfAnnouncements />)} />
 
           {/* ── TPO-only ── */}
@@ -118,6 +126,7 @@ export default function App() {
           <Route path="/offers"        element={onlyTPO(<Offers />)} />
           <Route path="/plreports"     element={onlyTPO(<PlacementReports />)} />
           <Route path="/plnotices"     element={onlyTPO(<PlacementNotices />)} />
+          <Route path="/placement/students/:studentId" element={onlyTPO(<TPOStudentDetail />)} />
 
           {/* ── Admin-only ── */}
           <Route path="/admin"              element={onlyAdmin(<AdminDashboard />)} />
@@ -129,6 +138,7 @@ export default function App() {
           <Route path="/admin/datahealth" element={onlyAdmin(<DataHealth />)} />
           <Route path="/admin/branches"   element={onlyAdmin(<BranchComparison />)} />
           <Route path="/admin/data"       element={onlyAdmin(<DataManager />)} />
+          <Route path="/admin/students/:studentId" element={onlyAdmin(<AdminStudentDetail />)} />
           <Route path="/admin/timetable-attendance" element={onlyAdmin(<AttendanceTimetableOversight />)} />
           <Route path="/admin/marketplace" element={onlyAdmin(<MarketplaceManager />)} />
 

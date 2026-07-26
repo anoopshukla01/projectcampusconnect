@@ -323,6 +323,12 @@ export const studentsApi = {
 
   /** S8 — get student offers */
   getOffers: (studentId) => apiGet(`/students/${studentId}/offers`),
+
+  /** S9 — role-aware student detail page (returns different field sets per role) */
+  getDetail: (studentId) => apiGet(`/students/${studentId}/detail`),
+
+  /** Student self-update extended (home address, parent contact, photo) */
+  updateSelf: (payload) => apiPatch('/students/me', payload),
 };
 
 // ── 4c. Academics ─────────────────────────────────────────────────────────────

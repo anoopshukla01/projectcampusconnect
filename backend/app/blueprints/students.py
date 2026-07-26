@@ -30,7 +30,7 @@ from app.extensions import db
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.placement import DriveApplication, PlacementOffer
-from app.schemas.student import StudentResponseSchema, StudentUpdateSchema, AdminStudentUpdateSchema
+from app.schemas.student import StudentResponseSchema, StudentDetailSchema, StudentUpdateSchema, AdminStudentUpdateSchema
 from app.utils.audit import audit_action
 from app.utils.errors import error_response, internal_error_response, validation_error_response
 
@@ -158,17 +158,18 @@ def admin_update_student(student_id):
         return validation_error_response(e.messages)
 
     # Keep track of differences for auditing
+    # edited_section is a metadata-only field — not a model column; skip it in setattr loop.
     diff = {}
     for field, val in data.items():
-        if field == "is_active":
-            if profile.user.is_active != val:
+        if field in ("is_active", "edited_section"):
+            if field == "is_active" and profile.user.is_active != val:
                 diff["is_active"] = {"old": profile.user.is_active, "new": val}
                 profile.user.is_active = val
-        else:
-            old_val = getattr(profile, field)
-            if old_val != val:
-                diff[field] = {"old": str(old_val) if old_val is not None else None, "new": str(val) if val is not None else None}
-                setattr(profile, field, val)
+            continue
+        old_val = getattr(profile, field, None)
+        if old_val != val:
+            diff[field] = {"old": str(old_val) if old_val is not None else None, "new": str(val) if val is not None else None}
+            setattr(profile, field, val)
 
     try:
         db.session.commit()
@@ -177,6 +178,23 @@ def admin_update_student(student_id):
         return internal_error_response(exc, "admin_update_student")
 
     if diff:
+        # Update per-section admin_edits_meta if caller specified which section was edited
+        edited_section = data.get("edited_section")
+        if edited_section:
+            meta = profile.admin_edits_meta or {}
+            meta[edited_section] = {
+                "editor_id": str(g.current_user.id),
+                "editor_name": getattr(g.current_user, 'email', str(g.current_user.id)),
+                "edited_at": __import__('datetime').datetime.now(
+                    __import__('datetime').timezone.utc
+                ).isoformat(),
+            }
+            profile.admin_edits_meta = meta
+            try:
+                db.session.commit()
+            except Exception:
+                pass  # non-critical; main commit already succeeded
+
         audit_action("admin.student.update", target_type="student_profile",
                      target_id=str(profile.id), detail=diff)
 
@@ -428,3 +446,207 @@ def resume_suggestions():
 
     return jsonify({"suggestions": suggestions}), 200
 
+
+# ── S9: GET /students/<uuid:student_id>/detail ────────────────────────────────
+# Role-aware Student Detail Page endpoint.
+# Returns a different field set per caller role, reusing StudentDetailSchema's
+# post_dump masking layer on top of StudentResponseSchema — no new auth pattern.
+#
+# Access matrix:
+#   admin          → all fields
+#   placement_cell → identity + CGPA/backlogs + career; no fees/quota/admin fields
+#   professor      → identity + academic fields scoped to their own class only
+#   student (own)  → all own fields via require_self_or_roles IDOR guard
+#
+# Probing: any role hitting this endpoint for a student outside their allowed
+# scope is logged to audit_action("security.field_probe") for Data Health.
+
+@students_bp.get("/<uuid:student_id>/detail")
+@require_auth
+def get_student_detail(student_id):
+    from app.models.academic import ProfessorClassAssignment, Grade, AttendanceRecord
+    from app.models.community import EventRegistration, CampusEvent, AdminDetailRequest
+    from app.models.placement import PlacementOffer, DriveApplication
+
+    current_user = get_current_user()
+    role = current_user.role
+
+    # ── Fetch the base profile ──────────────────────────────────────────────
+    profile = db.session.query(StudentProfile).filter_by(
+        id=student_id, college_id=current_user.college_id, is_deleted=False
+    ).first()
+    if not profile:
+        return error_response("Student profile not found.", 404)
+
+    is_owner = (str(current_user.id) == str(profile.user_id))
+
+    # ── Role gate ──────────────────────────────────────────────────────────
+    if role == UserRole.STUDENT:
+        if not is_owner:
+            # Student probing another student's detail — log and deny
+            audit_action(
+                "security.field_probe",
+                target_type="student_profile",
+                target_id=str(student_id),
+                detail={"attempted_role": "student", "reason": "non-owner access denied"},
+            )
+            return error_response("You do not have permission to access this resource.", 403)
+
+    elif role == UserRole.PROFESSOR:
+        # Professor must teach this student via an active ProfessorClassAssignment
+        teaches = ProfessorClassAssignment.query.filter_by(
+            professor_user_id=current_user.id,
+            branch=profile.branch,
+            semester=profile.semester,
+            is_active=True,
+        ).first()
+        if not teaches:
+            audit_action(
+                "security.field_probe",
+                target_type="student_profile",
+                target_id=str(student_id),
+                detail={"attempted_role": "professor", "reason": "does not teach student"},
+            )
+            return error_response("You do not teach this student.", 403)
+
+    elif role in (UserRole.PLACEMENT_CELL, UserRole.ADMIN):
+        pass  # college_id filter above is sufficient
+
+    else:
+        return error_response("You do not have permission to perform this action.", 403)
+
+    # ── Build context for StudentDetailSchema ──────────────────────────────
+    admin_access_granted = False
+    if role == UserRole.PROFESSOR:
+        req = AdminDetailRequest.query.filter_by(
+            professor_user_id=current_user.id,
+            student_id=profile.id,
+            status="approved",
+        ).first()
+        if req:
+            from datetime import datetime, timezone as tz
+            if req.expires_at is None or req.expires_at > datetime.now(tz.utc):
+                admin_access_granted = True
+
+    ctx = {
+        "role": role.value,
+        "is_owner": is_owner,
+        "admin_access_granted": admin_access_granted,
+    }
+
+    # ── Serialize base profile ─────────────────────────────────────────────
+    schema = StudentDetailSchema(context=ctx)
+    data = schema.dump(profile)
+
+    # ── Augment with supplementary data per role ───────────────────────────
+    if role == UserRole.ADMIN or is_owner:
+        # Platform Activity — event registrations + placement applications
+        event_regs = (
+            EventRegistration.query
+            .filter_by(user_id=profile.user_id)
+            .join(CampusEvent, EventRegistration.event_id == CampusEvent.id)
+            .all()
+        )
+        data["platform_activity"] = {
+            "event_registrations": [
+                {
+                    "event_id":    str(r.event_id),
+                    "event_title": r.event.title if r.event else "—",
+                    "event_type":  r.event.event_type if r.event else "—",
+                    "registered_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in event_regs
+            ],
+        }
+        # Offers + applications summary
+        offers = PlacementOffer.query.filter_by(student_id=profile.user_id, is_deleted=False).all()
+        data["placement_offers"] = [
+            {
+                "company":    off.drive.company_name if off.drive else "—",
+                "role":       off.drive.role_title if off.drive else "—",
+                "ctc":        str(off.ctc_offered) if off.ctc_offered else None,
+                "status":     off.status.value,
+                "offer_date": off.offer_date.isoformat() if off.offer_date else None,
+            }
+            for off in offers
+        ]
+
+    elif role == UserRole.PLACEMENT_CELL:
+        # TPO sees career data + event registrations for events TPO created
+        offers = PlacementOffer.query.filter_by(student_id=profile.user_id, is_deleted=False).all()
+        data["placement_offers"] = [
+            {
+                "company": off.drive.company_name if off.drive else "—",
+                "role":    off.drive.role_title if off.drive else "—",
+                "ctc":     str(off.ctc_offered) if off.ctc_offered else None,
+                "status":  off.status.value,
+            }
+            for off in offers
+        ]
+        # Event registrations for events created by a placement_cell user
+        tpo_events_subq = (
+            db.session.query(CampusEvent.id)
+            .join(User, CampusEvent.created_by_id == User.id)
+            .filter(User.role == UserRole.PLACEMENT_CELL, User.college_id == current_user.college_id)
+            .subquery()
+        )
+        tpo_event_regs = (
+            EventRegistration.query
+            .filter_by(user_id=profile.user_id)
+            .filter(EventRegistration.event_id.in_(tpo_events_subq))
+            .all()
+        )
+        data["platform_activity"] = {
+            "event_registrations": [
+                {
+                    "event_id":    str(r.event_id),
+                    "event_title": r.event.title if r.event else "—",
+                    "registered_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in tpo_event_regs
+            ],
+        }
+
+    elif role == UserRole.PROFESSOR:
+        # Professor sees grades + attendance only for their own course
+        teaches_codes = [
+            a.course_code for a in ProfessorClassAssignment.query.filter_by(
+                professor_user_id=current_user.id, is_active=True
+            ).all()
+        ]
+        grades = Grade.query.filter(
+            Grade.student_id == student_id,
+            Grade.course_code.in_(teaches_codes),
+        ).all()
+        attendance = AttendanceRecord.query.filter(
+            AttendanceRecord.student_id == student_id,
+            AttendanceRecord.subject_code.in_(teaches_codes),
+        ).all()
+        data["course_grades"] = [
+            {
+                "course_code":    g.course_code,
+                "internal_marks": g.internal_marks,
+                "mid_sem_marks":  g.mid_sem_marks,
+                "grade":          g.grade,
+                "grade_point":    g.grade_point,
+            }
+            for g in grades
+        ]
+        data["course_attendance"] = [
+            {
+                "subject_code": a.subject_code,
+                "attended":     a.attended_classes,
+                "total":        a.total_classes,
+                "pct":          round(a.attended_classes / a.total_classes * 100, 1)
+                                if a.total_classes else 0,
+            }
+            for a in attendance
+        ]
+        data["admin_access_granted"] = admin_access_granted
+
+    # ── Audit TPO reads ────────────────────────────────────────────────────
+    if role == UserRole.PLACEMENT_CELL:
+        audit_action("placement.student.detail.read", target_type="student_profile",
+                     target_id=str(student_id))
+
+    return jsonify(data), 200

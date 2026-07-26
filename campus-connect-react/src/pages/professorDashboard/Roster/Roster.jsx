@@ -1,5 +1,6 @@
 import { Home, Clock, Unlock } from "lucide-react";
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useApiData } from '../../../hooks/useApiData';
@@ -29,6 +30,7 @@ async function apiFetch(endpoint, options = {}) {
 export default function Roster() {
   const { user } = useAuth();
   const showToast = useToast();
+  const navigate = useNavigate();
 
   const [selectedClass, setSelectedClass] = useState('');
   const [search, setSearch] = useState('');
@@ -219,6 +221,13 @@ export default function Roster() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          <button
+                            className="btn-secondary"
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}
+                            onClick={e => { e.stopPropagation(); navigate(`/roster/${activeCode}/students/${student.id}`); }}
+                          >
+                            View Profile
+                          </button>
                           <button
                             className="btn-secondary"
                             style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}

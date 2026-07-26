@@ -28,6 +28,14 @@ class StudentProfile(db.Model):
     github_url = db.Column(db.String(500), nullable=True)
     social_links_visibility = db.Column(db.JSON, nullable=True) # e.g. {"github": true, "linkedin": true}
     resume_url = db.Column(db.String(1000), nullable=True)
+    # Admission Details — visible per role tier
+    entrance_exam_type = db.Column(db.String(50), nullable=True)   # JEE, CET, NEET, CUET…
+    entrance_rank      = db.Column(db.Integer, nullable=True)       # rank or score
+    quota_category     = db.Column(db.String(50), nullable=True)    # OPEN, OBC, SC, ST…
+    # Profile photo
+    profile_photo_url  = db.Column(db.String(1000), nullable=True)
+    # Per-section edit metadata — JSON: {"section_name": {"editor_id": str, "edited_at": iso_str}}
+    admin_edits_meta   = db.Column(db.JSON, nullable=True, default=dict)
     dpdp_consent_given = db.Column(db.Boolean, default=False, nullable=False)
     dpdp_consent_at = db.Column(db.DateTime, nullable=True)
     profile_complete = db.Column(db.Boolean, default=False, nullable=False)

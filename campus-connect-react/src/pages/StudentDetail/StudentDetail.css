@@ -1,0 +1,191 @@
+/* ================================================================
+   Admin Student Detail — StudentDetail.css
+   Uses admin.shared.css tokens; no override of global vars
+   ================================================================ */
+
+.sd-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Hero strip ── */
+.sd-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.6rem;
+  background: linear-gradient(135deg, var(--clr-primary-dark), var(--clr-primary));
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 28px rgba(59, 130, 246, 0.35);
+  color: #fff;
+  flex-wrap: wrap;
+}
+
+.sd-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,.35);
+  flex-shrink: 0;
+}
+
+.sd-avatar-placeholder {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,.35);
+}
+
+.sd-hero-info { flex: 1; }
+.sd-hero-name { font-size: 1.4rem; font-weight: 800; margin: 0 0 .2rem; }
+.sd-hero-sub { font-size: .84rem; opacity: .8; margin: 0 0 .5rem; }
+.sd-hero-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+.sd-hero-chip {
+  padding: .22rem .65rem; border-radius: 999px;
+  background: rgba(255,255,255,.18); font-size: .72rem; font-weight: 600;
+}
+
+.sd-hero-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ── Section card ── */
+.sd-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1.125rem;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  transition: box-shadow .2s;
+}
+.sd-section:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+
+.sd-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.sd-section-title {
+  display: flex; align-items: center; gap: .6rem;
+  font-size: .95rem; font-weight: 700; color: var(--text-primary); margin: 0;
+}
+.sd-section-title svg { width: 17px; height: 17px; stroke: var(--clr-secondary); }
+.sd-section-meta { font-size: .72rem; color: var(--text-secondary); }
+.sd-chevron { transition: transform .22s; color: var(--text-secondary); }
+.sd-chevron.open { transform: rotate(180deg); }
+
+.sd-section-body {
+  padding: 1.35rem 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Field row ── */
+.sd-field { display: flex; flex-direction: column; gap: .25rem; }
+.sd-field-label {
+  font-size: .73rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-secondary);
+}
+.sd-field-value { font-size: .88rem; color: var(--text-primary); font-weight: 500; word-break: break-word; }
+.sd-field-value.masked { color: var(--text-secondary); font-style: italic; letter-spacing: .05em; }
+
+/* ── Editable field ── */
+.sd-editable-row { display: flex; align-items: center; gap: .5rem; }
+.sd-edit-input {
+  flex: 1; padding: .4rem .7rem; border-radius: .6rem;
+  border: 1.5px solid var(--border); background: var(--bg);
+  color: var(--text-primary); font-size: .84rem;
+  transition: border-color .18s;
+}
+.sd-edit-input:focus { outline: none; border-color: var(--clr-secondary); box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+
+/* ── Sensitive edit banner ── */
+.sd-sensitive-banner {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .75rem 1rem; border-radius: .75rem;
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25);
+  font-size: .8rem; color: var(--clr-warning); margin-bottom: 1rem;
+}
+
+/* ── Confirmation modal ── */
+.sd-confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; animation: sdFadeIn .18s ease;
+}
+@keyframes sdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.sd-confirm-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 1.25rem; padding: 2rem; width: 100%; max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: sdSlideUp .22s ease;
+}
+@keyframes sdSlideUp { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sd-confirm-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0 0 .4rem; }
+.sd-confirm-sub { font-size: .83rem; color: var(--text-secondary); margin: 0 0 1.25rem; }
+.sd-confirm-diff { background: rgba(0,0,0,.04); border-radius: .65rem; padding: .75rem 1rem; margin-bottom: 1.25rem; font-size: .82rem; }
+.sd-confirm-diff-row { display: flex; justify-content: space-between; gap: 1rem; padding: .2rem 0; }
+.sd-confirm-diff-old { color: var(--clr-danger); text-decoration: line-through; }
+.sd-confirm-diff-new { color: var(--clr-success); font-weight: 600; }
+.sd-confirm-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+
+/* ── Status / CGPA badge ── */
+.sd-cgpa-badge {
+  display: inline-flex; align-items: center;
+  padding: .22rem .65rem; border-radius: 999px;
+  font-size: .78rem; font-weight: 700;
+}
+.sd-cgpa-high  { background: rgba(34,197,94,.15); color: var(--clr-success); }
+.sd-cgpa-mid   { background: rgba(245,158,11,.15); color: var(--clr-warning); }
+.sd-cgpa-low   { background: rgba(239,68,68,.12); color: var(--clr-danger-soft); }
+
+/* ── Platform Activity list ── */
+.sd-activity-list { display: flex; flex-direction: column; gap: .6rem; }
+.sd-activity-item {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .65rem .85rem; border-radius: .75rem;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.sd-activity-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(99,102,241,.1);
+}
+.sd-activity-icon svg { width: 15px; height: 15px; stroke: var(--clr-secondary); }
+.sd-activity-body { flex: 1; font-size: .82rem; color: var(--text-primary); }
+.sd-activity-time { font-size: .72rem; color: var(--text-secondary); }
+
+/* ── Placement offer row ── */
+.sd-offer-list { display: flex; flex-direction: column; gap: .6rem; }
+.sd-offer-card {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .75rem 1rem; border-radius: .875rem;
+  border: 1px solid var(--border);
+}
+.sd-offer-company { font-size: .88rem; font-weight: 700; color: var(--text-primary); }
+.sd-offer-role    { font-size: .78rem; color: var(--text-secondary); }
+.sd-offer-ctc     { font-size: .85rem; font-weight: 700; color: var(--clr-success); margin-left: auto; }
+
+/* ── Empty / forbidden state ── */
+.sd-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .75rem; padding: 2.5rem; text-align: center;
+}
+.sd-empty-icon { width: 44px; height: 44px; stroke: var(--text-secondary); opacity: .4; }
+.sd-empty-text { font-size: .85rem; color: var(--text-secondary); }
+
+/* ── Spinner ── */
+.sd-spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--clr-secondary);
+  animation: sdSpin .7s linear infinite; margin: 3rem auto;
+}
+@keyframes sdSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+  .sd-hero { flex-direction: column; align-items: flex-start; }
+  .sd-section-body { grid-template-columns: 1fr; }
+}
