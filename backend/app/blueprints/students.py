@@ -584,18 +584,20 @@ def get_student_detail(student_id):
             for off in offers
         ]
         # Event registrations for events created by a placement_cell user
-        tpo_events_subq = (
-            db.session.query(CampusEvent.id)
+        # Use select() explicitly (required by SQLAlchemy 2.x) to avoid SAWarning on .in_()
+        from sqlalchemy import select as sa_select
+        tpo_events_sel = (
+            sa_select(CampusEvent.id)
             .join(User, CampusEvent.created_by_id == User.id)
-            .filter(User.role == UserRole.PLACEMENT_CELL, User.college_id == current_user.college_id)
-            .subquery()
+            .where(User.role == UserRole.PLACEMENT_CELL, User.college_id == current_user.college_id)
         )
         tpo_event_regs = (
             EventRegistration.query
             .filter_by(user_id=profile.user_id)
-            .filter(EventRegistration.event_id.in_(tpo_events_subq))
+            .filter(EventRegistration.event_id.in_(tpo_events_sel))
             .all()
         )
+
         data["platform_activity"] = {
             "event_registrations": [
                 {
