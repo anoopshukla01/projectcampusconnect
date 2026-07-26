@@ -41,15 +41,13 @@ students_bp = Blueprint("students", __name__)
 
 @students_bp.get("/me")
 @require_auth
-@require_roles("student")
 def get_own_profile():
     user = get_current_user()
     profile = user.student_profile
     if not profile or profile.is_deleted:
         return error_response("Student profile not found.", 404)
 
-    schema = StudentResponseSchema(context={"role": "student", "is_owner": True})
-    return jsonify(schema.dump(profile)), 200
+    return get_student_detail(profile.id)
 
 
 # ── S2: PATCH /students/me ────────────────────────────────────────────────────
@@ -69,16 +67,21 @@ def update_own_profile():
         return validation_error_response(e.messages)
 
     try:
-        # Update allowed fields only
+        # Update allowed fields
         for field, val in data.items():
-            setattr(profile, field, val)
+            if field == "email" and profile.user.email != val:
+                profile.user.email = val
+            elif field == "phone" and profile.user.phone != val:
+                profile.user.phone = val
+            elif hasattr(profile, field):
+                setattr(profile, field, val)
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
         return internal_error_response(exc, "update_own_profile")
 
     audit_action("student.profile.update", target_type="student_profile", target_id=str(profile.id))
-    schema = StudentResponseSchema(context={"role": "student", "is_owner": True})
+    schema = StudentDetailSchema(context={"role": "student", "is_owner": True})
     return jsonify(schema.dump(profile)), 200
 
 

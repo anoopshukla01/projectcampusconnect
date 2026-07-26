@@ -184,16 +184,21 @@ class StudentUpdateSchema(Schema):
         unknown = RAISE
 
     full_name = fields.Str(validate=validate.Length(min=2, max=255))
+    email = fields.Email(allow_none=True)
+    phone = fields.Str(validate=validate.Length(max=50), allow_none=True)
     branch = fields.Str(validate=validate.Length(min=2, max=50))
     semester = fields.Int(validate=validate.Range(min=1, max=10))
     hostel_address = fields.Str(allow_none=True)
     home_address = fields.Str(allow_none=True)
     parent_contact = fields.Str(validate=validate.Length(max=50), allow_none=True)
+    entrance_exam_type = fields.Str(validate=validate.Length(max=50), allow_none=True)
+    entrance_rank = fields.Int(validate=validate.Range(min=0), allow_none=True)
     linkedin_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
     github_url = fields.Str(validate=validate.Length(max=500), allow_none=True)
     social_links_visibility = fields.Dict(allow_none=True)
     resume_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
     profile_photo_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
+
 
 
 class AdminStudentUpdateSchema(Schema):

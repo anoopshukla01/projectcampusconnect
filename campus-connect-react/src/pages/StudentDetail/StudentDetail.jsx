@@ -34,9 +34,11 @@ const FIELD_LABELS = {
 
 // Fields a student is allowed to self-edit via PATCH /students/me
 const SELF_EDITABLE = new Set([
-  'phone', 'home_address', 'hostel_address', 'parent_contact',
+  'email', 'phone', 'home_address', 'hostel_address', 'parent_contact',
+  'entrance_exam_type', 'entrance_rank',
   'linkedin_url', 'github_url', 'resume_url', 'profile_photo_url',
 ]);
+
 
 export default function StudentSelfView() {
   const { user } = useAuth();
@@ -248,17 +250,26 @@ export default function StudentSelfView() {
         </div>
       </div>
 
-      {/* Admission Details — read-only */}
+      {/* Admission Details */}
       <div className="sd-section">
         <div className="sd-section-header" style={{ cursor: 'default' }}>
-          <h2 className="sd-section-title"><Award aria-hidden="true" /> Admission Details <span style={{ fontSize: '.72rem', color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '.35rem' }}>(read-only)</span></h2>
+          <h2 className="sd-section-title"><Award aria-hidden="true" /> Admission Details</h2>
         </div>
         <div className="sd-section-body">
-          {['entrance_exam_type','entrance_rank','quota_category','batch_year'].map(f => (
+          {['entrance_exam_type','entrance_rank'].map(f => (
             <ReadField key={f} field={f} />
           ))}
+          <div className="sd-field">
+            <span className="sd-field-label">Category / Quota <span style={{ fontSize: '.68rem', color: 'var(--text-secondary)' }}>(read-only)</span></span>
+            <span className="sd-field-value">{data.quota_category || '—'}</span>
+          </div>
+          <div className="sd-field">
+            <span className="sd-field-label">Batch Year <span style={{ fontSize: '.68rem', color: 'var(--text-secondary)' }}>(read-only)</span></span>
+            <span className="sd-field-value">{data.batch_year != null ? data.batch_year : '—'}</span>
+          </div>
         </div>
       </div>
+
 
       {/* Administrative / Personal */}
       <div className="sd-section">
