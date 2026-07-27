@@ -430,7 +430,8 @@ def resume_suggestions():
 
     suggestions = []
 
-    if not profile.skills or not profile.skills.strip():
+    skills_val = getattr(profile, "skills", None)
+    if not skills_val or len(skills_val) == 0:
         suggestions.append({
             "field": "skills",
             "tip": "Add your technical and soft skills to improve placement eligibility visibility."

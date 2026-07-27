@@ -15,6 +15,17 @@ from datetime import datetime, timezone
 from marshmallow import Schema, ValidationError, fields, validate, RAISE, post_dump
 from app.schemas.auth import validate_phone, validate_roll_no
 
+
+class SkillSchema(Schema):
+    """Structured skill entry — validated both on read and write."""
+    class Meta:
+        unknown = RAISE
+
+    name        = fields.Str(required=True, validate=validate.Length(min=1, max=50))
+    category    = fields.Str(required=True, validate=validate.OneOf(["technical", "soft"]))
+    proficiency = fields.Str(required=True, validate=validate.OneOf(["beginner", "intermediate", "advanced"]))
+
+
 class StudentResponseSchema(Schema):
     """S1, S3, S4 — Student profile serialization."""
     id = fields.UUID()
@@ -35,6 +46,7 @@ class StudentResponseSchema(Schema):
     profile_photo_url = fields.Str()
     dpdp_consent_given = fields.Bool()
     profile_complete = fields.Bool()
+    skills = fields.List(fields.Nested(SkillSchema), allow_none=True, load_default=list)
     created_at = fields.DateTime()
 
     # User fields
@@ -105,6 +117,9 @@ class StudentDetailSchema(StudentResponseSchema):
 
     # Section-level edit metadata (admin writes, all roles can read if permitted)
     admin_edits_meta = fields.Dict(allow_none=True)
+
+    # Skills — returned for all roles (masking handled below for professor if needed)
+    skills = fields.List(fields.Nested(SkillSchema), allow_none=True, load_default=list)
 
     # College name for display
     college_name = fields.Method("get_college_name")
@@ -198,6 +213,12 @@ class StudentUpdateSchema(Schema):
     social_links_visibility = fields.Dict(allow_none=True)
     resume_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
     profile_photo_url = fields.Str(validate=validate.Length(max=1000), allow_none=True)
+    # Skills — full list replacement (max 30 entries, each entry validated by SkillSchema)
+    skills = fields.List(
+        fields.Nested(SkillSchema),
+        validate=validate.Length(max=30),
+        allow_none=True,
+    )
 
 
 
@@ -234,6 +255,12 @@ class AdminStudentUpdateSchema(Schema):
     quota_category     = fields.Str(validate=validate.Length(max=50), allow_none=True)
     # Section tag for edit metadata tracking
     edited_section     = fields.Str(validate=validate.Length(max=50), load_default=None)
+    # Skills — full list replacement (max 30 entries, each entry validated by SkillSchema)
+    skills = fields.List(
+        fields.Nested(SkillSchema),
+        validate=validate.Length(max=30),
+        allow_none=True,
+    )
 
 
 

@@ -14,7 +14,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   User, BookOpen, FileText, ShieldCheck,
   Briefcase, Activity, ChevronDown, AlertTriangle,
-  Edit3, Check, X, ArrowLeft, Calendar, Award
+  Edit3, Check, X, ArrowLeft, Calendar, Award, Code
 } from 'lucide-react';
 import { studentsApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
@@ -63,6 +63,7 @@ const SECTIONS = [
     title: 'Career / Placement',
     fields: ['linkedin_url', 'github_url', 'resume_url'],
     editable: ['linkedin_url', 'github_url', 'resume_url'],
+    customSkills: true,  // skills rendered as chips below the field list
   },
   {
     key: 'activity',
@@ -85,6 +86,7 @@ const FIELD_LABELS = {
   scholarship_details: 'Scholarship', hostel_address: 'Hostel Address',
   home_address: 'Home Address', parent_contact: 'Parent Contact',
   linkedin_url: 'LinkedIn URL', github_url: 'GitHub URL', resume_url: 'Resume URL',
+  skills: 'Skills',
 };
 
 export default function AdminStudentDetail() {
@@ -370,6 +372,51 @@ export default function AdminStudentDetail() {
                     </div>
                   );
                 })}
+
+                {/* Skills chips — read-only display (admin view) */}
+                {section.customSkills && (
+                  <div style={{ padding: '.5rem 0 .25rem' }}>
+                    <p className="sd-field-label" style={{ marginBottom: '.5rem' }}>
+                      <Code size={13} style={{ verticalAlign: 'middle', marginRight: '.3rem' }} />
+                      Skills
+                    </p>
+                    {(data.skills || []).length === 0 ? (
+                      <span className="sd-field-value" style={{ color: 'var(--text-secondary)' }}>—</span>
+                    ) : (
+                      ['technical', 'soft'].map(cat => {
+                        const group = (data.skills || []).filter(s => s.category === cat);
+                        if (!group.length) return null;
+                        const PROF_BADGE = {
+                          beginner:     'ad-badge ad-badge-info',
+                          intermediate: 'ad-badge ad-badge-pending',
+                          advanced:     'ad-badge ad-badge-active',
+                        };
+                        return (
+                          <div key={cat} style={{ marginBottom: '.6rem' }}>
+                            <p className="sd-field-label" style={{ fontSize: '.7rem', textTransform: 'uppercase', marginBottom: '.35rem' }}>
+                              {cat === 'technical' ? 'Technical' : 'Soft Skills'}
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
+                              {group.map((s, i) => (
+                                <span key={i} style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '.3rem',
+                                  background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
+                                  borderRadius: '999px', padding: '.2rem .6rem', fontSize: '.8rem',
+                                }}>
+                                  {s.name}
+                                  <span className={PROF_BADGE[s.proficiency] || 'ad-badge ad-badge-info'}
+                                    style={{ fontSize: '.63rem', padding: '.08rem .35rem' }}>
+                                    {s.proficiency}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

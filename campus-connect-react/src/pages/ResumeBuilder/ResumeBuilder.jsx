@@ -15,8 +15,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { Lightbulb, Save, Download, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { careerApi } from '../../services/api';
+import { careerApi, studentsApi } from '../../services/api';
 import './ResumeBuilder.css';
+
+/** Format structured skills list into a human-readable resume string.
+ *  Groups by category: "Technical: Python, React ∙ Soft: Communication"
+ *  Returns empty string if no skills — never returns a fake default.
+ */
+function formatSkillsForResume(skills) {
+  if (!skills || skills.length === 0) return '';
+  const tech = skills.filter(s => s.category === 'technical').map(s => s.name);
+  const soft = skills.filter(s => s.category === 'soft').map(s => s.name);
+  const parts = [];
+  if (tech.length) parts.push(`Technical: ${tech.join(', ')}`);
+  if (soft.length) parts.push(`Soft Skills: ${soft.join(', ')}`);
+  return parts.join('\n');
+}
 
 export default function ResumeBuilder() {
   const { user }  = useAuth();
@@ -33,19 +47,41 @@ export default function ResumeBuilder() {
   const [saving,       setSaving]       = useState(false);
   const [showSuggest,  setShowSuggest]  = useState(false);
 
-  // ── Seed form from user profile ──────────────────────────────────────────
+  // ── Seed form from real student profile ──────────────────────────────────
   useEffect(() => {
-    if (user) {
+    let cancelled = false;
+    async function loadProfile() {
+      // Seed identity fields from AuthContext immediately (fast)
+      if (user) {
+        setForm(p => ({
+          ...p,
+          name:      user.name  || user.full_name || '',
+          email:     user.email || '',
+          summary:   `Motivated ${user.branch || 'Engineering'} student with strong foundation in algorithms and software development.`,
+          education: `B.Tech – ${user.branch || 'Computer Science Engineering'}\nGPA: ${user.cgpa || '—'} | Semester ${user.semester || '—'}`,
+          // skills intentionally left empty until real profile loads
+        }));
+      }
+      // Fetch real profile for structured skills (and richer identity data)
+      const profile = await studentsApi.getMe();
+      if (cancelled || profile?.error) return;
       setForm(p => ({
         ...p,
-        name:      user.name  || '',
-        email:     user.email || '',
-        summary:   `Motivated ${user.branch || 'Engineering'} student with strong foundation in algorithms and software development.`,
-        education: `B.Tech – ${user.branch || 'Computer Science Engineering'}\nGPA: ${user.cgpa || '—'} | Semester ${user.semester || '—'}`,
-        skills:    user.skills || 'Python, JavaScript, React, SQL, Git',
+        name:     profile.full_name || p.name,
+        email:    profile.email     || p.email,
+        phone:    profile.phone     || p.phone,
+        linkedin: profile.linkedin_url || p.linkedin,
+        github:   profile.github_url   || p.github,
+        // Real skills — empty string if none, never a fake list
+        skills:   formatSkillsForResume(profile.skills),
+        education: `B.Tech – ${profile.branch || 'Computer Science Engineering'}\nGPA: ${profile.cgpa || '—'} | Semester ${profile.semester || '—'}`,
+        summary:   p.summary || `Motivated ${profile.branch || 'Engineering'} student.`,
       }));
     }
+    loadProfile();
+    return () => { cancelled = true; };
   }, [user]);
+
 
   // ── Load saved version list on mount ────────────────────────────────────
   const loadVersions = useCallback(async () => {

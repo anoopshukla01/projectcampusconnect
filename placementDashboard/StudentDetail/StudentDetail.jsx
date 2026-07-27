@@ -160,6 +160,51 @@ export default function TPOStudentDetail() {
               }
             </div>
           ))}
+
+          {/* Skills chips — read-only (TPO view) */}
+          {(() => {
+            const PROF_BADGE = {
+              beginner:     'ad-badge ad-badge-info',
+              intermediate: 'ad-badge ad-badge-pending',
+              advanced:     'ad-badge ad-badge-active',
+            };
+            const skills = data.skills || [];
+            return (
+              <div style={{ padding: '.5rem 0 .25rem' }}>
+                <p className="sd-field-label" style={{ marginBottom: '.5rem' }}>Skills</p>
+                {skills.length === 0 ? (
+                  <span className="sd-field-value" style={{ color: 'var(--text-secondary)' }}>—</span>
+                ) : (
+                  ['technical', 'soft'].map(cat => {
+                    const group = skills.filter(s => s.category === cat);
+                    if (!group.length) return null;
+                    return (
+                      <div key={cat} style={{ marginBottom: '.6rem' }}>
+                        <p className="sd-field-label" style={{ fontSize: '.7rem', textTransform: 'uppercase', marginBottom: '.35rem' }}>
+                          {cat === 'technical' ? 'Technical' : 'Soft Skills'}
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
+                          {group.map((s, i) => (
+                            <span key={i} style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '.3rem',
+                              background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
+                              borderRadius: '999px', padding: '.2rem .6rem', fontSize: '.8rem',
+                            }}>
+                              {s.name}
+                              <span className={PROF_BADGE[s.proficiency] || 'ad-badge ad-badge-info'}
+                                style={{ fontSize: '.63rem', padding: '.08rem .35rem' }}>
+                                {s.proficiency}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Offers */}

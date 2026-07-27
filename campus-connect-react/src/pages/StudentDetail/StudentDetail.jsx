@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   User, BookOpen, Home, Briefcase, Award, Activity,
-  Calendar, CheckCircle, Edit3, Check, X, Camera
+  Calendar, CheckCircle, Edit3, Check, X, Camera, Code, Plus
 } from 'lucide-react';
 import { studentsApi } from '@/services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -39,6 +39,138 @@ const SELF_EDITABLE = new Set([
   'linkedin_url', 'github_url', 'resume_url', 'profile_photo_url',
 ]);
 
+
+// Proficiency → badge class + label
+const PROF_BADGE = {
+  beginner:     { cls: 'ad-badge ad-badge-info',    label: 'Beginner' },
+  intermediate: { cls: 'ad-badge ad-badge-pending', label: 'Intermediate' },
+  advanced:     { cls: 'ad-badge ad-badge-active',  label: 'Advanced' },
+};
+
+// SkillsSection — dedicated component for the skills management UI
+function SkillsSection({ skills, onUpdate, saving }) {
+  const [newName,  setNewName]  = useState('');
+  const [newCat,   setNewCat]   = useState('technical');
+  const [newProf,  setNewProf]  = useState('intermediate');
+  const [adding,   setAdding]   = useState(false);
+
+  const techSkills = (skills || []).filter(s => s.category === 'technical');
+  const softSkills = (skills || []).filter(s => s.category === 'soft');
+
+  function handleAdd() {
+    if (!newName.trim()) return;
+    const entry = { name: newName.trim(), category: newCat, proficiency: newProf };
+    onUpdate([...(skills || []), entry]);
+    setNewName('');
+    setAdding(false);
+  }
+
+  function handleRemove(idx) {
+    onUpdate((skills || []).filter((_, i) => i !== idx));
+  }
+
+  const renderGroup = (label, group, offset) => (
+    group.length > 0 && (
+      <div style={{ marginBottom: '1rem' }}>
+        <p className="sd-field-label" style={{ marginBottom: '.5rem', fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.45rem' }}>
+          {group.map((s, i) => {
+            const badge = PROF_BADGE[s.proficiency] || PROF_BADGE.beginner;
+            const globalIdx = offset + i;
+            return (
+              <span key={globalIdx} style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem',
+                background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)',
+                borderRadius: '999px', padding: '.22rem .65rem', fontSize: '.8rem' }}>
+                {s.name}
+                <span className={badge.cls} style={{ fontSize: '.65rem', padding: '.1rem .4rem' }}>{badge.label}</span>
+                <button
+                  onClick={() => handleRemove(globalIdx)}
+                  disabled={saving}
+                  aria-label={`Remove ${s.name}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1,
+                    color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                  <X size={11} />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    )
+  );
+
+  return (
+    <div className="sd-section">
+      <div className="sd-section-header" style={{ cursor: 'default' }}>
+        <h2 className="sd-section-title"><Code aria-hidden="true" /> Skills</h2>
+      </div>
+      <div style={{ padding: '1.25rem 1.5rem' }}>
+        {(skills || []).length === 0 && !adding && (
+          <p className="sd-field-value" style={{ color: 'var(--text-secondary)', marginBottom: '.75rem' }}>
+            No skills added yet. Add technical and soft skills to strengthen your profile.
+          </p>
+        )}
+        {renderGroup('Technical Skills', techSkills, 0)}
+        {renderGroup('Soft Skills', softSkills, techSkills.length)}
+
+        {adding ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', alignItems: 'center', marginTop: '.75rem' }}>
+            <input
+              className="sd-edit-input"
+              style={{ minWidth: 140, maxWidth: 200 }}
+              placeholder="Skill name"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              autoFocus
+              maxLength={50}
+              aria-label="Skill name"
+            />
+            <select
+              value={newCat}
+              onChange={e => setNewCat(e.target.value)}
+              className="sd-edit-input"
+              style={{ width: 120 }}
+              aria-label="Category"
+            >
+              <option value="technical">Technical</option>
+              <option value="soft">Soft</option>
+            </select>
+            <select
+              value={newProf}
+              onChange={e => setNewProf(e.target.value)}
+              className="sd-edit-input"
+              style={{ width: 140 }}
+              aria-label="Proficiency"
+            >
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+            <button className="ad-btn ad-btn-primary" style={{ padding: '.35rem .7rem' }}
+              onClick={handleAdd} disabled={saving || !newName.trim()} aria-label="Add skill">
+              <Check size={13} />
+            </button>
+            <button className="ad-btn ad-btn-outline" style={{ padding: '.35rem .7rem' }}
+              onClick={() => { setAdding(false); setNewName(''); }} aria-label="Cancel">
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <button
+            className="ad-btn ad-btn-outline"
+            style={{ marginTop: '.5rem', display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}
+            onClick={() => setAdding(true)}
+            disabled={saving || (skills || []).length >= 30}
+            aria-label="Add a skill"
+          >
+            <Plus size={13} /> Add Skill
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function StudentSelfView() {
   const { user } = useAuth();
@@ -303,6 +435,23 @@ export default function StudentSelfView() {
           ))}
         </div>
       </div>
+
+      {/* Skills */}
+      <SkillsSection
+        skills={data.skills}
+        saving={saving}
+        onUpdate={async (updatedList) => {
+          setSaving(true);
+          const res = await studentsApi.updateSelf({ skills: updatedList });
+          setSaving(false);
+          if (res?.error) {
+            showToast(res.error, 'error', 3500);
+          } else {
+            showToast('Skills updated.', 'success', 2000);
+            setData(prev => ({ ...prev, skills: updatedList }));
+          }
+        }}
+      />
 
       {/* Platform Activity */}
       <div className="sd-section">
