@@ -37,10 +37,6 @@ from app.utils.errors import error_response, internal_error_response, validation
 students_bp = Blueprint("students", __name__)
 
 
-# ── S1: GET /students/me ──────────────────────────────────────────────────────
-
-@students_bp.get("/me")
-@require_auth
 def _ensure_student_profile(user):
     """Helper: retrieve or auto-create StudentProfile for student user if missing."""
     profile = user.student_profile
