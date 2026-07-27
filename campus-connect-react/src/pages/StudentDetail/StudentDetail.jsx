@@ -437,6 +437,40 @@ export default function StudentSelfView() {
           {['linkedin_url','github_url','resume_url'].map(f => (
             <ReadField key={f} field={f} />
           ))}
+
+          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="sd-field-label" style={{ marginBottom: '0.5rem' }}>Recruiter Visibility (DPDP Consent)</p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--clr-text)', cursor: 'pointer', marginBottom: '0.4rem' }}>
+              <input
+                type="checkbox"
+                checked={!!(data.social_links_visibility?.github)}
+                onChange={async (e) => {
+                  const newVis = { ...(data.social_links_visibility || {}), github: e.target.checked };
+                  const res = await studentsApi.updateSelf({ social_links_visibility: newVis });
+                  if (!res?.error) {
+                    setData(p => ({ ...p, social_links_visibility: newVis }));
+                    showToast('Recruiter visibility updated.', 'success', 2000);
+                  }
+                }}
+              />
+              Show GitHub link on resume & to recruiters
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--clr-text)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!(data.social_links_visibility?.linkedin)}
+                onChange={async (e) => {
+                  const newVis = { ...(data.social_links_visibility || {}), linkedin: e.target.checked };
+                  const res = await studentsApi.updateSelf({ social_links_visibility: newVis });
+                  if (!res?.error) {
+                    setData(p => ({ ...p, social_links_visibility: newVis }));
+                    showToast('Recruiter visibility updated.', 'success', 2000);
+                  }
+                }}
+              />
+              Show LinkedIn link on resume & to recruiters
+            </label>
+          </div>
         </div>
       </div>
 
