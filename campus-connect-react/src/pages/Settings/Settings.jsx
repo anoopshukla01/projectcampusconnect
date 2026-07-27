@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, User } from 'lucide-react';
 import { studentsApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import './Settings.css';
 
 export default function Settings() {
+  const navigate = useNavigate();
   const showToast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,9 +66,18 @@ export default function Settings() {
 
   return (
     <div className="settings-page-wrapper">
-      <div className="settings-page-header">
-        <h1 className="settings-page-title">Profile Settings</h1>
-        <p className="settings-page-sub">Manage your profile connections and resume visibility consent.</p>
+      <div className="settings-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="settings-page-title">Profile &amp; Account Settings</h1>
+          <p className="settings-page-sub">Manage your profile connections and resume visibility consent.</p>
+        </div>
+        <button 
+          className="pd-btn pd-btn-primary" 
+          onClick={() => navigate('/profile')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <User size={16} /> View &amp; Edit Full Student Profile (Skills, Academic, Personal)
+        </button>
       </div>
 
       <div className="settings-card-shell">
