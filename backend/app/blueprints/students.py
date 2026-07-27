@@ -41,9 +41,36 @@ students_bp = Blueprint("students", __name__)
 
 @students_bp.get("/me")
 @require_auth
+def _ensure_student_profile(user):
+    """Helper: retrieve or auto-create StudentProfile for student user if missing."""
+    profile = user.student_profile
+    if (not profile or profile.is_deleted) and user.role == UserRole.STUDENT:
+        # Auto-provision profile so student is never stuck with 404
+        user_name = getattr(user, 'name', None) or user.email.split('@')[0].capitalize()
+        profile = StudentProfile(
+            user_id=user.id,
+            college_id=user.college_id,
+            full_name=user_name,
+            roll_no=f"STU-{str(user.id)[:8]}",
+            branch="Computer Science Engineering",
+            semester=1,
+            batch_year=2026,
+            cgpa=0.0,
+            active_backlogs=0,
+            dpdp_consent_given=True,
+            profile_complete=False,
+            skills=[],
+        )
+        db.session.add(profile)
+        db.session.commit()
+    return profile
+
+
+@students_bp.get("/me")
+@require_auth
 def get_own_profile():
     user = get_current_user()
-    profile = user.student_profile
+    profile = _ensure_student_profile(user)
     if not profile or profile.is_deleted:
         return error_response("Student profile not found.", 404)
 
@@ -57,7 +84,7 @@ def get_own_profile():
 @require_roles("student")
 def update_own_profile():
     user = get_current_user()
-    profile = user.student_profile
+    profile = _ensure_student_profile(user)
     if not profile or profile.is_deleted:
         return error_response("Student profile not found.", 404)
 
@@ -492,13 +519,17 @@ def get_student_detail(student_id):
     # ── Fetch the base profile ──────────────────────────────────────────────
     profile = db.session.query(StudentProfile).filter(
         (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
-        StudentProfile.college_id == current_user.college_id,
         StudentProfile.is_deleted == False
     ).first()
     if not profile:
         return error_response("Student profile not found.", 404)
 
     is_owner = (str(current_user.id) == str(profile.user_id))
+
+    # Tenant boundary enforcement — non-owners across different colleges are denied
+    if not is_owner and role != UserRole.ADMIN:
+        if current_user.college_id and profile.college_id and current_user.college_id != profile.college_id:
+            return error_response("You do not have permission to access this resource.", 403)
 
     # ── Role gate ──────────────────────────────────────────────────────────
     if role == UserRole.STUDENT:

@@ -252,7 +252,11 @@ export default function StudentSelfView() {
         ) : (
           <div className="sd-editable-row">
             <span className="sd-field-value">
-              {val == null || val === '' ? <span style={{ color: 'var(--text-secondary)' }}>—</span> : String(val)}
+              {val == null || val === '' ? (
+                <span style={{ color: 'var(--text-secondary)', fontStyle: canEdit ? 'italic' : 'normal', fontSize: canEdit ? '.82rem' : 'inherit' }}>
+                  {canEdit ? 'Not set (click ✏️ to add)' : '—'}
+                </span>
+              ) : String(val)}
             </span>
             {canEdit && (
               <button
