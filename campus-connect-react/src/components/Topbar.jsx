@@ -280,18 +280,7 @@ export default function Topbar({ onMenuToggle }) {
               <div className="profile-settings-content">
                 {activeTab === 'profile' && (
                   <div className="ps-form">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                      <h3 style={{ margin: 0 }}>Personal Details</h3>
-                      {user?.role === 'student' && (
-                        <button 
-                          className="ad-btn ad-btn-outline" 
-                          style={{ padding: '.25rem .6rem', fontSize: '.8rem' }}
-                          onClick={() => { setModalOpen(false); navigate('/profile'); }}
-                        >
-                          Full Profile &amp; Skills →
-                        </button>
-                      )}
-                    </div>
+                    <h3>Personal Details</h3>
                     <div className="co-field">
                       <label className="co-label">Full Name</label>
                       <input className="co-input" value={formName} onChange={e => setFormName(e.target.value)} />

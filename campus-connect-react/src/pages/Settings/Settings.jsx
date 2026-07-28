@@ -66,18 +66,9 @@ export default function Settings() {
 
   return (
     <div className="settings-page-wrapper">
-      <div className="settings-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1 className="settings-page-title">Profile Settings</h1>
-          <p className="settings-page-sub">Manage your platform connections and privacy consents.</p>
-        </div>
-        <button 
-          className="pd-btn pd-btn-primary" 
-          onClick={() => navigate('/profile')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <User size={16} /> Go to My Profile &amp; Skills →
-        </button>
+      <div className="settings-page-header">
+        <h1 className="settings-page-title">Profile Settings</h1>
+        <p className="settings-page-sub">Manage your connected platform links and resume privacy consents.</p>
       </div>
 
       <div className="settings-card-shell">
