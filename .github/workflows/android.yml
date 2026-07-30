@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK
+    name: Build APK (v1.2)
     runs-on: ubuntu-latest
 
     steps:
@@ -28,12 +28,22 @@ jobs:
           cache: 'npm'
           cache-dependency-path: campus-connect-react/package-lock.json
 
-      - name: Install Dependencies
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install Node Dependencies
         run: |
           cd campus-connect-react
           npm ci
 
-      - name: Build React App
+      - name: Build React App (Production)
         run: |
           cd campus-connect-react
           npm run build
@@ -47,12 +57,44 @@ jobs:
         run: |
           cd campus-connect-react/android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK Artifact
+      - name: Build Android Release APK (unsigned)
+        run: |
+          cd campus-connect-react/android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: campus-connect-debug-apk
+          name: campus-connect-v1.2-debug
           path: campus-connect-react/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
+
+      - name: Upload Release APK (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-connect-v1.2-release-unsigned
+          path: campus-connect-react/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build Summary
+        run: |
+          echo "## 🎓 Campus Connect Android Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | 1.2 (versionCode 12) |" >> $GITHUB_STEP_SUMMARY
+          echo "| App ID | com.college.campusconnect |" >> $GITHUB_STEP_SUMMARY
+          echo "| Min SDK | 24 (Android 7.0+) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target SDK | 36 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ What's in v1.2" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 **Skills Section** — Student self-profile now has full Technical/Soft skills management" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐛 **Bug Fix** — /resume/suggestions no longer crashes (missing skills column)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐛 **Bug Fix** — /students/me auto-provisions missing StudentProfile rows" >> $GITHUB_STEP_SUMMARY
+          echo "- 🗂️ **Navigation** — My Profile (/profile) accessible from Sidebar under Settings" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚙️  **Profile Settings** (/settings) scoped to DPDP-compliant social link privacy only" >> $GITHUB_STEP_SUMMARY
