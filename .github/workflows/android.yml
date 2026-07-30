@@ -53,6 +53,11 @@ jobs:
           cd campus-connect-react
           npx cap sync
 
+      - name: Write local.properties (CI SDK path)
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > campus-connect-react/android/local.properties
+          echo "SDK path written: $ANDROID_SDK_ROOT"
+
       - name: Build Android Debug APK
         run: |
           cd campus-connect-react/android
