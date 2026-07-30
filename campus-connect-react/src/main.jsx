@@ -12,11 +12,12 @@ import App from './App'
 // VITE_API_BASE is set in Vercel env vars.
 // In local dev, Vite's proxy handles /api → localhost:5001 so API_BASE stays empty.
 let API_BASE = import.meta.env.VITE_API_BASE || '';
-const isNative = !!window.Capacitor || (window.location.protocol === 'capacitor:') || (window.location.hostname === 'localhost' && import.meta.env.PROD);
+const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+const isNative = !isVercel;
 
 if (isNative) {
   API_BASE = 'https://projectcampusconnect.onrender.com';
-} else if (API_BASE.includes('campusconnect-backend.onrender.com') || import.meta.env.PROD) {
+} else {
   API_BASE = '';
 }
 
