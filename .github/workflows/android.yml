@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK (v1.2)
+    name: Build APK (v1.3)
     runs-on: ubuntu-latest
 
     steps:
@@ -67,7 +67,7 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: campus-connect-v1.2-debug
+          name: campus-connect-v1.3-debug
           path: campus-connect-react/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -75,7 +75,7 @@ jobs:
       - name: Upload Release APK (unsigned)
         uses: actions/upload-artifact@v4
         with:
-          name: campus-connect-v1.2-release-unsigned
+          name: campus-connect-v1.3-release-unsigned
           path: campus-connect-react/android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 14
@@ -86,15 +86,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | 1.2 (versionCode 12) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | 1.3 (versionCode 13) |" >> $GITHUB_STEP_SUMMARY
           echo "| App ID | com.college.campusconnect |" >> $GITHUB_STEP_SUMMARY
           echo "| Min SDK | 24 (Android 7.0+) |" >> $GITHUB_STEP_SUMMARY
           echo "| Target SDK | 36 |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ✅ What's in v1.2" >> $GITHUB_STEP_SUMMARY
-          echo "- 📋 **Skills Section** — Student self-profile now has full Technical/Soft skills management" >> $GITHUB_STEP_SUMMARY
-          echo "- 🐛 **Bug Fix** — /resume/suggestions no longer crashes (missing skills column)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🐛 **Bug Fix** — /students/me auto-provisions missing StudentProfile rows" >> $GITHUB_STEP_SUMMARY
-          echo "- 🗂️ **Navigation** — My Profile (/profile) accessible from Sidebar under Settings" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚙️  **Profile Settings** (/settings) scoped to DPDP-compliant social link privacy only" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ What's in v1.3" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎨 **New app icon** — Graduation cap + network dots, indigo/violet/pink gradient" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 **Skills Section** — Student self-profile technical/soft skills management" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐛 **Bug Fix** — /resume/suggestions crash fixed" >> $GITHUB_STEP_SUMMARY
+          echo "- 🐛 **Bug Fix** — StudentProfile auto-provisioned on first login" >> $GITHUB_STEP_SUMMARY
+          echo "- 🗂️ **Navigation** — My Profile in Sidebar Settings section" >> $GITHUB_STEP_SUMMARY
