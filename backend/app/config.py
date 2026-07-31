@@ -226,7 +226,7 @@ class ProductionConfig(BaseConfig):
             )
 
         origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
-        for fallback in ["http://localhost", "capacitor://localhost"]:
+        for fallback in ["http://localhost", "https://localhost", "capacitor://localhost"]:
             if fallback not in origins:
                 origins.append(fallback)
         cls.CORS_ORIGINS = origins

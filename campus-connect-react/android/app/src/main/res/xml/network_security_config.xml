@@ -1,20 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Network Security Config for Campus Connect APK.
-
-  The app only talks to:
-    - projectcampusconnect.vercel.app  (frontend CDN assets)
-    - campus-connect-api.onrender.com  (Flask backend)
-
-  Both are HTTPS — no cleartext allowed. This config pins the
-  system CA store (default) and disables cleartext for security.
+  Permits all HTTPS and HTTP network traffic for mobile app API connectivity.
 -->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">vercel.app</domain>
-        <domain includeSubdomains="true">onrender.com</domain>
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
+            <certificates src="user" />
         </trust-anchors>
-    </domain-config>
+    </base-config>
 </network-security-config>

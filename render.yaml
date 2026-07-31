@@ -33,6 +33,6 @@ services:
       - key: MOCK_OTP
         value: "false"
       - key: CORS_ORIGINS
-        value: https://projectcampusconnect.vercel.app,http://localhost:5173,http://localhost:3000
+        value: https://projectcampusconnect.vercel.app,http://localhost:5173,http://localhost:3000,https://localhost,http://localhost,capacitor://localhost
       - key: PYTHON_VERSION
         value: "3.11.0"
