@@ -67,6 +67,11 @@ def send_otp(phone: str, otp: str) -> None:
     In production, delegates to the appropriate provider adapter.
     Currently supports: fast2sms, msg91, twilio.
     """
+    if "@" in phone:
+        from app.utils.email import send_otp_email
+        send_otp_email(to_email=phone, otp=otp)
+        return
+
     if current_app.config.get("MOCK_OTP", True):
         # Safe to log — this only runs in dev/test, never in production.
         logger.warning(

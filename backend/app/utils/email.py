@@ -123,3 +123,60 @@ Best regards,
     except Exception as exc:
         logger.error("❌ Failed to send invite email to %s via SMTP: %s", to_email, exc)
         return False
+
+
+def send_otp_email(to_email: str, otp: str) -> bool:
+    """Send an OTP code via SMTP for email signup/login."""
+    server_host = current_app.config.get("MAIL_SERVER", "smtp.gmail.com")
+    server_port = int(current_app.config.get("MAIL_PORT", 587))
+    use_tls     = current_app.config.get("MAIL_USE_TLS", True)
+    if isinstance(use_tls, str):
+        use_tls = use_tls.lower() == "true"
+    username    = str(current_app.config.get("MAIL_USERNAME", "")).strip()
+    password    = str(current_app.config.get("MAIL_PASSWORD", "")).strip()
+    sender      = str(current_app.config.get("MAIL_DEFAULT_SENDER", "")).strip() or username
+
+    if not username or not password:
+        logger.warning("⚠️ MAIL_USERNAME / MAIL_PASSWORD not configured for OTP email to %s", to_email)
+        return False
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Your CampusConnect Verification Code: {otp}"
+    msg["From"]    = sender
+    msg["To"]      = to_email
+
+    body_text = f"Hello,\n\nYour CampusConnect verification code is: {otp}\n\nThis code is valid for 10 minutes. Do not share it with anyone.\n\nBest regards,\nCampusConnect Team"
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background-color: #1e293b; border-radius: 12px; padding: 24px; border: 1px solid #334155;">
+    <h2 style="color: #6366f1; margin-top: 0;">CampusConnect Verification</h2>
+    <p>Your verification code is:</p>
+    <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #818cf8; background: #0f172a; padding: 12px 24px; border-radius: 8px; text-align: center; margin: 16px 0;">{otp}</div>
+    <p style="font-size: 13px; color: #94a3b8;">Valid for 10 minutes. Please do not share this code.</p>
+  </div>
+</body>
+</html>"""
+
+    msg.set_content(body_text)
+    msg.add_alternative(html_content, subtype="html")
+
+    try:
+        if server_port == 465 or not use_tls:
+            server = smtplib.SMTP_SSL(server_host, server_port, timeout=15)
+            server.ehlo()
+        else:
+            server = smtplib.SMTP(server_host, server_port, timeout=15)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+
+        server.login(username, password)
+        server.send_message(msg)
+        server.quit()
+        logger.info("✅ Verification OTP email sent to %s via SMTP", to_email)
+        return True
+    except Exception as exc:
+        logger.error("❌ Failed to send verification OTP email to %s: %s", to_email, exc)
+        return False

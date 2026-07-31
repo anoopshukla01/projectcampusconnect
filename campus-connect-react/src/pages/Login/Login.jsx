@@ -157,7 +157,7 @@ export default function Login() {
     }
     setSignupError(''); setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/otp/email/send', {
+      const res = await fetch('/api/v1/auth/otp/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: signupEmail.trim().toLowerCase() }),
       });
@@ -183,7 +183,7 @@ export default function Login() {
     }
     setSignupError(''); setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/otp/email/verify', {
+      const res = await fetch('/api/v1/auth/otp/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: signupEmail.trim().toLowerCase(), otp: signupOtp.trim() }),
       });
@@ -211,7 +211,7 @@ export default function Login() {
     if (!signupDpdp) { setSignupError('DPDP Act consent is required to create an account.'); return; }
     setSignupError(''); setLoading(true);
     try {
-      const res = await fetch('/api/v1/auth/register/email', {
+      const res = await fetch('/api/v1/auth/register/student', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           otp_verified_token: signupOtpToken,
