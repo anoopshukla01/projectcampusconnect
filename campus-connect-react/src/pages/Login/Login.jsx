@@ -263,20 +263,23 @@ export default function Login() {
       : `+91${rawPhone.replace(/\D/g, '').slice(-10)}`;
 
     try {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {},
-        });
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
       }
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {},
+      });
 
       const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
       window.confirmationResult = confirmationResult;
       setLoading(false);
       setOtpSent(true);
-      showToast(`Firebase SMS OTP sent to ${formattedPhone}!`, 'success', 5000);
+      showToast(`SMS OTP sent via Firebase to ${formattedPhone}!`, 'success', 5000);
+      return;
     } catch (firebaseErr) {
-      console.warn('Firebase Phone Auth fallback to server API:', firebaseErr);
+      console.warn('Firebase Phone Auth error:', firebaseErr);
       try {
         const res = await fetch('/api/v1/auth/otp/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -288,12 +291,13 @@ export default function Login() {
           setOtpSent(true);
           showToast(`OTP sent to ${rawPhone}!`, 'success', 4000);
         } else {
-          setClaimStepError(data.error || firebaseErr.message || 'Failed to send OTP.');
+          const errMsg = firebaseErr?.message || data?.error || 'Failed to send SMS OTP.';
+          setClaimStepError(errMsg);
         }
       } catch {
         setLoading(false);
-        setOtpSent(true);
-        showToast('OTP sent!', 'success', 4000);
+        const errMsg = firebaseErr?.message || 'Failed to send SMS OTP. Please check phone number or connection.';
+        setClaimStepError(errMsg);
       }
     }
   }
