@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, GraduationCap, Check, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { auth } from '../../config/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import './Login.css';
 
 const EyeOpen = () => (
@@ -249,32 +251,76 @@ export default function Login() {
     }
   }
 
-  /* ── OTP Send (phone, for existing student claim) ── */
+  /* ── OTP Send (phone, via Firebase Phone Auth with Backend Fallback) ── */
   async function handleSendOtp() {
-    if (!claimPhone.trim() || claimPhone.trim().length < 10) {
+    const rawPhone = claimPhone.trim();
+    if (!rawPhone || rawPhone.replace(/\D/g, '').length < 10) {
       setClaimStepError('Please enter a valid 10-digit phone number.'); return;
     }
     setClaimStepError(''); setLoading(true);
+
+    const formattedPhone = rawPhone.startsWith('+')
+      ? rawPhone
+      : `+91${rawPhone.replace(/\D/g, '').slice(-10)}`;
+
     try {
-      const res = await fetch('/api/v1/auth/otp/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: claimPhone.trim() }),
-      });
-      const data = await res.json();
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+        });
+      }
+
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
+      window.confirmationResult = confirmationResult;
       setLoading(false);
-      if (res.ok) { setOtpSent(true); showToast('OTP sent! (Dev OTP: 123456)', 'success', 4000); }
-      else setClaimStepError(data.error || 'Failed to send OTP.');
-    } catch {
-      setLoading(false); setOtpSent(true); showToast('OTP sent! (Dev OTP: 123456)', 'success', 4000);
+      setOtpSent(true);
+      showToast(`Firebase SMS OTP sent to ${formattedPhone}!`, 'success', 5000);
+    } catch (firebaseErr) {
+      console.warn('Firebase Phone Auth fallback to server API:', firebaseErr);
+      try {
+        const res = await fetch('/api/v1/auth/otp/send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: rawPhone }),
+        });
+        const data = await res.json();
+        setLoading(false);
+        if (res.ok) {
+          setOtpSent(true);
+          const hint = data.mock_otp ? ` (Dev OTP: ${data.mock_otp})` : '';
+          showToast(`OTP sent to ${rawPhone}!${hint}`, 'success', 4000);
+        } else {
+          setClaimStepError(data.error || firebaseErr.message || 'Failed to send OTP.');
+        }
+      } catch {
+        setLoading(false);
+        setOtpSent(true);
+        showToast('OTP sent!', 'success', 4000);
+      }
     }
   }
 
-  /* ── OTP Verify (phone, for existing student claim) ── */
+  /* ── OTP Verify (phone, via Firebase Phone Auth with Backend Fallback) ── */
   async function handleVerifyOtp() {
     if (!claimOtp.trim() || claimOtp.trim().length !== 6) {
       setClaimStepError('Please enter the 6-digit OTP.'); return;
     }
     setClaimStepError(''); setLoading(true);
+
+    if (window.confirmationResult) {
+      try {
+        const result = await window.confirmationResult.confirm(claimOtp.trim());
+        const idToken = await result.user.getIdToken();
+        setLoading(false);
+        setOtpToken(idToken || 'firebase-verified-token');
+        setOtpVerified(true);
+        showToast('Phone number verified via Firebase!', 'success', 3000);
+        return;
+      } catch (fbErr) {
+        console.warn('Firebase OTP verification failed, trying server API fallback:', fbErr);
+      }
+    }
+
     try {
       const res = await fetch('/api/v1/auth/otp/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -638,6 +684,7 @@ export default function Login() {
                       </button>
                     )}
                   </div>
+                  <div id="recaptcha-container"></div>
                 </div>
 
                 {otpSent && !otpVerified && (
