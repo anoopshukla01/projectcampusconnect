@@ -61,28 +61,7 @@ function isValidIdentifier(v) {
 function isValidPassword(v) { return v.trim().length >= 6; }
 function isValidEmail(v)    { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
-/* ── Demo accounts hook ────────────────────────────────────────────────────── */
-function useDemoAccounts() {
-  const [accounts, setAccounts] = useState([]);
-  useEffect(() => {
-    fetch('/api/v1/auth/demo-accounts')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.accounts) setAccounts(d.accounts); })
-      .catch(() => {
-        // Hardcoded fallback is ONLY active in local dev builds.
-        // Vite strips this block entirely from production bundles.
-        if (import.meta.env.DEV) {
-          setAccounts([
-            { role: 'student',       label: 'Student',       login_id: 'CS21DEMO01',              password: 'Demo@1234', name: 'Arjun Mehta',         color: '#4f46e5' },
-            { role: 'professor',     label: 'Professor',     login_id: 'professor@college.edu.in', password: 'Demo@1234', name: 'Dr. Priya Sharma',    color: '#0891b2' },
-            { role: 'placement_cell',label: 'TPO / Placement',login_id: 'tpo@college.edu.in',      password: 'Demo@1234', name: 'Ritu Verma (TPO)',    color: '#059669' },
-            { role: 'admin',         label: 'Admin',         login_id: 'admin@college.edu.in',    password: 'Demo@1234', name: 'Sanjay Kumar (Admin)',color: '#dc2626' },
-          ]);
-        }
-      });
-  }, []);
-  return accounts;
-}
+
 
 
 export default function Login() {
@@ -92,9 +71,6 @@ export default function Login() {
   const [searchParams] = useSearchParams();
 
   const [mode, setMode] = useState('login'); // 'login' | 'claim_student' | 'accept_invite'
-  const demoAccounts = useDemoAccounts();
-  const [demoOpen,  setDemoOpen]  = useState(false);
-  const [demoFilling, setDemoFilling] = useState(null);
 
   /* Sign In */
   const [identifier, setIdentifier] = useState('');
@@ -760,70 +736,7 @@ export default function Login() {
           </form>
         )}
 
-        {/* ─── DEMO ACCOUNTS PANEL ─────────────────────────────────── */}
-        {demoAccounts.length > 0 && (
-          <div className="demo-panel">
-            <button
-              type="button"
-              className="demo-toggle"
-              onClick={() => setDemoOpen(v => !v)}
-              aria-expanded={demoOpen}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M18.66 5.34l1.41-1.41"/>
-              </svg>
-              Demo accounts (1-click login)
-              <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: demoOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} aria-hidden="true"
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
 
-            {demoOpen && (
-              <div className="demo-cards">
-                {demoAccounts.map(acc => (
-                  <button
-                    key={acc.role}
-                    type="button"
-                    className={`demo-card${demoFilling === acc.role ? ' demo-card--filling' : ''}`}
-                    style={{ '--demo-color': acc.color }}
-                    disabled={loading}
-                    onClick={async () => {
-                      setMode('login');
-                      setDemoFilling(acc.role);
-                      setIdentifier(acc.login_id);
-                      setPassword(acc.password);
-                      // auto role-select
-                      const uiRole = acc.role === 'placement_cell' ? 'tpo' : acc.role;
-                      setRole(uiRole);
-                      // slight delay so user sees the fill, then submit
-                      await new Promise(r => setTimeout(r, 280));
-                      setDemoFilling(null);
-                      setLoading(true);
-                      const result = await login(acc.login_id, acc.password, uiRole);
-                      setLoading(false);
-                      if (result?.success) {
-                        showToast(`Signed in as ${acc.name}`, 'success', 2000);
-                        setTimeout(() => navigate('/'), 600);
-                      } else {
-                        showToast(result?.error || 'Login failed.', 'error', 3500);
-                      }
-                    }}
-                  >
-                    <span className="demo-card__dot" style={{ background: acc.color }} />
-                    <span className="demo-card__info">
-                      <span className="demo-card__label">{acc.label}</span>
-                      <span className="demo-card__id">{acc.login_id}</span>
-                    </span>
-                    <span className="demo-card__badge">{acc.password}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Sign Up / Sign In toggle row */}
         <div className="signup-row">

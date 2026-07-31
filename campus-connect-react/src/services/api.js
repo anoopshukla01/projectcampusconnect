@@ -293,10 +293,6 @@ export const authApi = {
 
   /** A5 — accept admin/tpo/professor invite */
   acceptInvite: (payload) => apiPost('/auth/invite/accept', payload),
-
-  /** Demo accounts (dev only) */
-  demoAccounts: () => apiGet('/auth/demo-accounts'),
-  seedDemo: () => apiPost('/auth/seed-demo', {}),
 };
 
 // ── 4b. Student profile ───────────────────────────────────────────────────────
