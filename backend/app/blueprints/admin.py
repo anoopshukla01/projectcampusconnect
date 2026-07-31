@@ -37,7 +37,7 @@ from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
 from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, BranchPlacement
-from app.models.academic import Subject, TimetableSlot, TimetableBooking, ReEvaluationRequest, AttendanceRecord
+from app.models.academic import Subject, TimetableSlot, TimetableBooking, ReEvaluationRequest, AttendanceRecord, ProfessorCheckIn
 from app.models.community import (
     Announcement, CampusEvent, MarketplaceItem, LostFoundItem,
     EventRegistration, AdminDetailRequest, ModerationReport,

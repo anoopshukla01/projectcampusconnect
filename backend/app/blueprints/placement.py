@@ -37,7 +37,7 @@ BUSINESS RULES ENFORCED:
 """
 
 import uuid as uuid_lib
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from flask import g

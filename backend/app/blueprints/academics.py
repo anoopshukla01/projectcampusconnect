@@ -28,6 +28,7 @@ SECURITY CHECKLIST:
       all db.session.get() PK lookups followed by assert_college_match()
 """
 
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from flask import g
 from app.auth.permissions import require_auth, require_roles, get_current_user, assert_college_match
