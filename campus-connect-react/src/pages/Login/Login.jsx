@@ -165,8 +165,7 @@ export default function Login() {
       setLoading(false);
       if (res.ok) {
         setSignupOtpSent(true);
-        const hint = data.mock_otp ? ` (Dev OTP: ${data.mock_otp})` : '';
-        showToast(`OTP sent to ${signupEmail}!${hint}`, 'success', 5000);
+        showToast(`OTP sent to ${signupEmail}!`, 'success', 5000);
       } else {
         setSignupError(data.error || 'Failed to send OTP. Please try again.');
       }
@@ -287,8 +286,7 @@ export default function Login() {
         setLoading(false);
         if (res.ok) {
           setOtpSent(true);
-          const hint = data.mock_otp ? ` (Dev OTP: ${data.mock_otp})` : '';
-          showToast(`OTP sent to ${rawPhone}!${hint}`, 'success', 4000);
+          showToast(`OTP sent to ${rawPhone}!`, 'success', 4000);
         } else {
           setClaimStepError(data.error || firebaseErr.message || 'Failed to send OTP.');
         }
