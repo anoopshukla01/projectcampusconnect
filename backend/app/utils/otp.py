@@ -102,17 +102,25 @@ def send_otp(phone: str, otp: str) -> None:
 def _send_via_fast2sms(phone: str, otp: str, api_key: str) -> None:
     """Fast2SMS (India) — https://www.fast2sms.com/"""
     import requests  # lazy import — not in requirements by default
+    clean_phone = "".join(filter(str.isdigit, phone))
+    if len(clean_phone) > 10:
+        clean_phone = clean_phone[-10:]
+
     resp = requests.post(
         "https://www.fast2sms.com/dev/bulkV2",
-        headers={"authorization": api_key},
+        headers={"authorization": api_key.strip()},
         json={
             "route": "otp",
-            "variables_values": otp,
-            "numbers": phone,
+            "variables_values": str(otp),
+            "numbers": clean_phone,
         },
         timeout=10,
     )
     resp.raise_for_status()
+    res_json = resp.json()
+    if isinstance(res_json, dict) and res_json.get("return") is False:
+        msg_detail = res_json.get("message") or res_json
+        raise ValueError(f"Fast2SMS error: {msg_detail}")
 
 
 def _send_via_msg91(phone: str, otp: str, api_key: str) -> None:

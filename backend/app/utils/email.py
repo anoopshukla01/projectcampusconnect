@@ -37,6 +37,12 @@ def send_invite_email(
     password    = current_app.config.get("MAIL_PASSWORD", "")
     sender      = current_app.config.get("MAIL_DEFAULT_SENDER", "") or username
 
+    if isinstance(use_tls, str):
+        use_tls = use_tls.lower() == "true"
+    username = str(current_app.config.get("MAIL_USERNAME", "")).strip()
+    password = str(current_app.config.get("MAIL_PASSWORD", "")).strip()
+    sender   = str(current_app.config.get("MAIL_DEFAULT_SENDER", "")).strip() or username
+
     if not username or not password:
         logger.warning(
             "⚠️ MAIL_USERNAME / MAIL_PASSWORD not configured. Invite email to %s not sent via SMTP.\nLink: %s",
@@ -100,11 +106,14 @@ Best regards,
     msg.add_alternative(html_content, subtype="html")
 
     try:
-        if use_tls:
-            server = smtplib.SMTP(server_host, server_port, timeout=10)
-            server.starttls()
+        if server_port == 465 or not use_tls:
+            server = smtplib.SMTP_SSL(server_host, server_port, timeout=15)
+            server.ehlo()
         else:
-            server = smtplib.SMTP_SSL(server_host, server_port, timeout=10)
+            server = smtplib.SMTP(server_host, server_port, timeout=15)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
 
         server.login(username, password)
         server.send_message(msg)
