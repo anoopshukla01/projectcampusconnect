@@ -45,6 +45,7 @@ import RulesEngine        from '@admin/RulesEngine/RulesEngine';
 import AdminAnnouncements from '@admin/Announcements/Announcements';
 import DataHealth         from '@admin/DataHealth/DataHealth';
 import BranchComparison   from '@admin/BranchComparison/BranchComparison';
+import Branches           from '@admin/Branches/Branches';
 import DataManager        from '@admin/DataManager/DataManager';
 import AttendanceTimetableOversight from '@admin/AttendanceTimetableOversight/AttendanceTimetableOversight';
 import MarketplaceManager from '@admin/Marketplace/MarketplaceManager';
@@ -136,7 +137,8 @@ export default function App() {
           <Route path="/admin/rules"       element={onlyAdmin(<RulesEngine />)} />
           <Route path="/admin/announcements" element={onlyAdmin(<AdminAnnouncements />)} />
           <Route path="/admin/datahealth" element={onlyAdmin(<DataHealth />)} />
-          <Route path="/admin/branches"   element={onlyAdmin(<BranchComparison />)} />
+          <Route path="/admin/branches"   element={onlyAdmin(<Branches />)} />
+          <Route path="/admin/branch-comparison" element={onlyAdmin(<BranchComparison />)} />
           <Route path="/admin/data"       element={onlyAdmin(<DataManager />)} />
           <Route path="/admin/students/:studentId" element={onlyAdmin(<AdminStudentDetail />)} />
           <Route path="/admin/timetable-attendance" element={onlyAdmin(<AttendanceTimetableOversight />)} />

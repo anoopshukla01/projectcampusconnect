@@ -164,3 +164,121 @@
 .form-textarea-field:focus {
   border-color: var(--clr-secondary);
 }
+
+/* Device Upload Dropzone & Payment App Chips */
+.device-upload-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 0.75rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  background-color: var(--background);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-upload-dropzone:hover {
+  border-color: var(--clr-primary);
+  background-color: rgba(59, 130, 246, 0.04);
+}
+
+.upload-icon {
+  color: var(--clr-primary);
+  margin-bottom: 0.5rem;
+}
+
+.upload-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.upload-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.device-image-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+}
+
+.device-preview-img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.preview-status {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--clr-success);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.remove-img-btn {
+  background: transparent;
+  border: none;
+  color: var(--clr-danger);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.remove-img-btn:hover {
+  text-decoration: underline;
+}
+
+.payment-apps-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.pay-app-chip {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.pay-app-chip.active {
+  border-color: var(--clr-primary);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--clr-primary);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
+}
+
+.gpay-chip.active { border-color: #4285F4; color: #4285F4; background: rgba(66, 133, 244, 0.1); }
+.phonepe-chip.active { border-color: #5f259f; color: #5f259f; background: rgba(95, 37, 159, 0.1); }
+.paytm-chip.active { border-color: #00baf2; color: #00baf2; background: rgba(0, 186, 242, 0.1); }
+.bhim-chip.active { border-color: #0f9d58; color: #0f9d58; background: rgba(15, 157, 88, 0.1); }
+

@@ -13,6 +13,7 @@ import { Save, Calculator } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { useBranches } from '../../hooks/useBranches';
 import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Attendance.css';
@@ -34,6 +35,7 @@ function CircleProgress({ pct }) {
 export default function Attendance() {
   const { user, isProfessor } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   // ── Student data ───────────────────────────────────────────────────────────
   const { data: apiData, loading, error, isEmpty } = useApiData(
@@ -144,8 +146,10 @@ export default function Attendance() {
 
         {/* Controls */}
         <div className="roster-controls" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          <input className="class-selector" placeholder="Branch (e.g. CSE)"
-            value={branch} onChange={e => setBranch(e.target.value)} style={{ width: '120px' }} />
+          <select className="class-selector" value={branch} onChange={e => setBranch(e.target.value)} style={{ width: '140px' }}>
+            <option value="">All Branches</option>
+            {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+          </select>
           <select className="class-selector" value={semester}
             onChange={e => setSemester(e.target.value)}>
             <option value="">All Sems</option>

@@ -13,6 +13,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useApiData } from '../../../hooks/useApiData';
+import { useBranches } from '../../../hooks/useBranches';
 import { communityApi } from '../../../services/api';
 import { StateContainer } from '../../../components/StateContainer';
 import './Announcements.css';
@@ -29,6 +30,7 @@ const ROLE_COLORS = {
 export default function Announcements() {
   const { user, isProfessor } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   const { data, loading, error, isEmpty, refetch } = useApiData(
     '/community/announcements',
@@ -157,9 +159,11 @@ export default function Announcements() {
               </label>
               <label>
                 Target Branch (optional — leave blank for all)
-                <input value={form.target_branch}
-                  onChange={e => setForm(p => ({ ...p, target_branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
+                <select value={form.target_branch}
+                  onChange={e => setForm(p => ({ ...p, target_branch: e.target.value }))}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                </select>
               </label>
               <label>
                 Content

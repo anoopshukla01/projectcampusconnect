@@ -197,7 +197,7 @@ class OfficialMerchandise(db.Model):
     title = db.Column(db.String(255), nullable=False)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    image_url = db.Column(db.String(1000), nullable=True)
+    image_url = db.Column(db.Text, nullable=True)
     upi_id = db.Column(db.String(100), nullable=True)
     bank_account = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(50), default="active", nullable=False) # "active" | "inactive"

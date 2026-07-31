@@ -13,6 +13,7 @@ import { MapPin, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { useBranches } from '../../hooks/useBranches';
 import { academicsApi, apiDelete } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Timetable.css';
@@ -33,6 +34,7 @@ const SLOT_TYPES = ['lecture', 'lab', 'seminar', 'extra'];
 export default function Timetable() {
   const { user, isAdmin } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   const [filter, setFilter]       = useState('all');
   const [mobileDay, setMobileDay] = useState('Mon');
@@ -180,8 +182,8 @@ export default function Timetable() {
                 aria-label="Filter by branch"
               >
                 <option value="">All Branches</option>
-                {['CSE','ECE','ME','CE','EE','IT'].map(b => (
-                  <option key={b} value={b}>{b}</option>
+                {branches.map(b => (
+                  <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
                 ))}
               </select>
               <select
@@ -343,9 +345,11 @@ export default function Timetable() {
                 </select>
               </label>
               <label>Branch (optional)
-                <input value={editForm.branch}
-                  onChange={e => setEditForm(p => ({ ...p, branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
+                <select value={editForm.branch}
+                  onChange={e => setEditForm(p => ({ ...p, branch: e.target.value }))}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                </select>
               </label>
               <label>Semester (optional)
                 <input type="number" min="1" max="8" value={editForm.semester}
@@ -402,9 +406,11 @@ export default function Timetable() {
                 </select>
               </label>
               <label>Branch (optional)
-                <input value={addForm.branch}
-                  onChange={e => setAddForm(p => ({ ...p, branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
+                <select value={addForm.branch}
+                  onChange={e => setAddForm(p => ({ ...p, branch: e.target.value }))}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                </select>
               </label>
               <label>Semester (optional)
                 <input type="number" min="1" max="8" value={addForm.semester}

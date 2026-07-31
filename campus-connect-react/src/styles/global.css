@@ -618,3 +618,125 @@ ul { list-style: none; }
   cursor: default;
   transform: none;
 }
+
+/* ════════════════════════════════════════════════
+   Micro-Animations & Motion Design
+   ════════════════════════════════════════════════ */
+
+/* Page & Container Entrance Animations */
+.content,
+.dashboard-page,
+.admin-view,
+.page-container {
+  animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.panel,
+.stat-card,
+.card,
+.table-container {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.25s ease;
+}
+
+.panel:hover,
+.stat-card:hover,
+.listing-card:hover,
+.event-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* Tactile Button Feedback */
+button,
+.action-btn,
+.btn-primary,
+.btn-secondary,
+.filter-btn,
+.nav-item {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:active,
+.action-btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.filter-btn:active {
+  transform: scale(0.97) translateY(0) !important;
+}
+
+/* Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Animated status badge */
+.status-badge.active,
+.pulse-badge,
+.live-badge {
+  position: relative;
+}
+
+.status-badge.active::before,
+.pulse-dot {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--clr-success);
+  margin-right: 6px;
+  animation: pulseGlow 2s infinite;
+}
+
+/* Reduced Motion Respect */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

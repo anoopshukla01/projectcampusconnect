@@ -314,50 +314,130 @@ export default function Marketplace() {
       )}
 
       {/* ── BUY MODAL (Official Store) ── */}
-      {buyModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true"
-             onClick={e => e.target === e.currentTarget && setBuyModal(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Order: {buyModal.title}</h2>
-            <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-              Price: <strong>₹{parseFloat(buyModal.price).toFixed(2)}</strong> each
-              {buyModal.upi_id && ` · Pay to UPI: ${buyModal.upi_id}`}
-              {buyModal.bank_account && ` · Bank: ${buyModal.bank_account}`}
-            </p>
-            <form onSubmit={handlePurchase} className="sell-form">
-              <label>
-                Quantity
-                <input type="number" min={1} value={orderForm.quantity}
-                  onChange={e => setOrderForm(p => ({ ...p, quantity: parseInt(e.target.value) || 1 }))} />
-              </label>
-              <label>
-                Payment Reference * <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)' }}>(UPI txn ID / bank ref)</span>
-                <input required value={orderForm.payment_reference}
-                  onChange={e => setOrderForm(p => ({ ...p, payment_reference: e.target.value }))}
-                  placeholder="e.g. UPI123456789" />
-              </label>
-              <label>
-                Shipping / Delivery Address *
-                <textarea rows={2} required value={orderForm.shipping_address}
-                  onChange={e => setOrderForm(p => ({ ...p, shipping_address: e.target.value }))}
-                  placeholder="Hostel room / campus address…"
-                  style={{ resize: 'vertical', width: '100%' }} />
-              </label>
-              <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.75rem' }}>
-                Total: <strong>₹{(parseFloat(buyModal.price) * orderForm.quantity).toFixed(2)}</strong>
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button type="button" className="action-btn btn-secondary" style={{ flex: 1 }}
-                  onClick={() => setBuyModal(null)}>Cancel</button>
-                <button type="submit" className="action-btn" style={{ flex: 1 }}
-                  disabled={ordering}>
-                  {ordering ? 'Placing order…' : 'Confirm Order'}
-                </button>
+      {buyModal && (() => {
+        const totalAmount = (parseFloat(buyModal.price) * orderForm.quantity).toFixed(2);
+        const upiId = buyModal.upi_id || 'campusstore@upi';
+        
+        // Universal and app-specific UPI Deep Links
+        const upiParams = `pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('CampusConnect Store')}&am=${totalAmount}&cu=INR`;
+        const universalUpiUrl = `upi://pay?${upiParams}`;
+        const gpayUrl = `gpay://pay?${upiParams}`;
+        const phonepeUrl = `phonepe://pay?${upiParams}`;
+        const paytmUrl = `paytmmp://pay?${upiParams}`;
+
+        function handleCopyUpi() {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(upiId);
+            showToast(`UPI ID "${upiId}" copied to clipboard!`, 'success');
+          }
+        }
+
+        function launchApp(url) {
+          window.location.href = url;
+          // Fallback to universal UPI if app protocol doesn't launch
+          setTimeout(() => {
+            window.location.href = universalUpiUrl;
+          }, 600);
+        }
+
+        return (
+          <div className="modal-overlay" role="dialog" aria-modal="true"
+               onClick={e => e.target === e.currentTarget && setBuyModal(null)}>
+            <div className="modal-card" style={{ maxWidth: '540px' }} onClick={e => e.stopPropagation()}>
+              <h2 className="modal-title">Order: {buyModal.title}</h2>
+              
+              {buyModal.image_url && (
+                <div style={{ width: '100%', height: '140px', overflow: 'hidden', borderRadius: '0.5rem', marginBottom: '0.75rem' }}>
+                  <img src={buyModal.image_url} alt={buyModal.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
+
+              {/* External App Payment Selection Banner */}
+              <div className="external-pay-container" style={{ background: 'var(--clr-bg, #f8fafc)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--clr-border, #e2e8f0)', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--clr-text, #0f172a)' }}>
+                    PAY VIA EXTERNAL APP (₹{totalAmount})
+                  </span>
+                  <button type="button" onClick={handleCopyUpi} style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--clr-primary, #3b82f6)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    📋 Copy UPI ID
+                  </button>
+                </div>
+
+                <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted, #64748b)', margin: '0 0 0.75rem 0' }}>
+                  Tap below to launch your preferred app directly with pre-filled amount (<strong>UPI: {upiId}</strong>):
+                </p>
+
+                <div className="pay-apps-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="pay-app-btn gpay-btn"
+                    onClick={() => launchApp(gpayUrl)}
+                    style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #4285F4', background: '#eef5ff', color: '#1a73e8', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >
+                    Google Pay
+                  </button>
+                  <button
+                    type="button"
+                    className="pay-app-btn phonepe-btn"
+                    onClick={() => launchApp(phonepeUrl)}
+                    style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #5f259f', background: '#f6f0fd', color: '#5f259f', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >
+                    PhonePe
+                  </button>
+                  <button
+                    type="button"
+                    className="pay-app-btn paytm-btn"
+                    onClick={() => launchApp(paytmUrl)}
+                    style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #00baf2', background: '#eaf9fe', color: '#0084b4', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >
+                    Paytm
+                  </button>
+                  <button
+                    type="button"
+                    className="pay-app-btn bhim-btn"
+                    onClick={() => launchApp(universalUpiUrl)}
+                    style={{ padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid #0f9d58', background: '#eafaf1', color: '#0f9d58', fontWeight: '700', fontSize: '0.8rem', cursor: 'pointer' }}
+                  >
+                    BHIM / Any UPI App
+                  </button>
+                </div>
               </div>
-            </form>
+
+              <form onSubmit={handlePurchase} className="sell-form">
+                <label>
+                  Quantity
+                  <input type="number" min={1} value={orderForm.quantity}
+                    onChange={e => setOrderForm(p => ({ ...p, quantity: parseInt(e.target.value) || 1 }))} />
+                </label>
+                <label>
+                  Payment Reference / UTR Number * <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)' }}>(From GPay / PhonePe / Paytm receipt)</span>
+                  <input required value={orderForm.payment_reference}
+                    onChange={e => setOrderForm(p => ({ ...p, payment_reference: e.target.value }))}
+                    placeholder="e.g. UPI 421098765432 or Paytm Ref" />
+                </label>
+                <label>
+                  Shipping / Delivery Address *
+                  <textarea rows={2} required value={orderForm.shipping_address}
+                    onChange={e => setOrderForm(p => ({ ...p, shipping_address: e.target.value }))}
+                    placeholder="Hostel room / campus block address…"
+                    style={{ resize: 'vertical', width: '100%' }} />
+                </label>
+                <p style={{ fontSize: '0.85rem', color: 'var(--clr-text)', fontWeight: '800', marginBottom: '0.75rem' }}>
+                  Total Amount to Pay: ₹{totalAmount}
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button type="button" className="action-btn btn-secondary" style={{ flex: 1 }}
+                    onClick={() => setBuyModal(null)}>Cancel</button>
+                  <button type="submit" className="action-btn" style={{ flex: 1 }}
+                    disabled={ordering}>
+                    {ordering ? 'Placing order…' : 'Confirm Order'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 }

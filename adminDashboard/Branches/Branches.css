@@ -1,0 +1,84 @@
+.branches-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.branches-summary-card {
+  background: var(--clr-card, rgba(30, 41, 59, 0.5));
+  border: 1px solid var(--clr-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.branches-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  margin-bottom: 0.35rem;
+}
+
+.branches-card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.branches-filter-pills {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.branches-pill {
+  background: transparent;
+  border: 1px solid var(--clr-border, rgba(255, 255, 255, 0.12));
+  color: #94a3b8;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.branches-pill:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+}
+
+.branches-pill.active {
+  background: var(--clr-primary, #6366f1);
+  border-color: var(--clr-primary, #6366f1);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.branch-code-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.row-deactivated {
+  opacity: 0.55;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.branches-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}

@@ -35,12 +35,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-const isNative = !isVercel;
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-if (isNative) {
-  apiURL = 'https://projectcampusconnect.onrender.com';
-} else {
+let apiURL = '';
+if (isLocal || isVercel) {
   apiURL = '';
+} else {
+  apiURL = 'https://projectcampusconnect.onrender.com';
 }
 const BASE = apiURL ? `${apiURL}/api/v1` : '/api/v1';
 
@@ -665,6 +666,13 @@ export const adminApi = {
   // Professor Attendance Check-ins
   getProfessorAttendance: () => apiGet('/admin/attendance/professors'),
   markProfessorCheckin: (payload) => apiPost('/admin/attendance/professors/check-in', payload),
+
+  // Branch management
+  listBranches: (params) => apiGet('/admin/branches', params),
+  createBranch: (payload) => apiPost('/admin/branches', payload),
+  updateBranch: (branchId, payload) => apiPatch(`/admin/branches/${branchId}`, payload),
+  deactivateBranch: (branchId) => apiPatch(`/admin/branches/${branchId}/deactivate`, {}),
+  activateBranch: (branchId) => apiPatch(`/admin/branches/${branchId}/activate`, {}),
 };
 
 // ── 4j. Professors ────────────────────────────────────────────────────────────

@@ -34,6 +34,7 @@ from sqlalchemy import func, case
 from app.auth.permissions import require_auth, require_roles, get_current_user
 from app.extensions import db
 from app.models.user import User, UserRole
+from app.models.branch import Branch
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
 from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, BranchPlacement
@@ -1977,3 +1978,152 @@ def mark_professor_checkin():
     audit_action("admin.professor.checkin", target_type="user", target_id=str(prof_user_id), detail={"status": status})
     return jsonify({"message": f"Professor attendance marked as {status}."}), 200
 
+
+# ── BRANCH MANAGEMENT ──────────────────────────────────────────────────────────
+
+@admin_bp.get("/branches")
+@require_auth
+def list_branches():
+    """
+    List branches for the current user's college.
+    Accessible by all authenticated users (students, professors, TPO, admin)
+    so every role can populate branch selection dropdowns.
+    Pass ?active_only=true to exclude deactivated branches.
+    """
+    user = get_current_user()
+    active_only = request.args.get("active_only", "false").lower() == "true"
+    try:
+        q = db.session.query(Branch).filter_by(college_id=user.college_id)
+        if active_only:
+            q = q.filter_by(is_active=True)
+        branches = q.order_by(Branch.name).all()
+        return jsonify({
+            "branches": [{
+                "id": str(b.id),
+                "name": b.name,
+                "code": b.code,
+                "is_active": b.is_active,
+                "created_at": b.created_at.isoformat() if b.created_at else ""
+            } for b in branches]
+        }), 200
+    except Exception as exc:
+        return internal_error_response(exc, "list_branches")
+
+
+@admin_bp.post("/branches")
+@require_auth
+@require_roles("admin")
+def create_branch():
+    """Create a new branch for this college. Admin only."""
+    user = get_current_user()
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    code = (data.get("code") or "").strip().upper()
+
+    if not name or not code:
+        return error_response("name and code are required.", 400)
+    if len(code) > 20:
+        return error_response("code must be 20 characters or fewer.", 400)
+
+    existing = db.session.query(Branch).filter_by(college_id=user.college_id, code=code).first()
+    if existing:
+        return error_response(f"Branch with code '{code}' already exists for this college.", 409)
+
+    try:
+        branch = Branch(college_id=user.college_id, name=name, code=code, is_active=True)
+        db.session.add(branch)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "create_branch")
+
+    audit_action("admin.branch.create", target_type="branch", target_id=str(branch.id),
+                 detail={"name": name, "code": code})
+    return jsonify({
+        "message": "Branch created successfully.",
+        "branch": {"id": str(branch.id), "name": branch.name, "code": branch.code, "is_active": branch.is_active}
+    }), 201
+
+
+@admin_bp.patch("/branches/<uuid:branch_id>")
+@require_auth
+@require_roles("admin")
+def update_branch(branch_id):
+    """Edit a branch's name or code. Admin only."""
+    user = get_current_user()
+    branch = db.session.query(Branch).filter_by(id=branch_id, college_id=user.college_id).first()
+    if not branch:
+        return error_response("Branch not found.", 404)
+
+    data = request.get_json(force=True) or {}
+    new_name = (data.get("name") or "").strip() or None
+    new_code = (data.get("code") or "").strip().upper() or None
+
+    if new_code and new_code != branch.code:
+        clash = db.session.query(Branch).filter_by(college_id=user.college_id, code=new_code).first()
+        if clash:
+            return error_response(f"Branch with code '{new_code}' already exists.", 409)
+
+    try:
+        if new_name:
+            branch.name = new_name
+        if new_code:
+            branch.code = new_code
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "update_branch")
+
+    audit_action("admin.branch.update", target_type="branch", target_id=str(branch.id),
+                 detail={"name": branch.name, "code": branch.code})
+    return jsonify({
+        "message": "Branch updated.",
+        "branch": {"id": str(branch.id), "name": branch.name, "code": branch.code, "is_active": branch.is_active}
+    }), 200
+
+
+@admin_bp.patch("/branches/<uuid:branch_id>/deactivate")
+@require_auth
+@require_roles("admin")
+def deactivate_branch(branch_id):
+    """Soft-deactivate a branch. It disappears from active dropdowns but
+    existing records referencing this branch string are never deleted or changed."""
+    user = get_current_user()
+    branch = db.session.query(Branch).filter_by(id=branch_id, college_id=user.college_id).first()
+    if not branch:
+        return error_response("Branch not found.", 404)
+    if not branch.is_active:
+        return jsonify({"message": "Branch already deactivated."}), 200
+    try:
+        branch.is_active = False
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "deactivate_branch")
+
+    audit_action("admin.branch.deactivate", target_type="branch", target_id=str(branch.id),
+                 detail={"code": branch.code})
+    return jsonify({"message": f"Branch '{branch.code}' deactivated."}), 200
+
+
+@admin_bp.patch("/branches/<uuid:branch_id>/activate")
+@require_auth
+@require_roles("admin")
+def activate_branch(branch_id):
+    """Re-activate a previously deactivated branch."""
+    user = get_current_user()
+    branch = db.session.query(Branch).filter_by(id=branch_id, college_id=user.college_id).first()
+    if not branch:
+        return error_response("Branch not found.", 404)
+    if branch.is_active:
+        return jsonify({"message": "Branch already active."}), 200
+    try:
+        branch.is_active = True
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "activate_branch")
+
+    audit_action("admin.branch.activate", target_type="branch", target_id=str(branch.id),
+                 detail={"code": branch.code})
+    return jsonify({"message": f"Branch '{branch.code}' activated."}), 200

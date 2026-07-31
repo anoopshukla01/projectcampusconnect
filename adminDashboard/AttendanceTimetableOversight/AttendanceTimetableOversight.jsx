@@ -2,21 +2,22 @@ import { MapPin, User, X, Calendar } from "lucide-react";
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
+import { useBranches } from '@/hooks/useBranches';
 import './AttendanceTimetableOversight.css';
 import '../admin.shared.css';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const BRANCHES = ['CSE', 'ECE', 'ME', 'CE', 'IT', 'EE'];
 const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export default function AttendanceTimetableOversight() {
   const showToast = useToast();
+  const { branches } = useBranches();
   const [activeTab, setActiveTab] = useState('timetable');
   const [loading, setLoading] = useState(false);
 
   // Timetable Oversight State
   const [slots, setSlots] = useState({ Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] });
-  const [filterBranch, setFilterBranch] = useState('CSE');
+  const [filterBranch, setFilterBranch] = useState('');
   const [filterSemester, setFilterSemester] = useState(4);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSlot, setNewSlot] = useState({
@@ -26,7 +27,7 @@ export default function AttendanceTimetableOversight() {
     course_name: '',
     course_code: '',
     professor_name: '',
-    branch: 'CSE',
+    branch: '',
     semester: 4,
     slot_type: 'lecture',
   });
@@ -212,7 +213,8 @@ export default function AttendanceTimetableOversight() {
               <div className="filter-group">
                 <label>Branch</label>
                 <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
-                  {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
                 </select>
               </div>
               <div className="filter-group">
@@ -464,7 +466,8 @@ export default function AttendanceTimetableOversight() {
                     value={newSlot.branch}
                     onChange={e => setNewSlot({ ...newSlot, branch: e.target.value })}
                   >
-                    {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                    <option value="">— select branch —</option>
+                    {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">

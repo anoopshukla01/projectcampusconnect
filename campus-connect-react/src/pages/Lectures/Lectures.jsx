@@ -10,6 +10,7 @@ import { Upload, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { useBranches } from '../../hooks/useBranches';
 import { careerApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Lectures.css';
@@ -17,6 +18,7 @@ import './Lectures.css';
 export default function Lectures() {
   const { user, isProfessor } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   const [filter, setFilter]           = useState('all');
   const [uploadModal, setUploadModal] = useState(false);
@@ -242,9 +244,11 @@ export default function Lectures() {
               </label>
               <label>
                 Branch (optional — blank = all branches)
-                <input value={uploadForm.branch}
-                  onChange={e => setUploadForm(p => ({ ...p, branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
+                <select value={uploadForm.branch}
+                  onChange={e => setUploadForm(p => ({ ...p, branch: e.target.value }))}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                </select>
               </label>
               <button type="submit" className="action-btn" style={{ width: '100%' }}
                 disabled={uploading}>

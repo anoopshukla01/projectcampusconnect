@@ -1,5 +1,5 @@
-import { ShoppingBag, Package, X } from "lucide-react";
-import { useState, useEffect } from 'react';
+import { ShoppingBag, Package, X, Upload, Image as ImageIcon, CheckCircle, ExternalLink } from "lucide-react";
+import { useState, useEffect, useRef } from 'react';
 import { adminApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
 import './MarketplaceManager.css';
@@ -9,6 +9,7 @@ export default function MarketplaceManager() {
   const showToast = useToast();
   const [activeTab, setActiveTab] = useState('listings');
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Listings State
   const [listings, setListings] = useState([]);
@@ -20,6 +21,12 @@ export default function MarketplaceManager() {
     image_url: '',
     upi_id: '',
     bank_account: '',
+    accepted_apps: {
+      gpay: true,
+      phonepe: true,
+      paytm: true,
+      bhim: true
+    }
   });
 
   // Orders State
@@ -37,7 +44,6 @@ export default function MarketplaceManager() {
     setLoading(true);
     try {
       const res = await adminApi.getMerchandise();
-      // Filter listings to display only admin-owned official store items
       const adminItems = (res.merchandise || []).filter(i => i.seller_role === 'admin');
       setListings(adminItems);
     } catch (err) {
@@ -57,6 +63,45 @@ export default function MarketplaceManager() {
     setLoading(false);
   }
 
+  function handleImageFileSelect(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WEBP).', 'warning');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size should be under 5MB.', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewItem(prev => ({
+        ...prev,
+        image_url: event.target.result
+      }));
+      showToast('Image loaded from device successfully!', 'success');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleRemoveImage() {
+    setNewItem(prev => ({ ...prev, image_url: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function togglePaymentApp(appKey) {
+    setNewItem(prev => ({
+      ...prev,
+      accepted_apps: {
+        ...prev.accepted_apps,
+        [appKey]: !prev.accepted_apps[appKey]
+      }
+    }));
+  }
+
   async function handleAddListing(e) {
     e.preventDefault();
     if (!newItem.title || !newItem.price) {
@@ -64,7 +109,7 @@ export default function MarketplaceManager() {
       return;
     }
     if (!newItem.upi_id && !newItem.bank_account) {
-      showToast('Please provide at least one payment method (UPI or Bank account).', 'warning');
+      showToast('Please provide at least one payment method (UPI ID or Bank Account).', 'warning');
       return;
     }
 
@@ -73,7 +118,7 @@ export default function MarketplaceManager() {
         ...newItem,
         price: parseFloat(newItem.price),
       });
-      showToast('Merchandise item listed successfully.', 'success');
+      showToast('Merchandise item listed successfully with payment apps configured.', 'success');
       setShowAddForm(false);
       fetchListings();
       // Reset Form
@@ -84,6 +129,7 @@ export default function MarketplaceManager() {
         image_url: '',
         upi_id: '',
         bank_account: '',
+        accepted_apps: { gpay: true, phonepe: true, paytm: true, bhim: true }
       });
     } catch (err) {
       showToast(err.message || 'Failed to list item.', 'error');
@@ -172,7 +218,11 @@ export default function MarketplaceManager() {
                     <p className="merch-desc">{item.description || 'No description provided.'}</p>
                     <div className="merch-payment-methods">
                       {item.upi_id && <span className="method-pill">UPI: {item.upi_id}</span>}
-                      {item.bank_account && <span className="method-pill">Bank Account Linked</span>}
+                      <span className="method-pill pay-apps-pill">
+                        <ExternalLink size={10} style={{ marginRight: '3px' }} />
+                        GPay / PhonePe / Paytm Enabled
+                      </span>
+                      {item.bank_account && <span className="method-pill">Bank Linked</span>}
                     </div>
                     <div className="merch-footer">
                       <span className="merch-price">₹{parseFloat(item.price).toFixed(2)}</span>
@@ -254,14 +304,14 @@ export default function MarketplaceManager() {
       {/* ── ADD MERCHANDISE MODAL FORM ── */}
       {showAddForm && (
         <div className="modal-overlay" onClick={() => setShowAddForm(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
+          <div className="modal-card" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">List Official Merchandise</h2>
               <button className="modal-close-btn" onClick={() => setShowAddForm(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
             <form onSubmit={handleAddListing}>
               <div className="form-group">
-                <label>Product Title</label>
+                <label>PRODUCT TITLE</label>
                 <input
                   type="text"
                   required
@@ -271,31 +321,65 @@ export default function MarketplaceManager() {
                 />
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Price (INR)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="e.g. 799"
-                    value={newItem.price}
-                    onChange={e => setNewItem({ ...newItem, price: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Image URL</label>
+              <div className="form-group">
+                <label>PRICE (INR)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="e.g. 799"
+                  value={newItem.price}
+                  onChange={e => setNewItem({ ...newItem, price: e.target.value })}
+                />
+              </div>
+
+              {/* ── DEVICE IMAGE SELECTOR ── */}
+              <div className="form-group">
+                <label>PRODUCT IMAGE (CHOOSE FROM DEVICE)</label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleImageFileSelect}
+                />
+
+                {newItem.image_url ? (
+                  <div className="device-image-preview-card">
+                    <img src={newItem.image_url} alt="Preview" className="device-preview-img" />
+                    <div className="preview-info">
+                      <span className="preview-status"><CheckCircle size={14} color="#22c55e" /> Image Loaded from Device</span>
+                      <button type="button" className="remove-img-btn" onClick={handleRemoveImage}>
+                        Remove / Pick Another
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="device-upload-dropzone"
+                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  >
+                    <Upload size={28} className="upload-icon" />
+                    <p className="upload-text">Click to choose image from your device</p>
+                    <span className="upload-hint">Supports PNG, JPG, WEBP (Max 5MB)</span>
+                  </div>
+                )}
+                
+                {/* Fallback URL input toggle */}
+                <div style={{ marginTop: '0.4rem' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Or enter Image URL manually:</span>
                   <input
                     type="url"
-                    placeholder="https://example.com/ hoodie.jpg"
-                    value={newItem.image_url}
+                    style={{ marginTop: '0.2rem', fontSize: '0.8rem' }}
+                    placeholder="https://example.com/hoodie.jpg"
+                    value={newItem.image_url.startsWith('data:') ? '' : newItem.image_url}
                     onChange={e => setNewItem({ ...newItem, image_url: e.target.value })}
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label>Product Description</label>
+                <label>PRODUCT DESCRIPTION</label>
                 <textarea
                   rows="3"
                   className="form-textarea-field"
@@ -305,22 +389,27 @@ export default function MarketplaceManager() {
                 />
               </div>
 
-              <div className="ad-card payment-setup-card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem' }}>
-                <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                  Configure Direct Payment Methods
+              {/* ── EXTERNAL PAYMENT APP CONFIGURATION ── */}
+              <div className="ad-card payment-setup-card" style={{ marginBottom: '1.25rem', padding: '1.25rem', borderRadius: '1rem' }}>
+                <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: '800' }}>
+                  Configure External App & Direct Payments
                 </h4>
-                <div className="form-grid-2" style={{ marginBottom: 0 }}>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Students paying for this item will be redirected directly to <strong>Google Pay, PhonePe, Paytm</strong>, or UPI app on their phone/web.
+                </p>
+
+                <div className="form-grid-2" style={{ marginBottom: '1rem' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>UPI ID</label>
+                    <label>ADMIN / STORE UPI ID (VPA) *</label>
                     <input
                       type="text"
-                      placeholder="e.g. campusstore@upi"
+                      placeholder="e.g. campusstore@okicici or 9876543210@paytm"
                       value={newItem.upi_id}
                       onChange={e => setNewItem({ ...newItem, upi_id: e.target.value })}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Bank Account details</label>
+                    <label>BANK ACCOUNT DETAILS (OPTIONAL)</label>
                     <input
                       type="text"
                       placeholder="e.g. A/C: 12345, IFSC: SBIN000"
@@ -328,6 +417,41 @@ export default function MarketplaceManager() {
                       onChange={e => setNewItem({ ...newItem, bank_account: e.target.value })}
                     />
                   </div>
+                </div>
+
+                {/* App Redirect Options Selection */}
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                  ENABLED EXTERNAL PAYMENT APPS FOR REDIRECT
+                </label>
+                <div className="payment-apps-selector-grid">
+                  <button
+                    type="button"
+                    className={`pay-app-chip gpay-chip ${newItem.accepted_apps?.gpay ? 'active' : ''}`}
+                    onClick={() => togglePaymentApp('gpay')}
+                  >
+                    Google Pay (GPay)
+                  </button>
+                  <button
+                    type="button"
+                    className={`pay-app-chip phonepe-chip ${newItem.accepted_apps?.phonepe ? 'active' : ''}`}
+                    onClick={() => togglePaymentApp('phonepe')}
+                  >
+                    PhonePe
+                  </button>
+                  <button
+                    type="button"
+                    className={`pay-app-chip paytm-chip ${newItem.accepted_apps?.paytm ? 'active' : ''}`}
+                    onClick={() => togglePaymentApp('paytm')}
+                  >
+                    Paytm
+                  </button>
+                  <button
+                    type="button"
+                    className={`pay-app-chip bhim-chip ${newItem.accepted_apps?.bhim ? 'active' : ''}`}
+                    onClick={() => togglePaymentApp('bhim')}
+                  >
+                    BHIM / Any UPI App
+                  </button>
                 </div>
               </div>
 
@@ -346,3 +470,4 @@ export default function MarketplaceManager() {
     </div>
   );
 }
+

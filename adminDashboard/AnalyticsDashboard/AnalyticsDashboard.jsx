@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@ctx/ToastContext';
 import { adminApi, apiPost } from '@/services/api';
+import { useBranches } from '@/hooks/useBranches';
 import '@admin/admin.shared.css';
 
 export default function AnalyticsDashboard() {
   const showToast = useToast();
+  const { branches: managedBranches, refetch: refetchBranches } = useBranches();
   const [data, setData]       = useState(null);
   const [profiles, setProfiles] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,18 +19,18 @@ export default function AnalyticsDashboard() {
 
   // Forms state
   const [branchForm, setBranchForm]       = useState({ branch: '' });
-  const [placementForm, setPlacementForm] = useState({ branch: 'Computer Science', placed_count: '', total_count: '' });
+  const [placementForm, setPlacementForm] = useState({ branch: '', placed_count: '', total_count: '' });
 
   useEffect(() => {
     fetchAnalytics();
   }, []);
 
-  // Compute available branches dynamically for the Update Stats dropdown
+  // Compute available branches: managed branches + any already in DB that aren't managed yet
   const availableBranches = useMemo(() => {
-    const defaults = ['Computer Science', 'Information Technology', 'Electronics & Comm.', 'Electrical', 'Mechanical', 'Civil'];
+    const managedNames = managedBranches.map(b => b.name);
     const current = data?.branch_performance?.map(b => b.branch) || [];
-    return Array.from(new Set([...defaults, ...current]));
-  }, [data]);
+    return Array.from(new Set([...managedNames, ...current]));
+  }, [managedBranches, data]);
 
   // Set default selection when availableBranches list changes
   useEffect(() => {
@@ -77,6 +79,7 @@ export default function AnalyticsDashboard() {
     showToast(res?.message || 'Branch added!', 'success', 3000);
     setShowBranchModal(false);
     setBranchForm({ branch: '' });
+    refetchBranches();
     fetchAnalytics();
   }
 
@@ -89,7 +92,7 @@ export default function AnalyticsDashboard() {
     if (res?.error) { showToast(res.error, 'error', 3000); return; }
     showToast(res?.message || 'Placement stats updated!', 'success', 3000);
     setShowPlacementModal(false);
-    setPlacementForm({ branch: availableBranches[0] || 'Computer Science', placed_count: '', total_count: '' });
+    setPlacementForm({ branch: availableBranches[0] || '', placed_count: '', total_count: '' });
     fetchAnalytics();
   }
 

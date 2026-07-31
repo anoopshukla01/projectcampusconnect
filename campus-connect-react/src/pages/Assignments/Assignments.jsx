@@ -13,6 +13,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { useBranches } from '../../hooks/useBranches';
 import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Assignments.css';
@@ -31,6 +32,7 @@ const UploadIcon = () => (
 export default function Assignments() {
   const { user, isProfessor } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   // ── Shared: fetch assignments (role-scoped server-side) ────────────────────
   const { data: apiData, loading, error, isEmpty, refetch, setData } = useApiData(
@@ -311,8 +313,11 @@ export default function Assignments() {
                     onChange={e => setCreateForm(p => ({ ...p, subject: e.target.value }))} />
                 </label>
                 <label>Branch (optional)
-                  <input value={createForm.branch} placeholder="e.g. CSE"
-                    onChange={e => setCreateForm(p => ({ ...p, branch: e.target.value }))} />
+                  <select value={createForm.branch}
+                    onChange={e => setCreateForm(p => ({ ...p, branch: e.target.value }))}>
+                    <option value="">All Branches</option>
+                    {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                  </select>
                 </label>
                 <label>Due Date
                   <input required type="date" value={createForm.due_date}

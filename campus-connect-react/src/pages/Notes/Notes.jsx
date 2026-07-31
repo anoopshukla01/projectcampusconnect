@@ -14,6 +14,7 @@ import { FileText, BarChart2, ClipboardList, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
+import { useBranches } from '../../hooks/useBranches';
 import { libraryApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Notes.css';
@@ -31,6 +32,7 @@ const BLANK = { title: '', subject: '', note_type: 'notes', branch: '', semester
 export default function Notes() {
   const { user, isProfessor, isAdmin } = useAuth();
   const showToast = useToast();
+  const { branches } = useBranches();
 
   const canManage = isProfessor || isAdmin;
 
@@ -300,9 +302,11 @@ export default function Notes() {
               </label>
               <label>
                 Branch (optional)
-                <input value={form.branch}
-                  onChange={e => setForm(p => ({ ...p, branch: e.target.value }))}
-                  placeholder="e.g. CSE" />
+                <select value={form.branch}
+                  onChange={e => setForm(p => ({ ...p, branch: e.target.value }))}>
+                  <option value="">All Branches</option>
+                  {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                </select>
               </label>
               <label>
                 Semester (optional)

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@ctx/ToastContext';
 import { adminApi } from '@/services/api';
+import { useBranches } from '@/hooks/useBranches';
 import '@admin/admin.shared.css';
 
 const PERMISSIONS = [
@@ -18,6 +19,7 @@ const TABS = ['All Users','Students','Faculty','Placement Cell'];
 export default function UserManagement() {
   const navigate = useNavigate();
   const showToast = useToast();
+  const { branches } = useBranches();
   const [tab, setTab]           = useState(0);
   const [search, setSearch]     = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,7 +43,7 @@ export default function UserManagement() {
     password: '',
     roll_no: '',
     full_name: '',
-    branch: 'Computer Science',
+    branch: '',
     batch_year: '2026',
     semester: '6',
     cgpa: '8.0',
@@ -140,7 +142,7 @@ export default function UserManagement() {
       password: '',
       roll_no: '',
       full_name: '',
-      branch: 'Computer Science',
+      branch: '',
       batch_year: '2026',
       semester: '6',
       cgpa: '8.0',
@@ -221,7 +223,7 @@ export default function UserManagement() {
               password: '',
               roll_no: '',
               full_name: '',
-              branch: 'Computer Science',
+              branch: '',
               batch_year: '2026',
               semester: '6',
               cgpa: '8.0',
@@ -507,13 +509,14 @@ export default function UserManagement() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.85rem' }}>
                   <div className="ad-field">
                     <label>Branch</label>
-                    <input
-                      type="text"
+                    <select
                       value={manualUser.branch}
                       onChange={e => setManualUser({ ...manualUser, branch: e.target.value })}
                       className="ad-input"
-                      autoComplete="off"
-                    />
+                    >
+                      <option value="">— select branch —</option>
+                      {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                    </select>
                   </div>
                   <div className="ad-field">
                     <label>Batch Year</label>

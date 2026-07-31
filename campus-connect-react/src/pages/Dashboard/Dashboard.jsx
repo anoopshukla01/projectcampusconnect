@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
 import './Dashboard.css';
 
+
 function LiveBadge({ time }) {
   const [status, setStatus] = useState('');
 
@@ -56,6 +57,10 @@ export default function Dashboard() {
   } = useApiData('/community/announcements', { announcements: [] });
   const announcements = useMemo(() => (annData?.announcements || []).slice(0, 5), [annData]);
 
+  // Live campus events from backend (student dashboard panel)
+  const { data: eventsData } = useApiData('/community/events', { events: [] });
+  const upcomingEvents = useMemo(() => (eventsData?.events || []).slice(0, 2), [eventsData]);
+
   const isProf = user?.role === 'professor';
 
   function go(path) {
@@ -95,7 +100,7 @@ export default function Dashboard() {
           </div>
           <div className="stat-card" role="listitem">
             <span className="stat-label">Pending Grading</span>
-            <span className="stat-value">14</span>
+            <span className="stat-value">--</span>
             <span className="stat-delta warning">Assignments to evaluate</span>
           </div>
           <div className="stat-card" role="listitem">
@@ -388,18 +393,20 @@ export default function Dashboard() {
             <button className="panel-link" onClick={() => go('/events')}>Browse</button>
           </div>
           <div className="event-cards">
-            <div className="event-card">
-              <span className="event-tag hackathon">Hackathon</span>
-              <p className="event-name">Hyperion 4.0</p>
-              <p className="event-meta">Dec 5 · 5:00 PM</p>
-              <p className="event-venue">Innovation hub</p>
-            </div>
-            <div className="event-card">
-              <span className="event-tag talk">Talk</span>
-              <p className="event-name">Google tech talk</p>
-              <p className="event-meta">Dec 5 · 5:00 PM</p>
-              <p className="event-venue">Main auditorium</p>
-            </div>
+            {upcomingEvents.length > 0 ? upcomingEvents.map((ev, i) => (
+              <div className="event-card" key={ev.id || i}>
+                <span className={`event-tag ${ev.event_type || 'event'}`}>
+                  {ev.event_type ? ev.event_type.charAt(0).toUpperCase() + ev.event_type.slice(1) : 'Event'}
+                </span>
+                <p className="event-name">{ev.title}</p>
+                <p className="event-meta">{ev.date_time}</p>
+                <p className="event-venue">{ev.venue}</p>
+              </div>
+            )) : (
+              <p style={{ color: 'var(--clr-muted)', fontSize: '0.825rem', padding: '0.75rem 0', textAlign: 'center', width: '100%' }}>
+                No upcoming campus events. Check back soon.
+              </p>
+            )}
           </div>
         </section>
 
