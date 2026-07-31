@@ -84,6 +84,8 @@ def send_otp(phone: str, otp: str) -> None:
             _send_via_msg91(phone, otp, api_key)
         elif provider == "twilio":
             _send_via_twilio(phone, otp, api_key)
+        elif provider == "2factor":
+            _send_via_2factor(phone, otp, api_key)
         else:
             raise ValueError(f"Unknown SMS provider: {provider!r}")
         logger.info("✅ Successfully sent real OTP to %s via %s", phone, provider)
@@ -156,3 +158,18 @@ def _send_via_twilio(phone: str, otp: str, api_key: str) -> None:
         timeout=10,
     )
     resp.raise_for_status()
+
+
+def _send_via_2factor(phone: str, otp: str, api_key: str) -> None:
+    """2Factor.in (India) — https://2factor.in/"""
+    import requests
+    clean_phone = "".join(filter(str.isdigit, phone))
+    if len(clean_phone) > 10:
+        clean_phone = clean_phone[-10:]
+
+    url = f"https://2factor.in/API/V1/{api_key.strip()}/SMS/{clean_phone}/{otp}/AUTOGEN"
+    resp = requests.get(url, timeout=10)
+    resp.raise_for_status()
+    res_json = resp.json()
+    if isinstance(res_json, dict) and res_json.get("Status") != "Success":
+        raise ValueError(f"2Factor error: {res_json.get('Details')}")
