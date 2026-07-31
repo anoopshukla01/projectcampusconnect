@@ -128,7 +128,7 @@ class DevelopmentConfig(BaseConfig):
 
     ALLOWED_EMAIL_DOMAIN = os.environ.get("ALLOWED_EMAIL_DOMAIN", "college.edu.in")
     COLLEGE_NAME         = os.environ.get("COLLEGE_NAME", "Demo College")
-    MOCK_OTP             = True          # Always mock OTP in dev
+    MOCK_OTP             = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
 
 class TestingConfig(BaseConfig):
