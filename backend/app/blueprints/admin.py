@@ -27,14 +27,16 @@ SELF-REVIEW CHECKLIST:
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone, date
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
 from marshmallow import ValidationError
 from sqlalchemy import func, case
 
 from app.auth.permissions import require_auth, require_roles, get_current_user
 from app.extensions import db
+from app.models.college import College
 from app.models.user import User, UserRole
 from app.models.branch import Branch
+from app.utils.email import send_invite_email
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
 from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, BranchPlacement
@@ -458,7 +460,8 @@ def create_invite():
     except ValidationError as e:
         return validation_error_response(e.messages)
 
-    cid = g.current_user.college_id
+    current_user = get_current_user()
+    cid = current_user.college_id
 
     # Check if user already exists
     existing_user = db.session.query(User).filter_by(email=data["email"], college_id=cid, is_deleted=False).first()
@@ -470,13 +473,14 @@ def create_invite():
 
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    expiry = datetime.now(timezone.utc) + timedelta(hours=48)
+    expiry_hours = current_app.config.get("INVITE_EXPIRY_HOURS", 48)
+    expiry = datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
 
     invite = Invite(
         college_id=cid,
         email=data["email"],
         role=data["role"],
-        invited_by=get_current_user().id,
+        invited_by=current_user.id,
         token_hash=token_hash,
         expires_at=expiry
     )
@@ -484,17 +488,36 @@ def create_invite():
     try:
         db.session.add(invite)
         db.session.commit()
-        # In a real app, send email here. In tests, we log or return the token for testing.
-        # Returning it in response facilitates QA / testing since we don't have mail server set.
-        token_to_return = raw_token
     except Exception as exc:
         db.session.rollback()
         return internal_error_response(exc, "create_invite")
 
-    audit_action("admin.invite.created", target_type="invite", target_id=str(invite.id), detail={"email": invite.email})
-    
-    resp_body = {"message": "Invite generated successfully. Valid for 48 hours."}
-    resp_body["token"] = token_to_return
+    # Fetch college name and inviter details for email
+    college = db.session.get(College, cid)
+    college_name = college.name if college else "CampusConnect College"
+    inviter_name = current_user.email
+
+    # Construct frontend invite link
+    frontend_origin = request.headers.get("Origin") or request.host_url.rstrip("/")
+    invite_link = f"{frontend_origin}/login?token={raw_token}"
+    role_display = data["role"].replace("_", " ").title()
+
+    email_sent = send_invite_email(
+        to_email=data["email"],
+        invite_link=invite_link,
+        invited_by_name=inviter_name,
+        role_name=role_display,
+        college_name=college_name,
+        expiry_hours=expiry_hours,
+    )
+
+    audit_action("admin.invite.created", target_type="invite", target_id=str(invite.id), detail={"email": invite.email, "email_sent": email_sent})
+
+    resp_body = {
+        "message": f"Invite generated for {data['email']}. {'Email sent successfully.' if email_sent else 'Email delivery skipped (check SMTP config).'}",
+        "token": raw_token,
+        "email_sent": email_sent,
+    }
 
     return jsonify(resp_body), 201
 
