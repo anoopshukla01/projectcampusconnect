@@ -462,10 +462,11 @@ def get_dashboard_stats():
     mentor_profile = None
     if profile:
         from app.models.content import MentorProfile
-        mentor_profile = MentorProfile.query.filter_by(user_id=user.id).first()
+        mentor_profile = MentorProfile.query.filter_by(user_id=user.id, college_id=user.college_id).first()
     pending_mentorship = 0
     if mentor_profile:
         pending_mentorship = MentorshipRequest.query.filter_by(
+            college_id=user.college_id,
             mentor_id=mentor_profile.id,
             status=MentorshipRequestStatus.PENDING,
         ).count()

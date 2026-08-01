@@ -12,6 +12,7 @@ class MentorProfile(db.Model):
     __tablename__ = "mentor_profiles"
 
     id            = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id    = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     user_id       = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     name          = db.Column(db.String(255), nullable=False)
     role_title    = db.Column(db.String(255), nullable=False, default="Faculty Mentor")
@@ -22,7 +23,8 @@ class MentorProfile(db.Model):
     is_active     = db.Column(db.Boolean, default=True, nullable=False)
     created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user = db.relationship("User", foreign_keys=[user_id])
+    college = db.relationship("College", foreign_keys=[college_id])
+    user    = db.relationship("User", foreign_keys=[user_id])
 
 
 class MentorshipRequestStatus(enum.Enum):
@@ -36,6 +38,7 @@ class MentorshipRequest(db.Model):
     __tablename__ = "mentorship_requests"
 
     id          = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id  = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     mentor_id   = db.Column(db.UUID(as_uuid=True), db.ForeignKey("mentor_profiles.id"), nullable=False)
     student_id  = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     topic       = db.Column(db.String(255), nullable=False)
@@ -46,6 +49,7 @@ class MentorshipRequest(db.Model):
     updated_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                              onupdate=lambda: datetime.now(timezone.utc))
 
+    college = db.relationship("College", foreign_keys=[college_id])
     mentor  = db.relationship("MentorProfile", foreign_keys=[mentor_id])
     student = db.relationship("User", foreign_keys=[student_id])
 
@@ -54,6 +58,7 @@ class MockInterviewSession(db.Model):
     __tablename__ = "mock_interview_sessions"
 
     id             = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id     = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     session_type   = db.Column(db.String(100), nullable=False)   # "Technical", "HR", "System Design"
     company_style  = db.Column(db.String(100), nullable=True)    # "Google-style", "Amazon LP"
     difficulty     = db.Column(db.String(20),  default="Medium") # Easy | Medium | Hard
@@ -63,11 +68,14 @@ class MockInterviewSession(db.Model):
     is_active      = db.Column(db.Boolean,     default=True, nullable=False)
     created_at     = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    college = db.relationship("College", foreign_keys=[college_id])
+
 
 class MockInterviewBooking(db.Model):
     __tablename__ = "mock_interview_bookings"
 
     id         = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     session_id = db.Column(db.UUID(as_uuid=True),
                             db.ForeignKey("mock_interview_sessions.id"), nullable=False)
     student_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
@@ -77,6 +85,7 @@ class MockInterviewBooking(db.Model):
     score      = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    college = db.relationship("College", foreign_keys=[college_id])
     session = db.relationship("MockInterviewSession", foreign_keys=[session_id])
     student = db.relationship("User", foreign_keys=[student_id])
 
@@ -89,6 +98,7 @@ class LectureRecording(db.Model):
     __tablename__ = "lecture_recordings"
 
     id             = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id     = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     title          = db.Column(db.String(255), nullable=False)
     subject        = db.Column(db.String(255), nullable=False)
     course_code    = db.Column(db.String(50),  nullable=True)
@@ -100,6 +110,7 @@ class LectureRecording(db.Model):
     duration       = db.Column(db.String(20),  nullable=True)   # e.g. "45:30"
     created_at     = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    college  = db.relationship("College", foreign_keys=[college_id])
     uploader = db.relationship("User", foreign_keys=[uploaded_by_id])
 
 
@@ -107,6 +118,7 @@ class SyllabusProgress(db.Model):
     __tablename__ = "syllabus_progress"
 
     id           = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id   = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     subject      = db.Column(db.String(255), nullable=False)
     course_code  = db.Column(db.String(50),  nullable=False)
     module_info  = db.Column(db.String(255), nullable=True)
@@ -116,4 +128,5 @@ class SyllabusProgress(db.Model):
     updated_at   = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                               onupdate=lambda: datetime.now(timezone.utc))
 
+    college   = db.relationship("College", foreign_keys=[college_id])
     professor = db.relationship("User", foreign_keys=[professor_id])

@@ -185,7 +185,7 @@ def get_mock_interviews():
     # Collect sessions current user already booked
     booked_ids = set()
     if user.role == UserRole.STUDENT:
-        bookings = MockInterviewBooking.query.filter_by(student_id=user.id).all()
+        bookings = MockInterviewBooking.query.filter_by(college_id=user.college_id, student_id=user.id).all()
         booked_ids = {str(b.session_id) for b in bookings}
 
     res = [{
@@ -213,13 +213,13 @@ def book_mock_interview(session_id):
         return error_response("Session not found or not active.", 404)
 
     existing = MockInterviewBooking.query.filter_by(
-        session_id=session_id, student_id=user.id
+        college_id=user.college_id, session_id=session_id, student_id=user.id
     ).first()
     if existing:
         return jsonify({"message": "Already booked.", "already_booked": True}), 200
 
     try:
-        booking = MockInterviewBooking(session_id=session.id, student_id=user.id)
+        booking = MockInterviewBooking(college_id=user.college_id, session_id=session.id, student_id=user.id)
         db.session.add(booking)
         
         # Create timetable slot for student
@@ -235,7 +235,6 @@ def book_mock_interview(session_id):
             time_str = f"{session.scheduled_at.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
             
         slot = TimetableSlot(
-            college_id=user.college_id,
             branch=None,
             semester=None,
             role=None,
@@ -285,7 +284,7 @@ def get_mentors():
     """List active mentor profiles."""
     from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
     user    = get_current_user()
-    mentors = MentorProfile.query.filter_by(is_active=True).order_by(
+    mentors = MentorProfile.query.filter_by(college_id=user.college_id, is_active=True).order_by(
         MentorProfile.rating.desc()
     ).all()
 
@@ -293,6 +292,7 @@ def get_mentors():
     requested_ids = set()
     if user.role == UserRole.STUDENT:
         reqs = MentorshipRequest.query.filter_by(
+            college_id=user.college_id,
             student_id=user.id,
             status=MentorshipRequestStatus.PENDING,
         ).all()
@@ -319,7 +319,7 @@ def request_mentorship(mentor_id):
     """Student: send a mentorship request."""
     from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
     user   = get_current_user()
-    mentor = MentorProfile.query.filter_by(id=mentor_id, is_active=True).first()
+    mentor = MentorProfile.query.filter_by(id=mentor_id, college_id=user.college_id, is_active=True).first()
     if not mentor:
         return error_response("Mentor not found.", 404)
     if not mentor.is_available:
@@ -327,6 +327,7 @@ def request_mentorship(mentor_id):
 
     # Check if student already has an active mentorship
     active = MentorshipRequest.query.filter_by(
+        college_id=user.college_id,
         student_id=user.id,
         status=MentorshipRequestStatus.ACCEPTED
     ).first()
@@ -335,6 +336,7 @@ def request_mentorship(mentor_id):
 
     # Idempotency: one pending request per student+mentor at a time
     existing = MentorshipRequest.query.filter_by(
+        college_id=user.college_id,
         mentor_id=mentor_id,
         student_id=user.id,
         status=MentorshipRequestStatus.PENDING,
@@ -348,6 +350,7 @@ def request_mentorship(mentor_id):
 
     try:
         req = MentorshipRequest(
+            college_id = user.college_id,
             mentor_id  = mentor.id,
             student_id = user.id,
             topic      = topic,
@@ -372,11 +375,12 @@ def get_mentor_requests():
     from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
     user   = get_current_user()
     # Find this professor's mentor profile
-    mentor = MentorProfile.query.filter_by(user_id=user.id).first()
+    mentor = MentorProfile.query.filter_by(user_id=user.id, college_id=user.college_id).first()
     if not mentor:
         return jsonify({"requests": []}), 200
 
     reqs = MentorshipRequest.query.filter_by(
+        college_id=user.college_id,
         mentor_id=mentor.id,
         status=MentorshipRequestStatus.PENDING,
     ).order_by(MentorshipRequest.created_at.asc()).all()
@@ -403,12 +407,12 @@ def respond_to_mentor_request(request_id):
     """Professor: accept or decline a mentorship request."""
     from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
     user = get_current_user()
-    req  = MentorshipRequest.query.filter_by(id=request_id).first()
+    req  = MentorshipRequest.query.filter_by(id=request_id, college_id=user.college_id).first()
     if not req:
         return error_response("Request not found.", 404)
 
     # IDOR: professor can only respond to requests for their mentor profile
-    mentor = MentorProfile.query.filter_by(user_id=user.id).first()
+    mentor = MentorProfile.query.filter_by(user_id=user.id, college_id=user.college_id).first()
     if not mentor or str(req.mentor_id) != str(mentor.id):
         return error_response("You can only respond to requests for your mentor profile.", 403)
 
@@ -553,7 +557,7 @@ def submit_mock_interview_feedback(booking_id):
     """Professor: submit feedback and score for a student's mock interview booking."""
     from app.models.content import MockInterviewBooking, MentorProfile
     user    = get_current_user()
-    booking = MockInterviewBooking.query.filter_by(id=booking_id).first()
+    booking = MockInterviewBooking.query.filter_by(id=booking_id, college_id=user.college_id).first()
     if not booking:
         return error_response("Booking not found.", 404)
 
@@ -605,7 +609,8 @@ def submit_mock_interview_feedback(booking_id):
 def approve_mock_interview_session(session_id):
     """Professor: approve/reopen a mock interview session and optionally set a room URL."""
     from app.models.content import MockInterviewSession
-    session = MockInterviewSession.query.filter_by(id=session_id).first()
+    user    = get_current_user()
+    session = MockInterviewSession.query.filter_by(id=session_id, college_id=user.college_id).first()
     if not session:
         return error_response("Session not found.", 404)
 
@@ -639,11 +644,11 @@ def complete_mentorship_session(request_id):
     """Professor: mark a mentorship session as complete and optionally add notes."""
     from app.models.content import MentorProfile, MentorshipRequest, MentorshipRequestStatus
     user = get_current_user()
-    req  = MentorshipRequest.query.filter_by(id=request_id).first()
+    req  = MentorshipRequest.query.filter_by(id=request_id, college_id=user.college_id).first()
     if not req:
         return error_response("Mentorship request not found.", 404)
 
-    mentor = MentorProfile.query.filter_by(user_id=user.id).first()
+    mentor = MentorProfile.query.filter_by(user_id=user.id, college_id=user.college_id).first()
     if not mentor or str(req.mentor_id) != str(mentor.id):
         return error_response("You can only complete sessions for your mentor profile.", 403)
 
@@ -715,11 +720,11 @@ def terminate_mentorship(request_id):
     from app.models.academic import TimetableSlot
     
     user = get_current_user()
-    req = MentorshipRequest.query.filter_by(id=request_id).first()
+    req = MentorshipRequest.query.filter_by(id=request_id, college_id=user.college_id).first()
     if not req:
         return error_response("Mentorship not found.", 404)
         
-    mentor = MentorProfile.query.filter_by(id=req.mentor_id).first()
+    mentor = MentorProfile.query.filter_by(id=req.mentor_id, college_id=user.college_id).first()
     if not mentor:
         return error_response("Mentor profile not found.", 404)
         

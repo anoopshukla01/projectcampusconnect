@@ -177,6 +177,7 @@ class ModerationReport(db.Model):
     __tablename__ = "moderation_reports"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     reporter_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     target_type = db.Column(db.String(50), nullable=False) # "student", "company", "drive", "internship"
     target_id = db.Column(db.String(255), nullable=False)    # student_id, company_id/name, drive_id, etc.
@@ -184,6 +185,7 @@ class ModerationReport(db.Model):
     status = db.Column(db.String(50), default="pending", nullable=False) # "pending", "resolved", "dismissed"
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    college = db.relationship("College", foreign_keys=[college_id])
     reporter = db.relationship("User", foreign_keys=[reporter_id])
 
 

@@ -1482,7 +1482,8 @@ def get_data_health():
 @require_auth
 @require_roles("admin")
 def resolve_report(report_id):
-    mr = db.session.query(ModerationReport).filter_by(id=report_id).first()
+    cid = g.current_user.college_id
+    mr = db.session.query(ModerationReport).filter_by(id=report_id, college_id=cid).first()
     if mr:
         try:
             mr.status = "resolved"
@@ -1511,7 +1512,8 @@ def resolve_report(report_id):
 @require_auth
 @require_roles("admin")
 def dismiss_report(report_id):
-    mr = db.session.query(ModerationReport).filter_by(id=report_id).first()
+    cid = g.current_user.college_id
+    mr = db.session.query(ModerationReport).filter_by(id=report_id, college_id=cid).first()
     if mr:
         try:
             mr.status = "dismissed"
