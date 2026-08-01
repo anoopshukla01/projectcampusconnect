@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
 import { useBranches } from '../../hooks/useBranches';
-import { academicsApi } from '../../services/api';
+import { academicsApi, professorsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Assignments.css';
 
@@ -92,10 +92,55 @@ export default function Assignments() {
   // Professor: create new assignment modal state
   const [createModal, setCreateModal] = useState(false);
   const [creating,    setCreating]    = useState(false);
+  const [myClasses,   setMyClasses]   = useState([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [selectedClassIdx, setSelectedClassIdx] = useState('');
   const [createForm, setCreateForm] = useState({
-    title: '', subject: '', branch: '', due_date: '', points: '25 pts',
+    title: '', subject: '', branch: '', semester: null, due_date: '', points: '25 pts',
     description: '',
   });
+
+  // Fetch professor's assigned classes
+  useEffect(() => {
+    if (isProfessor) {
+      setClassesLoading(true);
+      professorsApi.getMyClasses()
+        .then(res => {
+          const clsList = res?.classes || [];
+          setMyClasses(clsList);
+          if (clsList.length > 0) {
+            setSelectedClassIdx('0');
+            setCreateForm(prev => ({
+              ...prev,
+              subject: clsList[0].course_name,
+              branch: clsList[0].branch,
+              semester: clsList[0].semester,
+            }));
+          }
+        })
+        .catch(() => setMyClasses([]))
+        .finally(() => setClassesLoading(false));
+    }
+  }, [isProfessor]);
+
+  const handleClassChange = (e) => {
+    const idxStr = e.target.value;
+    setSelectedClassIdx(idxStr);
+    if (idxStr === '') {
+      setCreateForm(prev => ({ ...prev, subject: '', branch: '', semester: null }));
+      return;
+    }
+    const idx = parseInt(idxStr, 10);
+    const cls = myClasses[idx];
+    if (cls) {
+      setCreateForm(prev => ({
+        ...prev,
+        subject: cls.course_name,
+        branch: cls.branch,
+        semester: cls.semester,
+      }));
+    }
+  };
 
   // Load submissions when professor selects an assignment
   useEffect(() => {
@@ -134,6 +179,10 @@ export default function Assignments() {
 
   async function handleCreateAssignment(e) {
     e.preventDefault();
+    if (!createForm.subject) {
+      showToast('Please select a class.', 'error');
+      return;
+    }
     setCreating(true);
     const res = await academicsApi.createAssignment(createForm);
     setCreating(false);
@@ -142,7 +191,17 @@ export default function Assignments() {
     } else {
       showToast('Assignment posted.', 'success', 2500);
       setCreateModal(false);
-      setCreateForm({ title: '', subject: '', branch: '', due_date: '', points: '25 pts', description: '' });
+      const defaultCls = myClasses[0];
+      setCreateForm({
+        title: '',
+        subject: defaultCls ? defaultCls.course_name : '',
+        branch: defaultCls ? defaultCls.branch : '',
+        semester: defaultCls ? defaultCls.semester : null,
+        due_date: '',
+        points: '25 pts',
+        description: '',
+      });
+      if (defaultCls) setSelectedClassIdx('0');
       refetch();
     }
   }
@@ -303,21 +362,41 @@ export default function Assignments() {
                 <h2>New Assignment</h2>
                 <button className="modal-close" onClick={() => setCreateModal(false)}><X size={16} /></button>
               </div>
+              {myClasses.length === 0 && !classesLoading ? (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: '#ef4444',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.88rem',
+                  fontWeight: 500,
+                  marginBottom: '1rem',
+                }}>
+                  You have no classes assigned yet — contact your Admin.
+                </div>
+              ) : null}
               <form onSubmit={handleCreateAssignment} className="sell-form">
+                <label>Class
+                  <select
+                    required
+                    value={selectedClassIdx}
+                    onChange={handleClassChange}
+                    disabled={myClasses.length === 0 || classesLoading}
+                  >
+                    {myClasses.length === 0 && (
+                      <option value="">No assigned classes</option>
+                    )}
+                    {myClasses.map((c, i) => (
+                      <option key={c.id || i} value={i}>
+                        {c.course_name} ({c.course_code}) — {c.branch}, Sem {c.semester}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>Title
                   <input required value={createForm.title}
                     onChange={e => setCreateForm(p => ({ ...p, title: e.target.value }))} />
-                </label>
-                <label>Subject
-                  <input required value={createForm.subject}
-                    onChange={e => setCreateForm(p => ({ ...p, subject: e.target.value }))} />
-                </label>
-                <label>Branch (optional)
-                  <select value={createForm.branch}
-                    onChange={e => setCreateForm(p => ({ ...p, branch: e.target.value }))}>
-                    <option value="">All Branches</option>
-                    {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
-                  </select>
                 </label>
                 <label>Due Date
                   <input required type="date" value={createForm.due_date}
@@ -332,7 +411,8 @@ export default function Assignments() {
                     onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
                     style={{ resize: 'vertical', width: '100%' }} />
                 </label>
-                <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating}>
+                <button type="submit" className="action-btn" style={{ width: '100%' }}
+                        disabled={creating || myClasses.length === 0 || classesLoading}>
                   {creating ? 'Posting…' : 'Post Assignment'}
                 </button>
               </form>

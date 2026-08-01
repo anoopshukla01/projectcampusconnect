@@ -500,9 +500,9 @@ def add_extra_class():
 @require_auth
 def get_assignments():
     """
-    Student: assignments for their branch.
-    Professor: assignments they created.
-    Admin / TPO: all assignments.
+    Student: assignments for their branch & college.
+    Professor: assignments they created for their college.
+    Admin / TPO: all assignments for their college.
     """
     user    = get_current_user()
     role    = user.role
@@ -511,6 +511,7 @@ def get_assignments():
         student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
         branch  = student.branch if student else None
         assignments = Assignment.query.filter(
+            Assignment.college_id == user.college_id,
             (Assignment.branch == branch) | (Assignment.branch.is_(None))
         ).order_by(Assignment.created_at.desc()).all()
 
@@ -524,6 +525,7 @@ def get_assignments():
             sub = submissions_map.get(str(a.id))
             res.append({
                 "id": str(a.id), "name": a.title, "subject": a.subject,
+                "branch": a.branch, "semester": a.semester,
                 "due": a.due_date, "points": a.points,
                 "status": sub.status if sub else "pending",
                 "desc": a.description, "attachment": a.attachment_url,
@@ -533,6 +535,7 @@ def get_assignments():
 
     elif role == UserRole.PROFESSOR:
         assignments = Assignment.query.filter_by(
+            college_id=user.college_id,
             professor_id=user.id
         ).order_by(Assignment.created_at.desc()).all()
         res = []
@@ -540,20 +543,24 @@ def get_assignments():
             sub_count = AssignmentSubmission.query.filter_by(assignment_id=a.id).count()
             res.append({
                 "id": str(a.id), "name": a.title, "subject": a.subject,
-                "branch": a.branch, "due": a.due_date, "points": a.points,
+                "branch": a.branch, "semester": a.semester,
+                "due": a.due_date, "points": a.points,
                 "desc": a.description, "attachment": a.attachment_url,
                 "submissions": sub_count,
             })
 
     else:
-        # admin / tpo — full list
-        assignments = Assignment.query.order_by(Assignment.created_at.desc()).all()
+        # admin / tpo — full list for current college
+        assignments = Assignment.query.filter_by(
+            college_id=user.college_id
+        ).order_by(Assignment.created_at.desc()).all()
         res = []
         for a in assignments:
             sub_count = AssignmentSubmission.query.filter_by(assignment_id=a.id).count()
             res.append({
                 "id": str(a.id), "name": a.title, "subject": a.subject,
-                "branch": a.branch, "due": a.due_date, "points": a.points,
+                "branch": a.branch, "semester": a.semester,
+                "due": a.due_date, "points": a.points,
                 "submissions": sub_count,
             })
 
@@ -570,14 +577,41 @@ def create_assignment():
     title   = data.get("title") or data.get("name")
     subject = data.get("subject")
     due     = data.get("due_date") or data.get("due")
+    branch  = data.get("branch")
+    semester = data.get("semester")
+    if semester is not None:
+        try:
+            semester = int(semester)
+        except (ValueError, TypeError):
+            semester = None
+
     if not title or not subject or not due:
         return error_response("title, subject, and due_date are required.", 400)
 
+    # Class ownership validation for professors
+    if user.role == UserRole.PROFESSOR:
+        from app.models.academic import ProfessorClassAssignment
+        query = ProfessorClassAssignment.query.filter_by(
+            professor_user_id=user.id,
+            course_name=subject,
+            is_active=True
+        )
+        if branch is not None:
+            query = query.filter_by(branch=branch)
+        if semester is not None:
+            query = query.filter_by(semester=semester)
+
+        owns_class = query.first()
+        if not owns_class:
+            return error_response("You are not assigned to teach this class.", 403)
+
     try:
         a = Assignment(
+            college_id     = user.college_id,
             title          = title,
             subject        = subject,
-            branch         = data.get("branch"),
+            branch         = branch,
+            semester       = semester,
             due_date       = due,
             points         = data.get("points", "25 pts"),
             description    = data.get("description") or data.get("desc"),
@@ -593,12 +627,14 @@ def create_assignment():
     audit_action("academics.assignment.created",
                  target_type="assignment", target_id=str(a.id))
 
-    # ── Cross-feature trigger: notify students in this branch ────────────────
+    # ── Cross-feature trigger: notify students in this college & branch ──────
     try:
         from app.utils.notify import notify
-        q = StudentProfile.query.filter_by(is_deleted=False)
+        q = StudentProfile.query.filter_by(college_id=user.college_id, is_deleted=False)
         if a.branch:
             q = q.filter_by(branch=a.branch)
+        if a.semester:
+            q = q.filter_by(semester=a.semester)
         student_user_ids = [sp.user_id for sp in q.all()]
         notify(
             student_user_ids,

@@ -53,15 +53,19 @@ class Assignment(db.Model):
     __tablename__ = "assignments"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     title = db.Column(db.String(255), nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     branch = db.Column(db.String(50), nullable=True)
+    semester = db.Column(db.Integer, nullable=True)
     due_date = db.Column(db.String(50), nullable=False)
     points = db.Column(db.String(20), nullable=False, default="25 pts")
     description = db.Column(db.Text, nullable=True)
     attachment_url = db.Column(db.String(1000), nullable=True)
     professor_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    college = db.relationship("College", foreign_keys=[college_id])
 
 class AssignmentSubmission(db.Model):
     __tablename__ = "assignment_submissions"

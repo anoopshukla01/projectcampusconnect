@@ -147,6 +147,7 @@ def test_cross_college_assignment_update_returns_404(client, db_session, tenancy
     from app.models.academic import Assignment
     from datetime import date
     asgn1 = Assignment(
+        college_id=t["col1_id"],
         professor_id=t["prof1"].id,
         title="Col 1 Assignment", subject="Physics", due_date=str(date.today()), points=100
     )

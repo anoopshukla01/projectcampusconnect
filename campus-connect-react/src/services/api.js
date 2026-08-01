@@ -684,6 +684,7 @@ export const adminApi = {
 export const professorsApi = {
   getMe: () => apiGet('/professors/me'),
   updateMe: (payload) => apiPatch('/professors/me', payload),
+  getMyClasses: () => apiGet('/professors/me/classes'),
   list: (params) => apiGet('/professors', params),
   getById: (profId) => apiGet(`/professors/${profId}`),
 };
