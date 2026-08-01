@@ -138,3 +138,32 @@
 }
 .ann-load-more:hover:not(:disabled) { background: var(--clr-primary-soft); border-color: var(--clr-primary); color: var(--clr-primary); }
 .ann-load-more:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Responsive (Pattern A: classes-grid, Pattern C: modal) ─────────────── */
+@media (max-width: 1024px) {
+  .classes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .classes-grid {
+    grid-template-columns: 1fr;
+  }
+  .ann-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .ann-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .ann-root {
+    max-width: 100%;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+}

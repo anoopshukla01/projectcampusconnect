@@ -12,3 +12,19 @@
 .laf-meta    { font-size:0.75rem; color:var(--clr-muted); }
 .laf-contact { font-size:0.75rem; color:var(--clr-text-2); font-weight:500; }
 .laf-btn { margin-top:0.5rem; font-size:0.75rem; padding:0.4rem 0.8rem; align-self:flex-start; }
+
+/* ── Responsive (Pattern A: laf-grid collapse) ───────────────────────────── */
+@media (max-width: 768px) {
+  .laf-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .laf-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+}

@@ -21,3 +21,22 @@
 .of-date { font-size: .76rem; color: var(--text-secondary); }
 .of-actions { display: flex; gap: .5rem; }
 .of-locked-card { border-left: 3px solid var(--clr-success); }
+
+/* ── Responsive (Pattern A: card grid collapse) ──────────────────────────── */
+@media (max-width: 768px) {
+  .of-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .of-grid {
+    grid-template-columns: 1fr;
+  }
+  .of-actions {
+    flex-direction: column;
+  }
+  .of-actions button {
+    width: 100%;
+  }
+}

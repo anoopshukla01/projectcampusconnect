@@ -61,3 +61,25 @@
   flex: 1;
   min-width: 90px;
 }
+
+/* ── Responsive (Pattern A: class cards grid) ───────────────────────────── */
+@media (max-width: 1024px) {
+  .classes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .classes-grid {
+    grid-template-columns: 1fr;
+  }
+  .class-card-actions {
+    flex-direction: column;
+  }
+  .class-card-actions button {
+    width: 100%;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+}

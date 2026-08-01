@@ -305,3 +305,20 @@
   margin-left: 0.5rem;
 }
 
+
+/* ── Additional 480px breakpoint ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .chats-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .chat-window {
+    min-height: 360px;
+  }
+  .chat-input-row {
+    padding: 0.625rem 0.875rem;
+  }
+  .message {
+    max-width: 88%;
+  }
+}

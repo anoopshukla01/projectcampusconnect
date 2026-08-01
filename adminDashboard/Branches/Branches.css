@@ -82,3 +82,34 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ── Responsive (Pattern A: grid collapse, Pattern B: table scroll) ───────── */
+@media (max-width: 1024px) {
+  .branches-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Pattern B: table horizontal scroll */
+  .branches-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .branches-table-wrap table {
+    min-width: 540px;
+  }
+  .branches-filter-pills {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Pattern A: single-column stats */
+  .branches-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .branches-summary-card {
+    padding: 0.875rem 1rem;
+  }
+}

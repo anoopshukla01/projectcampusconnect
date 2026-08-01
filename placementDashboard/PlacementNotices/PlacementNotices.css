@@ -29,3 +29,35 @@
 .pn-textarea { resize: vertical; min-height: 100px; font-family: inherit; }
 .pn-checkbox-label { display: flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--text-secondary); cursor: pointer; }
 .pn-checkbox-label input { width: 15px; height: 15px; cursor: pointer; }
+
+/* ── Responsive (Pattern B: notice header wrap) ──────────────────────────── */
+@media (max-width: 768px) {
+  .pn-notice-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .pn-actions {
+    align-self: flex-end;
+  }
+  .pn-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .pn-time {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .pn-notice {
+    padding: 0.875rem 1rem;
+  }
+  /* Pattern C: compose modal padding reduction */
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+  .pn-title-row {
+    flex-wrap: wrap;
+  }
+}

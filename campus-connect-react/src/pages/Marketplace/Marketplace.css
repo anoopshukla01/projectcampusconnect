@@ -19,3 +19,26 @@
 .sell-form label { display:flex; flex-direction:column; gap:0.3rem; font-size:0.82rem; font-weight:600; color:var(--clr-text); }
 .sell-form input, .sell-form select, .sell-form textarea { padding:0.6rem 0.75rem; border:1.5px solid var(--clr-border); border-radius:var(--radius-sm); font-family:var(--font); font-size:0.875rem; color:var(--clr-text); background:var(--clr-input-bg); outline:none; transition:border-color var(--t); resize:vertical; }
 .sell-form input:focus, .sell-form select:focus, .sell-form textarea:focus { border-color:var(--clr-primary); }
+
+/* ── Responsive (Pattern A: grid, Pattern C: sell modal) ────────────────── */
+@media (max-width: 1024px) {
+  .merch-products-grid,
+  .marketplace-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .merch-products-grid,
+  .marketplace-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  /* Pattern C: sell-form modal */
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+  .sell-form {
+    padding: 1rem 1.25rem;
+  }
+}

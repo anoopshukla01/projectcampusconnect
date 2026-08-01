@@ -28,3 +28,34 @@
 .recording-meta  { font-size:0.72rem; color:var(--clr-muted); }
 .btn-dl { background:none; border:1px solid var(--clr-border); border-radius:var(--radius-sm); padding:0.4rem; color:var(--clr-muted); transition:all var(--t); }
 .btn-dl:hover { border-color:var(--clr-primary); color:var(--clr-primary); }
+
+/* ── Responsive (Pattern A: lecture grids collapse) ─────────────────────── */
+@media (max-width: 1024px) {
+  .live-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .syllabus-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .recording-card {
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .live-grid,
+  .syllabus-grid {
+    grid-template-columns: 1fr;
+  }
+  .recording-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .btn-dl {
+    align-self: flex-end;
+  }
+}

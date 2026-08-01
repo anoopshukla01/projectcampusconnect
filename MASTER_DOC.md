@@ -55,8 +55,10 @@ a professor feature means editing files in `professorDashboard/`, not
 searching for it inside `campus-connect-react/src/`.
 
 **Genuinely dead/legacy** (safe to delete, not referenced by any alias or
-import): `studentDashboard/` and the root-level `LoginPage/` folder. These
-predate the current React app and are not part of the live build.
+import): `studentDashboard/` and the root-level `LoginPage/` folder were
+deleted in commit `b2b4a68`. `campus-connect-react/src/components/PagePlaceholder.jsx`
+and its `PagePlaceholder.css` were also deleted at the same time — both
+were unreferenced orphans.
 
 - **Framework:** React + Vite. Routing: `react-router-dom`, all routes
   defined in `campus-connect-react/src/App.jsx`.
@@ -75,6 +77,40 @@ predate the current React app and are not part of the live build.
   Any change to `campus-connect-react/` (new screen, new field, changed
   component) requires a new APK build for Android users to receive it — web
   users get it on next page load automatically via Vercel.
+
+### 1.2.1 Responsive Design
+
+The app targets mobile-first (distributed as Android APK via Capacitor) and
+uses three standardised breakpoints across **every** CSS file:
+
+| Name | Value | Covers |
+|---|---|---|
+| Mobile | `max-width: 480px` | Phones ≤ iPhone SE / small Android |
+| Tablet | `max-width: 768px` | Tablets portrait / large phones |
+| Small laptop | `max-width: 1024px` | iPad landscape / small laptops |
+
+**Do NOT introduce other breakpoint values** (500px, 540px, 800px, 900px
+etc. that existed historically are now gone). The three values above are
+documented in a comment block at the top of `campus-connect-react/src/styles/global.css`.
+
+Three canonical responsive patterns apply to all page-level CSS:
+
+- **Pattern A — Multi-column grids** (stats cards, event grids, marketplace
+  listings, ELibrary grids): `grid-template-columns: repeat(2, 1fr)` at
+  1024px; `grid-template-columns: 1fr` at 480px.
+- **Pattern B — Wide data tables** (Companies, Drives, Eligibility, Branches,
+  Roster): wrap the `<table>` in a `<div class="*-table-wrap">` with
+  `overflow-x: auto` at 768px; `min-width` on the table forces scroll rather
+  than overflow.
+- **Pattern C — Forms and modals**: stack multi-column form grids to 1-column
+  at 480px; reduce modal `padding` from desktop values (1.75rem 2rem) to
+  tighter values (1rem 1.25rem) at 480px.
+
+**Duplicate professor pages** — `campus-connect-react/src/pages/professorDashboard/`
+contains live imports (Announcements, Classes, Roster, StudentDetail) pulled
+directly by `App.jsx`. The root-level `professorDashboard/` folder is aliased
+via `@professor` and also live. Both must be kept in sync when editing shared
+professor UI.
 
 ### 1.3 Naming history
 The product has been called StudentSphere → CampusConnect → theVidyaverse
@@ -214,6 +250,13 @@ part meant to stop regressions.
 
 ### 🟡 Open — Medium / UI-UX
 *(None remaining)*
+
+### ✅ Fixed — Mobile Responsiveness (systemic)
+- **Zero @media-query pages** (30+ files across all 4 dashboard areas): All
+  page-level CSS files now have at least the 3 standard breakpoints (480 /
+  768 / 1024 px). Patterns A/B/C applied per content type. `npm run build`
+  clean after all changes. CSS bundle grew 135 kB → 142 kB (new media rules).
+  Committed in the `feat: systemic mobile responsiveness` commit.
 
 ### ✅ Fixed (kept here as history, not for re-investigation)
 - **Cross-college professor attendance data leak** (H-new): `GET /admin/attendance/professors` and `POST /admin/attendance/professors/check-in` in `admin.py` were missing `college_id` scoping — an admin from College A could read and write attendance records for professors at College B. Fixed by adding `college_id=g.current_user.college_id` filter to both queries; checkin query further tightened to use `.in_([...prof_ids])` rather than fetching all colleges' check-ins. All 62 tests pass.

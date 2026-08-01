@@ -738,3 +738,13 @@
 
   .mode-tab { font-size: 0.73rem; padding: 0.55rem 0.3rem; }
 }
+
+/* ── Additional tablet breakpoint ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .login-wrapper {
+    padding: 1.5rem 1rem;
+  }
+  .login-card {
+    max-width: 420px;
+  }
+}

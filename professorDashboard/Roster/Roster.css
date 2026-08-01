@@ -25,3 +25,22 @@
     align-items: stretch;
   }
 }
+
+/* ── Additional 480px breakpoint ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .roster-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .class-selector {
+    width: 100%;
+  }
+  /* Roster table scroll on narrow screens */
+  .roster-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .roster-table-wrap table {
+    min-width: 480px;
+  }
+}

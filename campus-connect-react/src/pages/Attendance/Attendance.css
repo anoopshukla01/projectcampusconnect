@@ -73,3 +73,25 @@
   .summary-card { flex-direction: column; text-align: center; }
   .calc-btns { flex-direction: column; }
 }
+
+/* ── Additional 480px breakpoint ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .attend-top-row {
+    grid-template-columns: 1fr;
+  }
+  .summary-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  .calc-btns {
+    flex-direction: column;
+  }
+  .attend-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+  .attend-table th,
+  .attend-table td {
+    padding: 0.55rem 0.625rem;
+    font-size: 0.78rem;
+  }
+}

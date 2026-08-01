@@ -189,3 +189,37 @@
   .sd-hero { flex-direction: column; align-items: flex-start; }
   .sd-section-body { grid-template-columns: 1fr; }
 }
+
+/* ── Additional breakpoints (extending existing 640px) ───────────────────── */
+@media (max-width: 1024px) {
+  .sd-section-body {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .sd-hero {
+    padding: 1.125rem 1rem;
+    gap: 1rem;
+  }
+  .sd-hero-name {
+    font-size: 1.2rem;
+  }
+  .sd-confirm-modal {
+    padding: 1.25rem;
+    margin: 0 1rem;
+  }
+  .sd-confirm-actions {
+    flex-direction: column-reverse;
+  }
+  .sd-confirm-actions button {
+    width: 100%;
+  }
+  .sd-section-header {
+    padding: 0.875rem 1rem;
+  }
+  .sd-section-body {
+    padding: 1rem;
+    grid-template-columns: 1fr;
+  }
+}

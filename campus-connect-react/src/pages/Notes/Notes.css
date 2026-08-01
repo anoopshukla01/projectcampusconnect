@@ -10,3 +10,14 @@
 .note-type-badge.notes  { background:#ede9fe; color:#6d28d9; }
 .note-type-badge.slides { background:#dbeafe; color:#1e40af; }
 .note-type-badge.pyq    { background:#dcfce7; color:#15803d; }
+
+/* ── Responsive (list — note card action wrap) ───────────────────────────── */
+@media (max-width: 480px) {
+  .note-card {
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+  .note-type-badge {
+    align-self: flex-start;
+  }
+}

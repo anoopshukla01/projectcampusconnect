@@ -12,3 +12,19 @@
 .intern-tag { font-size:0.68rem; font-weight:600; background:var(--clr-bg); border:1px solid var(--clr-border); border-radius:99px; padding:0.15rem 0.5rem; color:var(--clr-text-2); }
 .intern-apply-btn { width:100%; }
 .intern-apply-btn.applied { background:var(--clr-success)!important; border-color:var(--clr-success)!important; }
+
+/* ── Responsive (Pattern A: internship-grid collapse) ───────────────────── */
+@media (max-width: 1024px) {
+  .internship-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .internship-grid {
+    grid-template-columns: 1fr;
+  }
+  .intern-header {
+    flex-wrap: wrap;
+  }
+}

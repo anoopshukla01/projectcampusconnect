@@ -32,3 +32,20 @@
 .send-btn { border-radius:50%; width:40px; height:40px; padding:0; flex-shrink:0; }
 .send-btn:disabled { opacity:0.5; cursor:not-allowed; }
 @media (max-width:768px) { .chats-layout { grid-template-columns:1fr; height:auto; } .chat-window { min-height:400px; } }
+
+/* ── Additional 480px breakpoint ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .chats-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .chat-window {
+    min-height: 360px;
+  }
+  .chat-input-row {
+    padding: 0.625rem 0.875rem;
+  }
+  .message {
+    max-width: 88%;
+  }
+}

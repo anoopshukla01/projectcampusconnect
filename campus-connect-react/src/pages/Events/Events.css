@@ -11,3 +11,19 @@
 .event-full-title { font-size:0.975rem; font-weight:700; color:var(--clr-text); line-height:1.3; }
 .event-details { display:flex; flex-direction:column; gap:0.3rem; margin:0.25rem 0; }
 .event-details span { font-size:0.78rem; color:var(--clr-muted); }
+
+/* ── Responsive (Pattern A: events-grid collapse) ───────────────────────── */
+@media (max-width: 1024px) {
+  .events-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+}

@@ -19,3 +19,21 @@
 .book-year   { font-size:0.68rem; color:var(--clr-muted); }
 .listing-btn.disabled   { background:var(--clr-border)!important; color:var(--clr-muted)!important; cursor:not-allowed!important; }
 .listing-btn.requested  { background:var(--clr-warning)!important; }
+
+/* ── Responsive (Pattern A: resource/listing grid) ──────────────────────── */
+@media (max-width: 1024px) {
+  .listing-grid,
+  .resources-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .listing-grid,
+  .resources-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+}

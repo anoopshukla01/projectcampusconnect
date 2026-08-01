@@ -91,6 +91,26 @@
   --t-md: 0.28s ease;
 }
 
+/* ── Responsive Breakpoints ──────────────────────────────────────────────────
+   Standardised across the entire app. Every @media query must use ONLY these
+   values — do NOT introduce new arbitrary numbers (500px, 540px, 800px, etc.)
+
+   Mobile:       max-width: 480px   (≤ ~iPhone SE / small Android)
+   Tablet:       max-width: 768px   (≤ iPad portrait / large phones)
+   Small laptop: max-width: 1024px  (≤ iPad landscape / small laptops)
+
+   Pattern A — Multi-column grids (Dashboard stats, Events, Marketplace, …)
+     @media (max-width: 1024px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+     @media (max-width: 480px)  { .grid { grid-template-columns: 1fr; } }
+
+   Pattern B — Wide data tables
+     @media (max-width: 768px)  { .table-wrap { overflow-x: auto; } table { min-width: 540px; } }
+
+   Pattern C — Forms & modals
+     @media (max-width: 480px)  { .modal-card { padding: 1rem 1.25rem; }
+                                   .form-grid-2 { grid-template-columns: 1fr; } }
+   ────────────────────────────────────────────────────────────────────────── */
+
 body {
   font-family: var(--font);
   background: var(--clr-bg);

@@ -162,3 +162,40 @@
   color: #fff;
 }
 
+
+/* ── Responsive (Pattern A: grid collapses) ──────────────────────────────── */
+@media (max-width: 1024px) {
+  /* 4-col stats → 2-col on tablet */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* 2-col mid-row stays OK at 1024 */
+}
+
+@media (max-width: 768px) {
+  /* mid-row sidebar → single column */
+  .mid-row {
+    grid-template-columns: 1fr;
+  }
+  /* bottom-row → single column */
+  .bottom-row {
+    grid-template-columns: 1fr;
+  }
+  /* event mini-cards: 2 → 1 on small tablet */
+  .event-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  /* stats-row → 1-column */
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+  .stat-value {
+    font-size: 1.4rem;
+  }
+  .welcome-title {
+    font-size: 1.35rem;
+  }
+}

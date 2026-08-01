@@ -76,3 +76,46 @@
 }
 .dr-round-add { display: flex; gap: .5rem; }
 .dr-round-add .co-input { flex: 1; }
+
+/* ── Responsive (Pattern A: grid, Pattern B: table, Pattern C: form) ─────── */
+@media (max-width: 1024px) {
+  /* Drive cards: 2-column on tablet */
+  .dr-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Pattern B: drive stats row stack */
+  .dr-stats-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  /* Drive card actions wrap */
+  .dr-card-actions {
+    flex-direction: column;
+  }
+  .dr-card-actions .btn-secondary,
+  .dr-card-actions .btn-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Pattern A: 1-column drive cards */
+  .dr-grid {
+    grid-template-columns: 1fr;
+  }
+  /* Pattern C: drive modal padding */
+  .dr-modal {
+    max-width: 100%;
+    max-height: 95vh;
+  }
+  .modal-card {
+    padding: 1rem 1.25rem;
+  }
+  /* Round add row stacks */
+  .dr-round-add {
+    flex-direction: column;
+  }
+}

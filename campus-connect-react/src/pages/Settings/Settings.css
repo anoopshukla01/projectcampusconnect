@@ -125,3 +125,26 @@
   min-height: 300px;
   gap: 1rem;
 }
+
+/* ── Responsive (Pattern C: settings card padding) ──────────────────────── */
+@media (max-width: 768px) {
+  .settings-page-wrapper {
+    margin: 1rem auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-card-shell {
+    padding: 1.25rem 1.25rem;
+    border-radius: 1rem;
+  }
+  .settings-page-title {
+    font-size: 1.35rem;
+  }
+  .settings-actions {
+    justify-content: stretch;
+  }
+  .settings-actions button {
+    width: 100%;
+  }
+}

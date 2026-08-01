@@ -13,3 +13,16 @@
 .unavail-text { color:var(--clr-muted); }
 .mentor-req-btn { width:100%; }
 .mentor-req-btn.applied { background:var(--clr-success)!important; border-color:var(--clr-success)!important; }
+
+/* ── Responsive (Pattern A: mentor grid collapse) ───────────────────────── */
+@media (max-width: 1024px) {
+  .mentor-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .mentor-grid {
+    grid-template-columns: 1fr;
+  }
+}

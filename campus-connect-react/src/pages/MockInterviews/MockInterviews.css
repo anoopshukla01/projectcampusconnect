@@ -10,3 +10,24 @@
 .mock-meta    { display:flex; gap:0.75rem; font-size:0.72rem; color:var(--clr-muted); flex-wrap:wrap; }
 .mock-book-btn { flex-shrink:0; font-size:0.78rem; padding:0.5rem 0.875rem; }
 .mock-book-btn.applied { background:var(--clr-success)!important; border-color:var(--clr-success)!important; }
+
+/* ── Responsive (Pattern A: tips-grid, mock list) ───────────────────────── */
+@media (max-width: 768px) {
+  .tips-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mock-card {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .tips-grid {
+    grid-template-columns: 1fr;
+  }
+  .mock-book-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
