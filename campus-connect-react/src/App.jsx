@@ -46,6 +46,7 @@ import AdminAnnouncements from '@admin/Announcements/Announcements';
 import DataHealth         from '@admin/DataHealth/DataHealth';
 import BranchComparison   from '@admin/BranchComparison/BranchComparison';
 import Branches           from '@admin/Branches/Branches';
+import ProfessorAssignments from '@admin/ProfessorAssignments/ProfessorAssignments';
 import DataManager        from '@admin/DataManager/DataManager';
 import AttendanceTimetableOversight from '@admin/AttendanceTimetableOversight/AttendanceTimetableOversight';
 import MarketplaceManager from '@admin/Marketplace/MarketplaceManager';
@@ -138,6 +139,7 @@ export default function App() {
           <Route path="/admin/announcements" element={onlyAdmin(<AdminAnnouncements />)} />
           <Route path="/admin/datahealth" element={onlyAdmin(<DataHealth />)} />
           <Route path="/admin/branches"   element={onlyAdmin(<Branches />)} />
+          <Route path="/admin/professor-assignments" element={onlyAdmin(<ProfessorAssignments />)} />
           <Route path="/admin/branch-comparison" element={onlyAdmin(<BranchComparison />)} />
           <Route path="/admin/data"       element={onlyAdmin(<DataManager />)} />
           <Route path="/admin/students/:studentId" element={onlyAdmin(<AdminStudentDetail />)} />

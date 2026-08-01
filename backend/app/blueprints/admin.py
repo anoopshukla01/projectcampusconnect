@@ -27,6 +27,7 @@ SELF-REVIEW CHECKLIST:
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone, date
+import uuid
 from flask import Blueprint, jsonify, request, g, current_app
 from marshmallow import ValidationError
 from sqlalchemy import func, case
@@ -40,7 +41,7 @@ from app.utils.email import send_invite_email
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
 from app.models.placement import PlacementDrive, PlacementOffer, OfferStatus, BranchPlacement
-from app.models.academic import Subject, TimetableSlot, TimetableBooking, ReEvaluationRequest, AttendanceRecord, ProfessorCheckIn
+from app.models.academic import Subject, TimetableSlot, TimetableBooking, ReEvaluationRequest, AttendanceRecord, ProfessorCheckIn, ProfessorClassAssignment
 from app.models.community import (
     Announcement, CampusEvent, MarketplaceItem, LostFoundItem,
     EventRegistration, AdminDetailRequest, ModerationReport,
@@ -2150,3 +2151,260 @@ def activate_branch(branch_id):
     audit_action("admin.branch.activate", target_type="branch", target_id=str(branch.id),
                  detail={"code": branch.code})
     return jsonify({"message": f"Branch '{branch.code}' activated."}), 200
+
+
+# ── AD-PA: Professor Class Assignment management ──────────────────────────────
+# Admin creates/edits/deactivates the ProfessorClassAssignment rows that gate
+# every professor endpoint (timetable slot creation, grade submission, etc.).
+# College-scoping: every route verifies the professor user is in the admin's
+# own college before touching any record.
+
+def _assignment_to_dict(a):
+    """Serialize a ProfessorClassAssignment row for API responses."""
+    prof = a.professor  # eager relationship
+    return {
+        "id":                str(a.id),
+        "professor_user_id": str(a.professor_user_id),
+        "professor_name":    prof.professor_profile.full_name if prof and prof.professor_profile else "",
+        "professor_email":   prof.email or "",
+        "course_name":       a.course_name,
+        "course_code":       a.course_code,
+        "branch":            a.branch,
+        "semester":          a.semester,
+        "academic_year":     a.academic_year or "",
+        "is_active":         a.is_active,
+        "created_at":        a.created_at.isoformat() if a.created_at else "",
+    }
+
+
+@admin_bp.get("/professor-assignments")
+@require_auth
+@require_roles("admin")
+def list_professor_assignments():
+    """AD-PA1: List all professor-class assignments for this college.
+    Supports ?professor_id=<uuid> to filter by a specific professor."""
+    cid = g.current_user.college_id
+    professor_id = request.args.get("professor_id")
+    try:
+        q = (
+            db.session.query(ProfessorClassAssignment)
+            .join(User, User.id == ProfessorClassAssignment.professor_user_id)
+            .filter(User.college_id == cid, User.is_deleted == False)  # noqa: E712
+        )
+        if professor_id:
+            try:
+                prof_uuid = uuid.UUID(professor_id)
+                q = q.filter(ProfessorClassAssignment.professor_user_id == prof_uuid)
+            except (ValueError, TypeError):
+                return error_response("Invalid professor_id format.", 400)
+        assignments = q.order_by(ProfessorClassAssignment.created_at.desc()).all()
+        return jsonify({"assignments": [_assignment_to_dict(a) for a in assignments]}), 200
+    except Exception as exc:
+        return internal_error_response(exc, "list_professor_assignments")
+
+
+@admin_bp.post("/professor-assignments")
+@require_auth
+@require_roles("admin")
+def create_professor_assignment():
+    """AD-PA2: Assign a professor to a course+branch+semester combination.
+    Validates professor belongs to this college, branch code exists and is active."""
+    cid = g.current_user.college_id
+    data = request.get_json(force=True) or {}
+
+    professor_user_id_raw = data.get("professor_user_id", "").strip()
+    course_name  = (data.get("course_name")  or "").strip()
+    course_code  = (data.get("course_code")  or "").strip().upper()
+    branch_code  = (data.get("branch")       or "").strip().upper()
+    semester_raw = data.get("semester")
+    academic_year = (data.get("academic_year") or "").strip() or None
+
+    # ── Validate required fields ──────────────────────────────────────────────
+    if not all([professor_user_id_raw, course_name, course_code, branch_code, semester_raw]):
+        return error_response(
+            "professor_user_id, course_name, course_code, branch, and semester are required.", 400
+        )
+
+    try:
+        prof_user_id = uuid.UUID(professor_user_id_raw)
+    except (ValueError, TypeError):
+        return error_response("Invalid professor_user_id format.", 400)
+
+    try:
+        semester = int(semester_raw)
+    except (TypeError, ValueError):
+        return error_response("semester must be an integer.", 400)
+    if not (1 <= semester <= 8):
+        return error_response("semester must be between 1 and 8.", 400)
+
+    # ── College-scope: professor must exist in this college ───────────────────
+    prof_user = (
+        db.session.query(User)
+        .filter_by(id=prof_user_id, college_id=cid, role=UserRole.PROFESSOR, is_deleted=False)
+        .first()
+    )
+    if not prof_user:
+        return error_response("Professor not found in this college.", 404)
+
+    # ── Branch must be active in this college ─────────────────────────────────
+    branch = (
+        db.session.query(Branch)
+        .filter_by(college_id=cid, code=branch_code, is_active=True)
+        .first()
+    )
+    if not branch:
+        return error_response(
+            f"Branch '{branch_code}' not found or not active in this college.", 400
+        )
+
+    try:
+        assignment = ProfessorClassAssignment(
+            professor_user_id=prof_user.id,
+            course_name=course_name,
+            course_code=course_code,
+            branch=branch.code,
+            semester=semester,
+            academic_year=academic_year,
+            is_active=True,
+        )
+        db.session.add(assignment)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        # Unique constraint violation → duplicate assignment
+        if "uq_prof_class_assignment" in str(exc).lower() or "unique" in str(exc).lower():
+            return error_response(
+                "This professor already has an assignment for this course/branch/semester.", 409
+            )
+        return internal_error_response(exc, "create_professor_assignment")
+
+    audit_action(
+        "admin.professor_assignment.create",
+        target_type="professor_class_assignment",
+        target_id=str(assignment.id),
+        detail={"course_code": course_code, "branch": branch.code, "semester": semester,
+                "professor_user_id": str(prof_user.id)},
+    )
+    return jsonify({
+        "message": "Professor class assignment created.",
+        "assignment": _assignment_to_dict(assignment),
+    }), 201
+
+
+@admin_bp.patch("/professor-assignments/<uuid:assignment_id>")
+@require_auth
+@require_roles("admin")
+def update_professor_assignment(assignment_id):
+    """AD-PA3: Edit an existing professor-class assignment.
+    Allows updating course_name, course_code, branch, semester, academic_year, is_active."""
+    cid = g.current_user.college_id
+    # College-scope: join User to ensure professor is in this college
+    assignment = (
+        db.session.query(ProfessorClassAssignment)
+        .join(User, User.id == ProfessorClassAssignment.professor_user_id)
+        .filter(
+            ProfessorClassAssignment.id == assignment_id,
+            User.college_id == cid,
+            User.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    if not assignment:
+        return error_response("Assignment not found.", 404)
+
+    data = request.get_json(force=True) or {}
+
+    if "course_name" in data:
+        v = (data["course_name"] or "").strip()
+        if not v:
+            return error_response("course_name cannot be empty.", 400)
+        assignment.course_name = v
+
+    if "course_code" in data:
+        v = (data["course_code"] or "").strip().upper()
+        if not v:
+            return error_response("course_code cannot be empty.", 400)
+        assignment.course_code = v
+
+    if "branch" in data:
+        new_code = (data["branch"] or "").strip().upper()
+        branch = db.session.query(Branch).filter_by(college_id=cid, code=new_code, is_active=True).first()
+        if not branch:
+            return error_response(f"Branch '{new_code}' not found or not active.", 400)
+        assignment.branch = branch.code
+
+    if "semester" in data:
+        try:
+            sem = int(data["semester"])
+        except (TypeError, ValueError):
+            return error_response("semester must be an integer.", 400)
+        if not (1 <= sem <= 8):
+            return error_response("semester must be between 1 and 8.", 400)
+        assignment.semester = sem
+
+    if "academic_year" in data:
+        assignment.academic_year = (data["academic_year"] or "").strip() or None
+
+    if "is_active" in data:
+        assignment.is_active = bool(data["is_active"])
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        if "uq_prof_class_assignment" in str(exc).lower() or "unique" in str(exc).lower():
+            return error_response(
+                "This professor already has an assignment for this course/branch/semester.", 409
+            )
+        return internal_error_response(exc, "update_professor_assignment")
+
+    audit_action(
+        "admin.professor_assignment.update",
+        target_type="professor_class_assignment",
+        target_id=str(assignment.id),
+        detail={"is_active": assignment.is_active},
+    )
+    return jsonify({
+        "message": "Assignment updated.",
+        "assignment": _assignment_to_dict(assignment),
+    }), 200
+
+
+@admin_bp.delete("/professor-assignments/<uuid:assignment_id>")
+@require_auth
+@require_roles("admin")
+def deactivate_professor_assignment(assignment_id):
+    """AD-PA4: Soft-deactivate a professor-class assignment (is_active=False).
+    Hard-delete is not used — timetable slots referencing this assignment remain
+    intact as history. Matches the Branch deactivation pattern."""
+    cid = g.current_user.college_id
+    assignment = (
+        db.session.query(ProfessorClassAssignment)
+        .join(User, User.id == ProfessorClassAssignment.professor_user_id)
+        .filter(
+            ProfessorClassAssignment.id == assignment_id,
+            User.college_id == cid,
+            User.is_deleted == False,  # noqa: E712
+        )
+        .first()
+    )
+    if not assignment:
+        return error_response("Assignment not found.", 404)
+
+    if not assignment.is_active:
+        return jsonify({"message": "Assignment already deactivated."}), 200
+
+    try:
+        assignment.is_active = False
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "deactivate_professor_assignment")
+
+    audit_action(
+        "admin.professor_assignment.deactivate",
+        target_type="professor_class_assignment",
+        target_id=str(assignment.id),
+        detail={"course_code": assignment.course_code, "branch": assignment.branch},
+    )
+    return jsonify({"message": "Assignment deactivated."}), 200

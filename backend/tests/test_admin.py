@@ -227,3 +227,98 @@ def test_admin_delete_rule(client, admin_test_context):
     assert db.session.query(SystemRule).filter_by(id="test_rule_1").first() is None
 
 
+# ── Professor Class Assignment tests ──────────────────────────────────────────
+
+def test_create_professor_assignment_valid(client, admin_test_context, db_session):
+    """AD-PA2: Admin creates a valid assignment — expects 201 and round-trip in GET."""
+    from app.models.branch import Branch
+
+    # The professor in admin_test_context is not yet active; activate so filters pass
+    admin = admin_test_context["admin"]
+    prof  = admin_test_context["prof"]
+    prof.is_active = True
+    prof.role      = __import__("app.models.user", fromlist=["UserRole"]).UserRole.PROFESSOR
+
+    branch = Branch(college_id=DEFAULT_COLLEGE_ID, name="Computer Science", code="CSE", is_active=True)
+    db_session.add(branch)
+    db_session.commit()
+
+    token = create_access_token(identity=str(admin.id), additional_claims={"role": "admin"})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.post("/api/v1/admin/professor-assignments", json={
+        "professor_user_id": str(prof.id),
+        "course_name":  "Data Structures",
+        "course_code":  "cs101",         # should be auto-upcased
+        "branch":       "cse",           # should be auto-upcased
+        "semester":     3,
+        "academic_year": "2025-26",
+    }, headers=headers)
+    assert resp.status_code == 201, resp.json
+    data = resp.json["assignment"]
+    assert data["course_code"] == "CS101"
+    assert data["branch"]      == "CSE"
+    assert data["semester"]    == 3
+    assert data["is_active"]   is True
+
+    # Verify the assignment appears in the GET list
+    list_resp = client.get("/api/v1/admin/professor-assignments", headers=headers)
+    assert list_resp.status_code == 200
+    codes = [a["course_code"] for a in list_resp.json["assignments"]]
+    assert "CS101" in codes
+
+
+def test_create_professor_assignment_bad_branch(client, admin_test_context, db_session):
+    """AD-PA2: Reject an assignment whose branch code doesn't exist in this college → 400."""
+    admin = admin_test_context["admin"]
+    prof  = admin_test_context["prof"]
+    prof.is_active = True
+    db_session.commit()
+
+    token = create_access_token(identity=str(admin.id), additional_claims={"role": "admin"})
+    resp = client.post("/api/v1/admin/professor-assignments", json={
+        "professor_user_id": str(prof.id),
+        "course_name":  "Algorithms",
+        "course_code":  "CS202",
+        "branch":       "NONEXISTENT",
+        "semester":     4,
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 400
+    assert "not found" in resp.json.get("error", "").lower() or "not found" in resp.json.get("message", "").lower()
+
+
+def test_create_professor_assignment_cross_college_professor(client, admin_test_context, db_session):
+    """AD-PA2: Reject an assignment for a professor who belongs to a different college → 404."""
+    from app.models.branch import Branch
+    from app.models.college import College
+    import uuid
+
+    admin = admin_test_context["admin"]
+
+    # Create a second college and a professor in it
+    other_college = College(id=uuid.uuid4(), name="Other College", slug="other-college",
+                            code="OC2024", is_active=True)
+    db_session.add(other_college)
+    db_session.flush()
+
+    UserRole = __import__("app.models.user", fromlist=["UserRole"]).UserRole
+    other_prof = __import__("app.models.user", fromlist=["User"]).User(
+        college_id=other_college.id, email="other_prof@other.edu",
+        role=UserRole.PROFESSOR, is_active=True,
+    )
+    other_prof.set_password("Test@1234")
+    db_session.add(other_prof)
+
+    branch = Branch(college_id=DEFAULT_COLLEGE_ID, name="ECE", code="ECE", is_active=True)
+    db_session.add(branch)
+    db_session.commit()
+
+    token = create_access_token(identity=str(admin.id), additional_claims={"role": "admin"})
+    resp = client.post("/api/v1/admin/professor-assignments", json={
+        "professor_user_id": str(other_prof.id),   # professor from OTHER college
+        "course_name": "Electronics",
+        "course_code": "EC101",
+        "branch":      "ECE",
+        "semester":    2,
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 404   # professor not found in THIS college

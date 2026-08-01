@@ -130,6 +130,7 @@ feature lives before changing it.
 | Feature | Backend | Frontend |
 |---|---|---|
 | Timetable | `academics.py` | `src/pages/Timetable/` (student), `professorDashboard/Timetable/` |
+| Professor Class Assignments | `admin.py` (`ProfessorClassAssignment` model) | `adminDashboard/ProfessorAssignments/` |
 | Attendance | `academics.py` | `src/pages/Attendance/` |
 | Assignments | `academics.py` | `src/pages/Assignments/`, `professorDashboard/Assignments/` |
 | Gradebook / Grading Zone | `academics.py` | `src/pages/GradeBook/` |
@@ -250,6 +251,10 @@ part meant to stop regressions.
 
 ### 🟡 Open — Medium / UI-UX
 *(None remaining)*
+
+### ✅ Fixed — Professor Class Assignments & Extra Class (Academics)
+- **Admin Professor Class Assignment Management**: Created 4 admin endpoints (`GET/POST/PATCH/DELETE /admin/professor-assignments`) with strict college scoping and `Branch.code` validation. Built responsive `adminDashboard/ProfessorAssignments/` page. Added 3 test cases in `test_admin.py`.
+- **Extra Class NULL-branch student invisibility bug**: Updated `add_extra_class` to require `course_code` and derive `branch` and `semester` server-side from `ProfessorClassAssignment` (never trust client input). Updated Extra Class modal in `Timetable.jsx` to use assigned course dropdown and empty state when professor has no assignments. All 73 tests pass cleanly.
 
 ### ✅ Fixed — Mobile Responsiveness (systemic)
 - **Zero @media-query pages** (30+ files across all 4 dashboard areas): All

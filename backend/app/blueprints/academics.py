@@ -433,15 +433,34 @@ def delete_timetable_slot(slot_id):
 @require_auth
 @require_roles("professor", "admin")
 def add_extra_class():
-    """Schedule an extra / makeup class."""
+    """Schedule an extra / makeup class.
+    course_code must be in the professor's active ProfessorClassAssignment — branch
+    and semester are derived server-side, never trusted from the client.
+    This prevents the NULL-branch bug where extra classes were invisible to
+    all students because NULL != any branch string in SQL."""
+    from app.models.academic import ProfessorClassAssignment
     user = get_current_user()
-    data = request.get_json() or {}
-    course_name = data.get("name") or data.get("course_name")
-    if not course_name:
-        return error_response("course_name is required for extra class.", 400)
+    data = request.get_json(force=True) or {}
+
+    course_code = data.get("course_code", "").strip()
+    day         = data.get("day", "Sat")
+    time_slot   = data.get("time", "10:00 - 11:30")
+    room        = data.get("room", "LH-201")
+
+    if not course_code:
+        return error_response("course_code is required for extra class.", 400)
+    if not day or not time_slot or not room:
+        return error_response("day, time, and room are required.", 400)
+
+    # IDOR: course_code must be in professor's active assignments
+    assignment = ProfessorClassAssignment.query.filter_by(
+        professor_user_id=user.id, course_code=course_code, is_active=True
+    ).first()
+    if not assignment:
+        return error_response("You are not assigned to teach this course.", 403)
 
     prof_profile = ProfessorProfile.query.filter_by(user_id=user.id).first()
-    default_prof_name = (
+    prof_name = (
         prof_profile.full_name if prof_profile
         else (user.email or "").split("@")[0].capitalize()
     )
@@ -449,14 +468,14 @@ def add_extra_class():
     try:
         slot = TimetableSlot(
             user_id        = user.id,
-            day_of_week    = data.get("day", "Sat"),
-            time_slot      = data.get("time", "10:00 - 11:30"),
-            course_name    = course_name,
-            course_code    = data.get("code", "CS-EXTRA"),
-            room           = data.get("room", "LH-201"),
-            professor_name = data.get("prof") or default_prof_name,
-            branch         = data.get("branch"),
-            semester       = data.get("semester"),
+            day_of_week    = day,
+            time_slot      = time_slot,
+            course_name    = assignment.course_name,   # from DB, not client
+            course_code    = assignment.course_code,   # from DB, not client
+            room           = room,
+            professor_name = prof_name,
+            branch         = assignment.branch,         # from DB — never NULL
+            semester       = assignment.semester,       # from DB — never NULL
             slot_type      = "extra",
         )
         db.session.add(slot)
@@ -469,6 +488,7 @@ def add_extra_class():
                  target_type="timetable_slot", target_id=str(slot.id))
     return jsonify({"message": "Extra class scheduled.", "id": str(slot.id),
                     "slot": _slot_to_dict(slot)}), 201
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

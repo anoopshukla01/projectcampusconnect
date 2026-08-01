@@ -669,6 +669,12 @@ export const adminApi = {
   updateBranch: (branchId, payload) => apiPatch(`/admin/branches/${branchId}`, payload),
   deactivateBranch: (branchId) => apiPatch(`/admin/branches/${branchId}/deactivate`, {}),
   activateBranch: (branchId) => apiPatch(`/admin/branches/${branchId}/activate`, {}),
+
+  // Professor Class Assignments
+  listProfessorAssignments: (params) => apiGet('/admin/professor-assignments', params),
+  createProfessorAssignment: (payload) => apiPost('/admin/professor-assignments', payload),
+  updateProfessorAssignment: (id, payload) => apiPatch(`/admin/professor-assignments/${id}`, payload),
+  deactivateProfessorAssignment: (id) => apiDelete(`/admin/professor-assignments/${id}`),
 };
 
 // ── 4j. Professors ────────────────────────────────────────────────────────────

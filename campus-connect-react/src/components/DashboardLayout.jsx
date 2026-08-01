@@ -42,6 +42,7 @@ const PATH_TO_PAGE = {
   '/admin/announcements':'adminann',
   '/admin/datahealth':   'datahealth',
   '/admin/branches':     'branches',
+  '/admin/professor-assignments': 'profassignments',
   '/admin/data':         'datamanager',
   '/admin/timetable-attendance': 'admintimetable',  // M4: was missing
   '/admin/marketplace':          'adminmarket',      // M4: was missing

@@ -180,21 +180,27 @@ export default function Timetable() {
   const [extraModal,  setExtraModal]  = useState(false);
   const [addingExtra, setAddingExtra] = useState(false);
   const [extraForm, setExtraForm] = useState({
-    day: 'Sat', time: '10:00 - 11:30', name: '', code: 'CS-EXTRA',
-    room: 'LH-201', branch: '', semester: '',
+    day: 'Sat', time: '10:00 - 11:30', course_code: '', room: 'LH-201',
   });
+
+  useEffect(() => {
+    if (assignedClasses.length > 0 && !extraForm.course_code) {
+      setExtraForm(p => ({ ...p, course_code: assignedClasses[0].course_code }));
+    }
+  }, [assignedClasses]);
 
   async function handleAddExtra(e) {
     e.preventDefault();
+    if (!extraForm.course_code) {
+      showToast('Please select an assigned course.', 'error');
+      return;
+    }
     setAddingExtra(true);
     const res = await academicsApi.addExtraClass({
-      day:      extraForm.day,
-      time:     extraForm.time,
-      name:     extraForm.name,
-      code:     extraForm.code,
-      room:     extraForm.room,
-      branch:   extraForm.branch   || null,
-      semester: extraForm.semester ? Number(extraForm.semester) : null,
+      day:         extraForm.day,
+      time:        extraForm.time,
+      course_code: extraForm.course_code,
+      room:        extraForm.room,
     });
     setAddingExtra(false);
     if (res?.error) {
@@ -328,19 +334,27 @@ export default function Timetable() {
               <h2>Add New Slot</h2>
               <button className="modal-close" onClick={() => { setCreateModal(false); setConflictSlots([]); }} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
-            <form onSubmit={handleCreate} className="sell-form">
-              {/* Course selector — only assigned classes; no free-text */}
-              <label>Course
-                <select required value={createForm.course_code}
-                  onChange={e => setCreateForm(p => ({ ...p, course_code: e.target.value }))}>
-                  <option value="">Select assigned course…</option>
-                  {assignedClasses.map(c => (
-                    <option key={c.course_code} value={c.course_code}>
-                      {c.course_name} ({c.course_code})
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {assignedClasses.length === 0 ? (
+              <div className="empty-state" style={{ padding: '1.5rem 1rem', textAlign: 'center' }}>
+                <p style={{ color: 'var(--clr-text-secondary, #64748b)', margin: '0 0 1rem 0' }}>
+                  You have no assigned classes yet. Ask your Admin to assign you to a course first.
+                </p>
+                <button className="action-btn secondary" onClick={() => setCreateModal(false)}>Close</button>
+              </div>
+            ) : (
+              <form onSubmit={handleCreate} className="sell-form">
+                {/* Course selector — only assigned classes; no free-text */}
+                <label>Course
+                  <select required value={createForm.course_code}
+                    onChange={e => setCreateForm(p => ({ ...p, course_code: e.target.value }))}>
+                    <option value="">Select assigned course…</option>
+                    {assignedClasses.map(c => (
+                      <option key={c.course_code} value={c.course_code}>
+                        {c.course_name} ({c.course_code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
               <label>Day
                 <select value={createForm.day} onChange={e => setCreateForm(p => ({ ...p, day: e.target.value }))}>
                   {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
@@ -385,6 +399,7 @@ export default function Timetable() {
                 {creating ? 'Creating…' : 'Create Slot'}
               </button>
             </form>
+            )}
           </div>
         </div>
       )}
@@ -439,32 +454,44 @@ export default function Timetable() {
               <h2>Schedule Extra / Makeup Class</h2>
               <button className="modal-close" onClick={() => setExtraModal(false)} aria-label="Close"><X size={16} aria-hidden="true" /></button>
             </div>
-            <form onSubmit={handleAddExtra} className="sell-form">
-              <label>Day
-                <select value={extraForm.day} onChange={e => setExtraForm(p => ({ ...p, day: e.target.value }))}>
-                  {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-                </select>
-              </label>
-              <label>Time
-                <input required value={extraForm.time}
-                  onChange={e => setExtraForm(p => ({ ...p, time: e.target.value }))} />
-              </label>
-              <label>Course Name
-                <input required value={extraForm.name}
-                  onChange={e => setExtraForm(p => ({ ...p, name: e.target.value }))} />
-              </label>
-              <label>Room
-                <input required value={extraForm.room}
-                  onChange={e => setExtraForm(p => ({ ...p, room: e.target.value }))} />
-              </label>
-              <label>Branch (optional)
-                <input value={extraForm.branch}
-                  onChange={e => setExtraForm(p => ({ ...p, branch: e.target.value }))} />
-              </label>
-              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={addingExtra}>
-                {addingExtra ? 'Scheduling…' : 'Schedule Class'}
-              </button>
-            </form>
+            {assignedClasses.length === 0 ? (
+              <div className="empty-state" style={{ padding: '1.5rem 1rem', textAlign: 'center' }}>
+                <p style={{ color: 'var(--clr-text-secondary, #64748b)', margin: '0 0 1rem 0' }}>
+                  You have no assigned classes yet. Ask your Admin to assign you to a course first.
+                </p>
+                <button className="action-btn secondary" onClick={() => setExtraModal(false)}>Close</button>
+              </div>
+            ) : (
+              <form onSubmit={handleAddExtra} className="sell-form">
+                <label>Course
+                  <select required value={extraForm.course_code}
+                    onChange={e => setExtraForm(p => ({ ...p, course_code: e.target.value }))}>
+                    {assignedClasses.map(c => (
+                      <option key={c.course_code} value={c.course_code}>
+                        {c.course_name} ({c.course_code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>Day
+                  <select value={extraForm.day} onChange={e => setExtraForm(p => ({ ...p, day: e.target.value }))}>
+                    {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                  </select>
+                </label>
+                <label>Time
+                  <input required value={extraForm.time}
+                    onChange={e => setExtraForm(p => ({ ...p, time: e.target.value }))}
+                    placeholder="10:00 - 11:30" />
+                </label>
+                <label>Room
+                  <input required value={extraForm.room}
+                    onChange={e => setExtraForm(p => ({ ...p, room: e.target.value }))} />
+                </label>
+                <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={addingExtra}>
+                  {addingExtra ? 'Scheduling…' : 'Schedule Class'}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
