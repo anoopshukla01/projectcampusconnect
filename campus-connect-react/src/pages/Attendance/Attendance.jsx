@@ -13,7 +13,6 @@ import { Save, Calculator } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
-import { useBranches } from '../../hooks/useBranches';
 import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import './Attendance.css';
@@ -35,7 +34,6 @@ function CircleProgress({ pct }) {
 export default function Attendance() {
   const { user, isProfessor } = useAuth();
   const showToast = useToast();
-  const { branches } = useBranches();
 
   // ── Student data ───────────────────────────────────────────────────────────
   const { data: apiData, loading, error, isEmpty } = useApiData(
@@ -72,27 +70,51 @@ export default function Attendance() {
     }
   }
 
-  // ── Professor: roster state ────────────────────────────────────────────────
-  const [branch,   setBranch]   = useState('');
-  const [semester, setSemester] = useState('');
-  const [subject,  setSubject]  = useState('');
-  const [subCode,  setSubCode]  = useState('');
+  // ── Professor: active class & roster state ──────────────────────────────────
+  const [activeClassData, setActiveClassData] = useState(null);
+  const [activeClassLoading, setActiveClassLoading] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState(null);
 
-  // Build roster endpoint with current filters
+  // Fetch active class on mount / when professor view active
+  const fetchActiveClass = useCallback(() => {
+    if (!isProfessor) return;
+    setActiveClassLoading(true);
+    academicsApi.getActiveClass()
+      .then(res => {
+        setActiveClassData(res);
+        if (res?.active && res?.class?.slot_id) {
+          setSelectedSlotId(res.class.slot_id);
+        } else if (!res?.active && res?.reason === 'ambiguous' && res?.candidates?.length > 0) {
+          setSelectedSlotId(res.candidates[0].slot_id);
+        } else {
+          setSelectedSlotId(null);
+        }
+      })
+      .catch(() => {
+        setActiveClassData({ active: false, reason: 'no_class_now' });
+        setSelectedSlotId(null);
+      })
+      .finally(() => setActiveClassLoading(false));
+  }, [isProfessor]);
+
+  useEffect(() => {
+    fetchActiveClass();
+  }, [fetchActiveClass]);
+
+  // Build roster endpoint with active slot_id
   const rosterEndpoint = useMemo(() => {
     if (!isProfessor) return null;
-    const params = new URLSearchParams();
-    if (branch)   params.set('branch',   branch);
-    if (semester) params.set('semester', semester);
-    const qs = params.toString();
-    return qs ? `/academics/roster?${qs}` : '/academics/roster';
-  }, [isProfessor, branch, semester]);
+    if (!activeClassData) return null;
+    if (!activeClassData.active && activeClassData.reason !== 'ambiguous') return null;
+    return selectedSlotId ? `/academics/roster?slot_id=${selectedSlotId}` : '/academics/roster';
+  }, [isProfessor, activeClassData, selectedSlotId]);
 
   const { data: rosterData, loading: rosterLoading, refetch: refetchRoster } = useApiData(
     rosterEndpoint,
     { students: [] },
   );
   const roster = useMemo(() => rosterData?.students || [], [rosterData]);
+  const currentActiveClass = useMemo(() => rosterData?.active_class || activeClassData?.class, [rosterData, activeClassData]);
 
   // Local present/absent toggles keyed by roll_no
   const [present, setPresent] = useState({});
@@ -107,20 +129,13 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
 
   async function saveAttendance() {
-    if (!subject || !subCode) {
-      showToast('Enter subject name and code before saving.', 'info');
-      return;
-    }
     const presentRolls = roster
       .filter(s => present[s.roll_no] !== false)   // default = present
       .map(s => s.roll_no);
 
     setSaving(true);
     const res = await academicsApi.markAttendance({
-      subject_name:    subject,
-      subject_code:    subCode,
-      branch:          branch  || undefined,
-      semester:        semester ? Number(semester) : undefined,
+      slot_id: selectedSlotId || undefined,
       present_roll_nos: presentRolls,
     });
     setSaving(false);
@@ -135,6 +150,10 @@ export default function Attendance() {
 
   // ── Professor render ───────────────────────────────────────────────────────
   if (isProfessor) {
+    const isNoClassNow = activeClassData && !activeClassData.active && activeClassData.reason === 'no_class_now';
+    const isAmbiguous  = activeClassData && !activeClassData.active && activeClassData.reason === 'ambiguous';
+    const activeClass  = currentActiveClass || (isAmbiguous && activeClassData.candidates ? activeClassData.candidates.find(c => c.slot_id === selectedSlotId) : null);
+
     return (
       <>
         <div className="page-header">
@@ -144,79 +163,140 @@ export default function Attendance() {
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="roster-controls" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          <select className="class-selector" value={branch} onChange={e => setBranch(e.target.value)} style={{ width: '140px' }}>
-            <option value="">All Branches</option>
-            {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
-          </select>
-          <select className="class-selector" value={semester}
-            onChange={e => setSemester(e.target.value)}>
-            <option value="">All Sems</option>
-            {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>Sem {s}</option>)}
-          </select>
-          <input className="class-selector" placeholder="Subject name"
-            value={subject} onChange={e => setSubject(e.target.value)} style={{ flex: 1, minWidth: '140px' }} />
-          <input className="class-selector" placeholder="Subject code"
-            value={subCode} onChange={e => setSubCode(e.target.value)} style={{ width: '110px' }} />
-          <button className="action-btn" onClick={refetchRoster}>
-            Load Roster
-          </button>
-          <button className="action-btn" onClick={saveAttendance} disabled={saving || roster.length === 0}>
-            {saving ? 'Saving…' : <><Save size={14} style={{ display: 'inline', marginRight: '4px' }} /> Save Attendance</>}
-          </button>
-        </div>
-
-        <section className="panel" aria-labelledby="rosterTitle">
-          <div className="panel-header">
-            <h2 className="panel-title" id="rosterTitle">
-              Active Student Roster
-              {branch ? ` — ${branch}` : ''}
-              {semester ? ` · Sem ${semester}` : ''}
-            </h2>
-          </div>
-
-          {rosterLoading ? (
-            <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>Loading roster…</p>
-          ) : roster.length === 0 ? (
-            <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
-              No students found. Set branch/semester and click Load Roster.
+        {activeClassLoading ? (
+          <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>Checking scheduled active classes…</p>
+        ) : isNoClassNow ? (
+          <div className="dash-card" style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--clr-text)',
+            padding: '1.5rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+          }}>
+            <h3 style={{ color: '#ef4444', margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 600 }}>
+              No Scheduled Class Active
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--clr-muted)' }}>
+              You have no class scheduled right now. Attendance can only be marked during your scheduled class window (including 15 min early and 2 hr grace period).
             </p>
-          ) : (
-            <div className="attend-table-wrap">
-              <table className="attend-table">
-                <thead>
-                  <tr><th>Roll No</th><th>Student Name</th><th>CGPA</th><th>Status</th><th>Toggle</th></tr>
-                </thead>
-                <tbody>
-                  {roster.map(s => {
-                    const isPresent = present[s.roll_no] !== false;
-                    return (
-                      <tr key={s.roll_no}>
-                        <td><code>{s.roll_no}</code></td>
-                        <td className="subject-name-cell">{s.name}</td>
-                        <td>{s.cgpa ?? '—'}</td>
-                        <td>
-                          <span className={`status-pill ${isPresent ? 'safe' : 'critical'}`}>
-                            {isPresent ? 'Present' : 'Absent'}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            className={`action-btn ${isPresent ? 'btn-secondary' : ''}`}
-                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}
-                            onClick={() => togglePresent(s.roll_no)}>
-                            Mark {isPresent ? 'Absent' : 'Present'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          </div>
+        ) : isAmbiguous ? (
+          <div className="dash-card" style={{
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            padding: '1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+          }}>
+            <h3 style={{ color: '#f59e0b', margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 600 }}>
+              Multiple Active Classes Detected
+            </h3>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: 'var(--clr-muted)' }}>
+              Please select which class you are currently teaching:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {activeClassData.candidates.map(c => (
+                <label key={c.slot_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="active_slot_choice"
+                    value={c.slot_id}
+                    checked={selectedSlotId === c.slot_id}
+                    onChange={() => setSelectedSlotId(c.slot_id)}
+                  />
+                  <span>
+                    <strong>{c.course_name} ({c.course_code})</strong> — {c.branch}, Sem {c.semester} · {c.time_slot} (Room {c.room})
+                  </span>
+                </label>
+              ))}
             </div>
-          )}
-        </section>
+          </div>
+        ) : null}
+
+        {activeClass && (
+          <div className="dash-card" style={{
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}>
+            <div>
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--clr-primary)', fontWeight: 700, display: 'block' }}>
+                Active Class Session
+              </span>
+              <strong style={{ fontSize: '1.1rem' }}>{activeClass.course_name} ({activeClass.course_code})</strong>
+              <span style={{ color: 'var(--clr-muted)', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
+                — {activeClass.branch}, Sem {activeClass.semester} · {activeClass.time_slot} (Room {activeClass.room})
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="action-btn" onClick={refetchRoster} disabled={rosterLoading}>
+                {rosterLoading ? 'Loading…' : 'Load Roster'}
+              </button>
+              <button className="action-btn" onClick={saveAttendance} disabled={saving || roster.length === 0}>
+                {saving ? 'Saving…' : <><Save size={14} style={{ display: 'inline', marginRight: '4px' }} /> Save Attendance</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeClass && (
+          <section className="panel" aria-labelledby="rosterTitle">
+            <div className="panel-header">
+              <h2 className="panel-title" id="rosterTitle">
+                Active Student Roster — {activeClass.course_name} ({activeClass.branch}, Sem {activeClass.semester})
+              </h2>
+            </div>
+
+            {rosterLoading ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>Loading roster…</p>
+            ) : roster.length === 0 ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
+                No students enrolled in this branch and semester.
+              </p>
+            ) : (
+              <div className="attend-table-wrap">
+                <table className="attend-table">
+                  <thead>
+                    <tr><th>Roll No</th><th>Student Name</th><th>CGPA</th><th>Status</th><th>Toggle</th></tr>
+                  </thead>
+                  <tbody>
+                    {roster.map(s => {
+                      const isPresent = present[s.roll_no] !== false;
+                      return (
+                        <tr key={s.roll_no}>
+                          <td><code>{s.roll_no}</code></td>
+                          <td className="subject-name-cell">{s.name}</td>
+                          <td>{s.cgpa ?? '—'}</td>
+                          <td>
+                            <span className={`status-pill ${isPresent ? 'safe' : 'critical'}`}>
+                              {isPresent ? 'Present' : 'Absent'}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              className={`action-btn ${isPresent ? 'btn-secondary' : ''}`}
+                              style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}
+                              onClick={() => togglePresent(s.roll_no)}>
+                              Mark {isPresent ? 'Absent' : 'Present'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </>
     );
   }

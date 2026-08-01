@@ -71,6 +71,7 @@ def test_professor_free_slots_endpoint(client, db_session):
 
     # 3. Add an occupied slot -> free_slots excludes it
     slot = TimetableSlot(
+        college_id=DEFAULT_COLLEGE_ID,
         branch="CSE", semester=3, user_id=prof_user.id,
         day_of_week="Mon", time_slot="08:00 - 09:30",
         course_name="Data Structures", course_code="CS101",

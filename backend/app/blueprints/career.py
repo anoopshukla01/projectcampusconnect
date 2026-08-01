@@ -235,6 +235,7 @@ def book_mock_interview(session_id):
             time_str = f"{session.scheduled_at.strftime('%H:%M')} - {end_time.strftime('%H:%M')}"
             
         slot = TimetableSlot(
+            college_id=user.college_id,
             branch=None,
             semester=None,
             role=None,
@@ -455,6 +456,7 @@ def respond_to_mentor_request(request_id):
             student_prof = StudentProfile.query.filter_by(user_id=req.student_id).first()
             
             slot_student = TimetableSlot(
+                college_id=user.college_id,
                 branch=None,
                 semester=None,
                 role=None,
@@ -468,6 +470,7 @@ def respond_to_mentor_request(request_id):
                 slot_type="meeting"
             )
             slot_professor = TimetableSlot(
+                college_id=user.college_id,
                 branch=None,
                 semester=None,
                 role=None,

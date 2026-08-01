@@ -1048,6 +1048,7 @@ def register_event_student(event_id):
 
     # Inject TimetableSlot for the student
     slot = TimetableSlot(
+        college_id=user.college_id,
         user_id=user.id,
         day_of_week=day_of_week,
         time_slot="10:00 - 12:00",

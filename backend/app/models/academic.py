@@ -35,6 +35,7 @@ class TimetableSlot(db.Model):
     __tablename__ = "timetable_slots"
 
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("colleges.id"), nullable=False, index=True)
     branch = db.Column(db.String(50), nullable=True)
     semester = db.Column(db.Integer, nullable=True)          # e.g. 4 — scopes slot to a semester
     role = db.Column(db.String(50), nullable=True)           # "student" | "professor" — broadcast scope
@@ -48,6 +49,8 @@ class TimetableSlot(db.Model):
     slot_type = db.Column(db.String(50), default="lecture")  # lecture | lab | extra | cancelled
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    college = db.relationship("College", foreign_keys=[college_id])
 
 class Assignment(db.Model):
     __tablename__ = "assignments"

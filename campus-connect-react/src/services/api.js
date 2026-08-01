@@ -374,6 +374,9 @@ export const academicsApi = {
   /** Professor: mark attendance */
   markAttendance: (payload) => apiPost('/academics/attendance/mark', payload),
 
+  /** Professor: get active class session */
+  getActiveClass: (params) => apiGet('/academics/roster/active-class', params),
+
   /** Professor: get roster for a branch/section */
   getRoster: (params) => apiGet('/academics/roster', params),
 };

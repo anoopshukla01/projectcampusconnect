@@ -29,7 +29,8 @@ SECURITY CHECKLIST:
 """
 
 import uuid
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timezone, timedelta, date
 from flask import Blueprint, jsonify, request
 from flask import g
 from app.auth.permissions import require_auth, require_roles, get_current_user, assert_college_match
@@ -45,7 +46,142 @@ from app.models.user import UserRole
 from app.utils.errors import error_response, internal_error_response
 from app.utils.audit import audit_action
 
+logger = logging.getLogger(__name__)
+
 academics_bp = Blueprint("academics", __name__)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_time_slot_range(time_slot_str):
+    try:
+        if " - " in time_slot_str:
+            parts = time_slot_str.split(" - ")
+        elif "-" in time_slot_str:
+            parts = time_slot_str.split("-")
+        else:
+            return None, None
+        start_str = parts[0].strip()
+        end_str = parts[1].strip()
+        start_t = datetime.strptime(start_str, "%H:%M").time()
+        end_t = datetime.strptime(end_str, "%H:%M").time()
+        return start_t, end_t
+    except Exception:
+        return None, None
+
+
+def _serialize_active_slot(slot):
+    return {
+        "slot_id": str(slot.id),
+        "course_name": slot.course_name,
+        "course_code": slot.course_code,
+        "branch": slot.branch,
+        "semester": slot.semester,
+        "time_slot": slot.time_slot,
+        "room": slot.room,
+    }
+
+
+def _get_professor_active_slot(user, at_time=None, slot_id=None):
+    """
+    Finds currently-active TimetableSlot(s) for the professor.
+
+    Checks:
+    1. TimetableSlot.user_id == user.id, is_deleted == False
+    2. day_of_week matches today's day (full or short format, e.g. "Monday" or "Mon")
+    3. current time falls within [start - 15min, end + 2h]
+    4. Cross-checks ProfessorClassAssignment matching course_code/course_name, branch, and semester.
+       If no matching formal class assignment exists, logs a warning and excludes the slot.
+
+    Returns:
+      (slot, None) if exactly 1 match
+      (None, "no_class_now") if 0 matches
+      (candidates_list, "ambiguous") if >1 matches (and slot_id is not specified/matched)
+    """
+    if at_time is None:
+        at_time = datetime.now()
+
+    today_full = at_time.strftime("%A")   # e.g. "Monday"
+    today_short = at_time.strftime("%a")  # e.g. "Mon"
+
+    candidate_slots = TimetableSlot.query.filter(
+        TimetableSlot.user_id == user.id,
+        TimetableSlot.is_deleted.is_(False),
+        (TimetableSlot.day_of_week == today_full) | (TimetableSlot.day_of_week == today_short)
+    ).all()
+
+    from app.blueprints.professors import _get_my_assignments
+    prof_assignments = _get_my_assignments(user)
+
+    valid_slots = []
+    ref_date = at_time.date()
+    now_dt = at_time if isinstance(at_time, datetime) else datetime.now()
+
+    for s in candidate_slots:
+        start_t, end_t = _parse_time_slot_range(s.time_slot)
+        if not start_t or not end_t:
+            continue
+
+        start_dt = datetime.combine(ref_date, start_t) - timedelta(minutes=15)
+        end_dt = datetime.combine(ref_date, end_t) + timedelta(minutes=120)
+
+        if not (start_dt <= now_dt <= end_dt):
+            continue
+
+        has_assignment = any(
+            (a.course_code == s.course_code or a.course_name == s.course_name) and
+            (a.branch == s.branch) and
+            (a.semester == s.semester)
+            for a in prof_assignments
+        )
+
+        if not has_assignment:
+            logger.warning(
+                f"[Security Check] Professor {user.id} has TimetableSlot {s.id} ({s.course_code}) "
+                f"but no matching active ProfessorClassAssignment for branch={s.branch}, sem={s.semester}. Denying slot."
+            )
+            continue
+
+        valid_slots.append(s)
+
+    if slot_id:
+        matching = [s for s in valid_slots if str(s.id) == str(slot_id)]
+        if matching:
+            return matching[0], None
+
+    if len(valid_slots) == 0:
+        return None, "no_class_now"
+    elif len(valid_slots) == 1:
+        return valid_slots[0], None
+    else:
+        return valid_slots, "ambiguous"
+
+
+@academics_bp.route("/roster/active-class", methods=["GET"])
+@require_auth
+@require_roles("professor")
+def get_active_class():
+    """
+    Professor: fetch their currently active scheduled class session.
+    """
+    user = get_current_user()
+    slot_result, reason = _get_professor_active_slot(user)
+
+    if reason == "no_class_now":
+        return jsonify({"active": False, "reason": "no_class_now"}), 200
+    elif reason == "ambiguous":
+        return jsonify({
+            "active": False,
+            "reason": "ambiguous",
+            "candidates": [_serialize_active_slot(s) for s in slot_result]
+        }), 200
+    else:
+        return jsonify({
+            "active": True,
+            "class": _serialize_active_slot(slot_result)
+        }), 200
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -135,50 +271,42 @@ def get_attendance():
 @require_roles("professor", "admin")
 def mark_attendance():
     """
-    Professor: bulk-mark attendance for a subject session.
-
-    Body:
-      { subject_name, subject_code, branch, semester,
-        present_roll_nos: [...], total_students: N }
+    Professor / admin: bulk-mark attendance for a subject session.
+    For Professor role: class, branch, semester, subject are derived server-side from active TimetableSlot.
     """
     user = get_current_user()
     data = request.get_json() or {}
-    subject_name = data.get("subject_name") or data.get("subject")
-    subject_code = data.get("subject_code") or data.get("code", "CS000")
     present_rolls = set(data.get("present_roll_nos") or [])
-    branch        = data.get("branch")
-    semester      = data.get("semester")
 
-    if not subject_name:
-        return error_response("subject_name is required.", 400)
-
-    # Time window lock: check against scheduled TimetableSlot today
     if user.role == UserRole.PROFESSOR:
-        today_day = datetime.now().strftime("%A")
-        # Query matching timetable slot for today
-        slot = TimetableSlot.query.filter_by(
-            course_code=subject_code,
-            branch=branch,
-            semester=semester,
-            day_of_week=today_day,
-            is_deleted=False
-        ).first()
-        if slot:
-            try:
-                start_str, end_str = slot.time_slot.split(" - ")
-                now_time = datetime.now().time()
-                start_time = datetime.strptime(start_str.strip(), "%H:%M").time()
-                end_time = datetime.strptime(end_str.strip(), "%H:%M").time()
-                
-                from datetime import timedelta, date
-                today_date = date.today()
-                start_dt = datetime.combine(today_date, start_time) - timedelta(minutes=15)
-                end_dt = datetime.combine(today_date, end_time) + timedelta(minutes=120) # 2 hour grace period after class
-                now_dt = datetime.now()
-                if not (start_dt <= now_dt <= end_dt):
-                    return error_response(f"Attendance lock: can only mark during the scheduled class window ({slot.time_slot}) plus grace period.", 403)
-            except Exception:
-                pass # Proceed if format parsing fails
+        slot_id = data.get("slot_id")
+        slot_result, reason = _get_professor_active_slot(user, slot_id=slot_id)
+
+        if reason == "no_class_now":
+            return error_response(
+                "You have no scheduled class right now. Attendance can only be marked during your scheduled class window.",
+                403
+            )
+        elif reason == "ambiguous":
+            candidates = [_serialize_active_slot(s) for s in slot_result]
+            return jsonify({
+                "error": "Multiple classes are active right now — specify which one.",
+                "candidates": candidates
+            }), 409
+
+        # Derived fields from active slot
+        subject_name = slot_result.course_name
+        subject_code = slot_result.course_code
+        branch       = slot_result.branch
+        semester     = slot_result.semester
+    else:
+        # Admin role
+        subject_name = data.get("subject_name") or data.get("subject")
+        subject_code = data.get("subject_code") or data.get("code", "CS000")
+        branch       = data.get("branch")
+        semester     = data.get("semester")
+        if not subject_name:
+            return error_response("subject_name is required.", 400)
 
     # Resolve students in same college: branch + semester filter or all if not given
     college_id = g.current_user.college_id
@@ -349,6 +477,7 @@ def create_timetable_slot():
 
     try:
         slot = TimetableSlot(
+            college_id     = user.college_id,
             user_id        = user.id,
             day_of_week    = day,
             time_slot      = time_slot,
@@ -468,6 +597,7 @@ def add_extra_class():
 
     try:
         slot = TimetableSlot(
+            college_id     = user.college_id,
             user_id        = user.id,
             day_of_week    = day,
             time_slot      = time_slot,
@@ -871,13 +1001,41 @@ def grade_submission(submission_id):
 @require_roles("professor", "admin", "placement_cell")
 def get_roster():
     """
-    Professor / admin: student roster.
-
-    Query params: branch, semester
-    Returns roll_no, name, cgpa, attendance_pct per student.
+    Student roster.
+    Admin / placement_cell: query by branch and semester.
+    Professor: automatically derived from currently active TimetableSlot.
     """
-    branch   = request.args.get("branch")
-    semester = request.args.get("semester", type=int)
+    user = get_current_user()
+
+    if user.role == UserRole.PROFESSOR:
+        slot_id = request.args.get("slot_id")
+        slot_result, reason = _get_professor_active_slot(user, slot_id=slot_id)
+
+        if reason == "no_class_now":
+            return jsonify({
+                "students": [],
+                "count": 0,
+                "active_class": None,
+                "reason": "no_class_now"
+            }), 200
+        elif reason == "ambiguous":
+            return jsonify({
+                "students": [],
+                "count": 0,
+                "active_class": None,
+                "reason": "ambiguous",
+                "candidates": [_serialize_active_slot(s) for s in slot_result]
+            }), 200
+
+        # Exactly 1 active slot resolved
+        branch = slot_result.branch
+        semester = slot_result.semester
+        active_class_info = _serialize_active_slot(slot_result)
+    else:
+        # Admin / placement_cell — query params
+        branch = request.args.get("branch")
+        semester = request.args.get("semester", type=int)
+        active_class_info = None
 
     college_id = g.current_user.college_id
     q = StudentProfile.query.filter_by(is_deleted=False, college_id=college_id)
@@ -897,7 +1055,11 @@ def get_roster():
         "attendance_pct": float(s.attendance_pct) if s.attendance_pct is not None else None,
         "active_backlogs": s.active_backlogs,
     } for s in students]
-    return jsonify({"students": res, "count": len(res)}), 200
+
+    payload = {"students": res, "count": len(res)}
+    if active_class_info:
+        payload["active_class"] = active_class_info
+    return jsonify(payload), 200
 
 
 @academics_bp.route("/attendance/me", methods=["GET"])
@@ -1371,6 +1533,7 @@ def create_professor_slot():
         }), 409
 
     new_slot = TimetableSlot(
+        college_id=user.college_id,
         branch=assignment.branch,
         semester=assignment.semester,
         user_id=user.id,

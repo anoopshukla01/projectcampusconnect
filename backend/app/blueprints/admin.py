@@ -1280,6 +1280,7 @@ def approve_timetable_booking(booking_id):
     try:
         # Create matching student interview timetable slot
         slot = TimetableSlot(
+            college_id=g.current_user.college_id,
             student_id=booking.student_id,
             room=booking.room,
             day_of_week=booking.day_of_week,
