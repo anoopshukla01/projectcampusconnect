@@ -239,3 +239,50 @@ def test_s9_unauthenticated_returns_401(client, detail_users):
     p1_id = str(detail_users["p1"].id)
     resp = client.get(f"/api/v1/students/{p1_id}/detail")
     assert resp.status_code == 401
+
+
+def test_admin_cross_college_student_detail_denied(client, db_session, detail_users):
+    """Admin at College A cannot access a student detail profile belonging to College B (returns 404)."""
+    from app.models.college import College
+    col2 = College(name="College B", slug="college-b", code="COL2")
+    db_session.add(col2)
+    db_session.commit()
+
+    s_col2 = User(college_id=col2.id, phone="8009990001", role=UserRole.STUDENT, is_active=True)
+    s_col2.set_password("Pass@1234")
+    db_session.add(s_col2)
+    db_session.flush()
+
+    p_col2 = StudentProfile(
+        college_id=col2.id,
+        user_id=s_col2.id,
+        roll_no="COL2_001",
+        full_name="College B Student",
+        branch="CSE",
+        batch_year=2024,
+        semester=4,
+        cgpa=8.0,
+        attendance_pct=90.0,
+        dpdp_consent_given=True,
+    )
+    db_session.add(p_col2)
+    db_session.commit()
+
+    # Admin at DEFAULT_COLLEGE_ID tries to view College B student's detail
+    resp = client.get(
+        f"/api/v1/students/{p_col2.id}/detail",
+        headers=_tok(detail_users["admin"], "admin")
+    )
+    assert resp.status_code == 404, f"Expected 404 for cross-college admin access but got {resp.status_code}: {resp.json}"
+
+
+def test_admin_same_college_student_detail_allowed(client, detail_users):
+    """Admin can access student detail profile within their own college."""
+    p1_id = str(detail_users["p1"].id)
+    resp = client.get(
+        f"/api/v1/students/{p1_id}/detail",
+        headers=_tok(detail_users["admin"], "admin")
+    )
+    assert resp.status_code == 200
+    data = resp.json.get("student", resp.json)
+    assert data["full_name"] == "Detail Student Alpha"

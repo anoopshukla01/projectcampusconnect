@@ -523,9 +523,10 @@ def get_student_detail(student_id):
     is_owner = (str(current_user.id) == str(profile.user_id))
 
     # Tenant boundary enforcement — non-owners across different colleges are denied
-    if not is_owner and role != UserRole.ADMIN:
-        if current_user.college_id and profile.college_id and current_user.college_id != profile.college_id:
-            return error_response("You do not have permission to access this resource.", 403)
+    if not is_owner:
+        err = assert_college_match(profile, current_user)
+        if err:
+            return err
 
     # ── Role gate ──────────────────────────────────────────────────────────
     if role == UserRole.STUDENT:
@@ -557,7 +558,7 @@ def get_student_detail(student_id):
             return error_response("You do not teach this student.", 403)
 
     elif role in (UserRole.PLACEMENT_CELL, UserRole.ADMIN):
-        pass  # college_id filter above is sufficient
+        pass  # tenant check above ensures same college access
 
     else:
         return error_response("You do not have permission to perform this action.", 403)

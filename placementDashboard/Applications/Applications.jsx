@@ -5,11 +5,13 @@ import { X } from "lucide-react";
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@ctx/ToastContext';
 import { placementApi } from '@/services/api';
 import './Applications.css';
 
 export default function Applications() {
+  const navigate = useNavigate();
   const showToast = useToast();
   const [drives,          setDrives]          = useState([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
@@ -108,7 +110,25 @@ export default function Applications() {
               <tbody>
                 {applications.map(a => (
                   <tr key={a.application_id}>
-                    <td style={{ fontWeight: 600, color: '#f8fafc' }}>{a.full_name}</td>
+                    <td style={{ fontWeight: 600, color: '#f8fafc' }}>
+                      <button
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#60a5fa',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: 0,
+                          textDecoration: 'underline',
+                          textAlign: 'left',
+                          fontFamily: 'inherit',
+                          fontSize: 'inherit'
+                        }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/placement/students/${a.student_id}`); }}
+                      >
+                        {a.full_name}
+                      </button>
+                    </td>
                     <td><code>{a.roll_no}</code></td>
                     <td>{a.branch}</td>
                     <td><strong>{a.cgpa}</strong></td>
@@ -118,17 +138,22 @@ export default function Applications() {
                     <td><span className="ad-badge ad-badge-info">{a.status}</span></td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="ad-btn"
+                          style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', background: '#3b82f6', color: '#fff' }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/placement/students/${a.student_id}`); }}>
+                          View Profile
+                        </button>
                         {a.status === 'applied' && (
                           <button className="ad-btn ad-btn-primary"
                             style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem' }}
-                            onClick={() => shortlist(a.student_id)}>
+                            onClick={(e) => { e.stopPropagation(); shortlist(a.student_id); }}>
                             Shortlist
                           </button>
                         )}
                         {a.status === 'shortlisted' && (
                           <button className="ad-btn ad-btn-primary"
                             style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', background: '#10b981' }}
-                            onClick={() => { setOfferStudent(a); setCtcInput('12'); setOfferModal(true); }}>
+                            onClick={(e) => { e.stopPropagation(); setOfferStudent(a); setCtcInput('12'); setOfferModal(true); }}>
                             Offer
                           </button>
                         )}
