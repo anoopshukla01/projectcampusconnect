@@ -28,6 +28,7 @@ SECURITY CHECKLIST:
       all db.session.get() PK lookups followed by assert_college_match()
 """
 
+import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from flask import g
@@ -1214,20 +1215,57 @@ def get_student_grades_professor(student_id):
 # Professor Timetable (A-TT1–A-TT4)  — professor-specific schedule CRUD
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_free_slots_that_day(day_of_week, branch, semester):
+def _get_free_slots_that_day(day_of_week, branch, semester, exclude_slot_id=None):
     """Return a list of standard time slots not yet occupied that day for this branch/semester."""
     ALL_SLOTS = [
         "08:00 - 09:30", "09:30 - 11:00", "11:00 - 12:30",
         "12:30 - 14:00", "14:00 - 15:30", "15:30 - 17:00",
     ]
-    occupied = {
-        s.time_slot
-        for s in TimetableSlot.query.filter_by(
-            day_of_week=day_of_week, branch=branch,
-            semester=semester, is_deleted=False
-        ).filter(TimetableSlot.slot_type != "cancelled").all()
-    }
+    q = TimetableSlot.query.filter_by(
+        day_of_week=day_of_week, branch=branch,
+        semester=semester, is_deleted=False
+    ).filter(TimetableSlot.slot_type != "cancelled")
+    if exclude_slot_id:
+        q = q.filter(TimetableSlot.id != exclude_slot_id)
+    occupied = {s.time_slot for s in q.all()}
     return [sl for sl in ALL_SLOTS if sl not in occupied]
+
+
+@academics_bp.route("/timetable/professor/free-slots", methods=["GET"])
+@require_auth
+@require_roles("professor")
+def get_free_slots_for_course():
+    """Given course_code + day, return time slots not yet occupied for
+    that course's branch/semester. Powers the Time Slot dropdown in
+    both the New Slot and Extra Class modals — proactive, not reactive."""
+    from app.models.academic import ProfessorClassAssignment
+    user = get_current_user()
+    course_code = request.args.get("course_code", "").strip()
+    day = request.args.get("day", "").strip()
+    exclude_slot_id_raw = request.args.get("exclude_slot_id", "").strip()
+
+    if not course_code or not day:
+        return error_response("course_code and day are required.", 400)
+
+    assignment = ProfessorClassAssignment.query.filter_by(
+        professor_user_id=user.id, course_code=course_code, is_active=True
+    ).first()
+    if not assignment:
+        return error_response("You are not assigned to teach this course.", 403)
+
+    exclude_slot_id = None
+    if exclude_slot_id_raw:
+        try:
+            exclude_slot_id = uuid.UUID(exclude_slot_id_raw)
+        except (ValueError, TypeError):
+            pass
+
+    free_slots = _get_free_slots_that_day(day, assignment.branch, assignment.semester, exclude_slot_id=exclude_slot_id)
+    return jsonify({
+        "free_slots": free_slots,
+        "branch": assignment.branch,
+        "semester": assignment.semester
+    }), 200
 
 
 @academics_bp.route("/timetable/professor", methods=["GET"])

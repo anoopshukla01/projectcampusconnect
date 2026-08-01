@@ -354,6 +354,9 @@ export const academicsApi = {
   /** Professor / Admin: add extra/makeup class */
   addExtraClass: (payload) => apiPost('/academics/timetable/extra-class', payload),
 
+  /** Professor: get free slots for a course and day */
+  getFreeSlots: (params) => apiGet('/academics/timetable/professor/free-slots', params),
+
   /** Professor: create assignment */
   createAssignment: (payload) => apiPost('/academics/assignments', payload),
 

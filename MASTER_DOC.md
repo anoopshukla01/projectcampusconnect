@@ -254,7 +254,8 @@ part meant to stop regressions.
 
 ### ✅ Fixed — Professor Class Assignments & Extra Class (Academics)
 - **Admin Professor Class Assignment Management**: Created 4 admin endpoints (`GET/POST/PATCH/DELETE /admin/professor-assignments`) with strict college scoping and `Branch.code` validation. Built responsive `adminDashboard/ProfessorAssignments/` page. Added 3 test cases in `test_admin.py`.
-- **Extra Class NULL-branch student invisibility bug**: Updated `add_extra_class` to require `course_code` and derive `branch` and `semester` server-side from `ProfessorClassAssignment` (never trust client input). Updated Extra Class modal in `Timetable.jsx` to use assigned course dropdown and empty state when professor has no assignments. All 73 tests pass cleanly.
+- **Extra Class NULL-branch student invisibility bug**: Updated `add_extra_class` to require `course_code` and derive `branch` and `semester` server-side from `ProfessorClassAssignment` (never trust client input). Updated Extra Class modal in `Timetable.jsx` to use assigned course dropdown and empty state when professor has no assignments.
+- **Proactive Time Slot availability dropdown**: Added `GET /academics/timetable/professor/free-slots` endpoint in `academics.py` (reusing `_get_free_slots_that_day` with `exclude_slot_id` support for rescheduling). Updated `Timetable.jsx` modals (New Slot, Extra Class, and Reschedule) to fetch free slots on course/day selection and populate a `<select>` dropdown. Displays an inline warning if no free slots remain for that day and disables submission. Added unit tests in `test_academics.py` (74 tests passing).
 
 ### ✅ Fixed — Mobile Responsiveness (systemic)
 - **Zero @media-query pages** (30+ files across all 4 dashboard areas): All

@@ -77,12 +77,44 @@ export default function Timetable() {
   const [createModal, setCreateModal] = useState(false);
   const [creating,    setCreating]    = useState(false);
   const [conflictSlots, setConflictSlots] = useState([]); // free slots on 409
+  const [createFreeSlots, setCreateFreeSlots] = useState([]);
+  const [loadingCreateSlots, setLoadingCreateSlots] = useState(false);
   const [createForm, setCreateForm] = useState({
-    day: 'Mon', time: '09:00 - 10:30', course_code: '', room: 'LH-101', slot_type: 'lecture',
+    day: 'Mon', time: '', course_code: '', room: 'LH-101', slot_type: 'lecture',
   });
+
+  useEffect(() => {
+    if (!createModal || !createForm.course_code || !createForm.day) {
+      setCreateFreeSlots([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingCreateSlots(true);
+    academicsApi.getFreeSlots({ course_code: createForm.course_code, day: createForm.day })
+      .then(res => {
+        if (!isMounted) return;
+        const free = res?.free_slots || [];
+        setCreateFreeSlots(free);
+        setCreateForm(p => ({
+          ...p,
+          time: free.includes(p.time) ? p.time : (free[0] || '')
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setCreateFreeSlots([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingCreateSlots(false);
+      });
+    return () => { isMounted = false; };
+  }, [createModal, createForm.course_code, createForm.day]);
 
   async function handleCreate(e) {
     e.preventDefault();
+    if (!createForm.time) {
+      showToast('Please select a time slot.', 'error');
+      return;
+    }
     setCreating(true);
     setConflictSlots([]);
     try {
@@ -106,7 +138,7 @@ export default function Timetable() {
       } else {
         showToast('Slot created.', 'success', 2500);
         setCreateModal(false);
-        setCreateForm({ day: 'Mon', time: '09:00 - 10:30', course_code: assignedClasses[0]?.course_code || '', room: 'LH-101', slot_type: 'lecture' });
+        setCreateForm({ day: 'Mon', time: '', course_code: assignedClasses[0]?.course_code || '', room: 'LH-101', slot_type: 'lecture' });
         setConflictSlots([]);
         refetch();
       }
@@ -121,10 +153,42 @@ export default function Timetable() {
   const [editModal,  setEditModal]  = useState(false);
   const [editSlot,   setEditSlot]   = useState(null);
   const [saving,     setSaving]     = useState(false);
+  const [editFreeSlots, setEditFreeSlots] = useState([]);
+  const [loadingEditSlots, setLoadingEditSlots] = useState(false);
   const [editForm, setEditForm] = useState({
     day: 'Mon', time: '', name: '', code: '', room: '', slot_type: 'lecture',
     branch: '', semester: '',
   });
+
+  useEffect(() => {
+    if (!editModal || !editSlot?.code || !editForm.day) {
+      setEditFreeSlots([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingEditSlots(true);
+    academicsApi.getFreeSlots({
+      course_code: editSlot.code,
+      day: editForm.day,
+      exclude_slot_id: editSlot.id
+    })
+      .then(res => {
+        if (!isMounted) return;
+        const free = res?.free_slots || [];
+        setEditFreeSlots(free);
+        setEditForm(p => ({
+          ...p,
+          time: free.includes(p.time) ? p.time : (free[0] || '')
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setEditFreeSlots([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingEditSlots(false);
+      });
+    return () => { isMounted = false; };
+  }, [editModal, editSlot, editForm.day]);
 
   function openEdit(dayKey, cls) {
     setEditSlot({ ...cls, dayKey });
@@ -143,6 +207,10 @@ export default function Timetable() {
 
   async function handleSaveEdit(e) {
     e.preventDefault();
+    if (!editForm.time) {
+      showToast('Please select a time slot.', 'error');
+      return;
+    }
     setSaving(true);
     const res = await academicsApi.updateTimetableSlot(editSlot.id, {
       day_of_week: editForm.day,
@@ -179,8 +247,10 @@ export default function Timetable() {
   // ── Extra class modal ──────────────────────────────────────────────────────
   const [extraModal,  setExtraModal]  = useState(false);
   const [addingExtra, setAddingExtra] = useState(false);
+  const [extraFreeSlots, setExtraFreeSlots] = useState([]);
+  const [loadingExtraSlots, setLoadingExtraSlots] = useState(false);
   const [extraForm, setExtraForm] = useState({
-    day: 'Sat', time: '10:00 - 11:30', course_code: '', room: 'LH-201',
+    day: 'Sat', time: '', course_code: '', room: 'LH-201',
   });
 
   useEffect(() => {
@@ -189,10 +259,40 @@ export default function Timetable() {
     }
   }, [assignedClasses]);
 
+  useEffect(() => {
+    if (!extraModal || !extraForm.course_code || !extraForm.day) {
+      setExtraFreeSlots([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingExtraSlots(true);
+    academicsApi.getFreeSlots({ course_code: extraForm.course_code, day: extraForm.day })
+      .then(res => {
+        if (!isMounted) return;
+        const free = res?.free_slots || [];
+        setExtraFreeSlots(free);
+        setExtraForm(p => ({
+          ...p,
+          time: free.includes(p.time) ? p.time : (free[0] || '')
+        }));
+      })
+      .catch(() => {
+        if (isMounted) setExtraFreeSlots([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingExtraSlots(false);
+      });
+    return () => { isMounted = false; };
+  }, [extraModal, extraForm.course_code, extraForm.day]);
+
   async function handleAddExtra(e) {
     e.preventDefault();
     if (!extraForm.course_code) {
       showToast('Please select an assigned course.', 'error');
+      return;
+    }
+    if (!extraForm.time) {
+      showToast('Please select a time slot.', 'error');
       return;
     }
     setAddingExtra(true);
@@ -346,7 +446,7 @@ export default function Timetable() {
                 {/* Course selector — only assigned classes; no free-text */}
                 <label>Course
                   <select required value={createForm.course_code}
-                    onChange={e => setCreateForm(p => ({ ...p, course_code: e.target.value }))}>
+                    onChange={e => setCreateForm(p => ({ ...p, course_code: e.target.value, time: '' }))}>
                     <option value="">Select assigned course…</option>
                     {assignedClasses.map(c => (
                       <option key={c.course_code} value={c.course_code}>
@@ -355,50 +455,73 @@ export default function Timetable() {
                     ))}
                   </select>
                 </label>
-              <label>Day
-                <select value={createForm.day} onChange={e => setCreateForm(p => ({ ...p, day: e.target.value }))}>
-                  {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-                </select>
-              </label>
-              <label>Time Slot
-                <input required value={createForm.time}
-                  onChange={e => setCreateForm(p => ({ ...p, time: e.target.value }))}
-                  placeholder="09:00 - 10:30" />
-              </label>
-              <label>Room
-                <input required value={createForm.room}
-                  onChange={e => setCreateForm(p => ({ ...p, room: e.target.value }))} />
-              </label>
-              <label>Type
-                <select value={createForm.slot_type}
-                  onChange={e => setCreateForm(p => ({ ...p, slot_type: e.target.value }))}>
-                  {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </label>
-
-              {/* Conflict feedback */}
-              {conflictSlots.length > 0 && (
-                <div style={{ background: 'var(--clr-danger-alpha, rgba(239,68,68,.12))', border: '1px solid var(--clr-danger)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.5rem' }}>
-                  <p style={{ color: 'var(--clr-danger)', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>
-                    Conflict! Free slots today:
+                <label>Day
+                  <select value={createForm.day} onChange={e => setCreateForm(p => ({ ...p, day: e.target.value, time: '' }))}>
+                    {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+                  </select>
+                </label>
+                <label>Time Slot
+                  <select
+                    required
+                    value={createForm.time}
+                    disabled={loadingCreateSlots || !createForm.course_code || createFreeSlots.length === 0}
+                    onChange={e => setCreateForm(p => ({ ...p, time: e.target.value }))}
+                  >
+                    {loadingCreateSlots ? (
+                      <option value="">Checking availability...</option>
+                    ) : !createForm.course_code ? (
+                      <option value="">Select course first</option>
+                    ) : createFreeSlots.length === 0 ? (
+                      <option value="">No free slots available</option>
+                    ) : (
+                      <>
+                        <option value="" disabled>Select time slot...</option>
+                        {createFreeSlots.map(slot => (
+                          <option key={slot} value={slot}>{slot}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </label>
+                {createForm.course_code && !loadingCreateSlots && createFreeSlots.length === 0 && (
+                  <p style={{ color: 'var(--clr-danger, #ef4444)', fontSize: '0.85rem', margin: '0.25rem 0 0.5rem 0' }}>
+                    No free slots for this class on {WEEK_DAYS.find(d => d.key === createForm.day)?.label || createForm.day} — try another day.
                   </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {conflictSlots.map(slot => (
-                      <button key={slot} type="button"
-                        style={{ background: 'var(--clr-accent-alpha)', color: 'var(--clr-accent)', border: '1px solid var(--clr-accent)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.78rem', cursor: 'pointer' }}
-                        onClick={() => setCreateForm(p => ({ ...p, time: slot }))}>
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.4rem' }}>Click a free slot to auto-fill.</p>
-                </div>
-              )}
+                )}
+                <label>Room
+                  <input required value={createForm.room}
+                    onChange={e => setCreateForm(p => ({ ...p, room: e.target.value }))} />
+                </label>
+                <label>Type
+                  <select value={createForm.slot_type}
+                    onChange={e => setCreateForm(p => ({ ...p, slot_type: e.target.value }))}>
+                    {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
 
-              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating || !createForm.course_code}>
-                {creating ? 'Creating…' : 'Create Slot'}
-              </button>
-            </form>
+                {/* Conflict feedback */}
+                {conflictSlots.length > 0 && (
+                  <div style={{ background: 'var(--clr-danger-alpha, rgba(239,68,68,.12))', border: '1px solid var(--clr-danger)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.5rem' }}>
+                    <p style={{ color: 'var(--clr-danger)', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.85rem' }}>
+                      Conflict! Free slots today:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {conflictSlots.map(slot => (
+                        <button key={slot} type="button"
+                          style={{ background: 'var(--clr-accent-alpha)', color: 'var(--clr-accent)', border: '1px solid var(--clr-accent)', borderRadius: '999px', padding: '0.2rem 0.6rem', fontSize: '0.78rem', cursor: 'pointer' }}
+                          onClick={() => setCreateForm(p => ({ ...p, time: slot }))}>
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.4rem' }}>Click a free slot to auto-fill.</p>
+                  </div>
+                )}
+
+                <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={creating || !createForm.course_code || !createForm.time || createFreeSlots.length === 0}>
+                  {creating ? 'Creating…' : 'Create Slot'}
+                </button>
+              </form>
             )}
           </div>
         </div>
@@ -418,15 +541,36 @@ export default function Timetable() {
                 Course: <strong>{editSlot?.name} ({editSlot?.code})</strong>
               </div>
               <label>Day
-                <select value={editForm.day} onChange={e => setEditForm(p => ({ ...p, day: e.target.value }))}>
+                <select value={editForm.day} onChange={e => setEditForm(p => ({ ...p, day: e.target.value, time: '' }))}>
                   {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
               </label>
               <label>Time Slot
-                <input required value={editForm.time}
+                <select
+                  required
+                  value={editForm.time}
+                  disabled={loadingEditSlots || editFreeSlots.length === 0}
                   onChange={e => setEditForm(p => ({ ...p, time: e.target.value }))}
-                  placeholder="09:00 - 10:30" />
+                >
+                  {loadingEditSlots ? (
+                    <option value="">Checking availability...</option>
+                  ) : editFreeSlots.length === 0 ? (
+                    <option value="">No free slots available</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>Select time slot...</option>
+                      {editFreeSlots.map(slot => (
+                        <option key={slot} value={slot}>{slot}</option>
+                      ))}
+                    </>
+                  )}
+                </select>
               </label>
+              {!loadingEditSlots && editFreeSlots.length === 0 && (
+                <p style={{ color: 'var(--clr-danger, #ef4444)', fontSize: '0.85rem', margin: '0.25rem 0 0.5rem 0' }}>
+                  No free slots for this class on {WEEK_DAYS.find(d => d.key === editForm.day)?.label || editForm.day} — try another day.
+                </p>
+              )}
               <label>Classroom / Meeting Room
                 <input required value={editForm.room}
                   onChange={e => setEditForm(p => ({ ...p, room: e.target.value }))} />
@@ -437,7 +581,7 @@ export default function Timetable() {
                   {SLOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
-              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={saving}>
+              <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={saving || !editForm.time || editFreeSlots.length === 0}>
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </form>
@@ -465,7 +609,7 @@ export default function Timetable() {
               <form onSubmit={handleAddExtra} className="sell-form">
                 <label>Course
                   <select required value={extraForm.course_code}
-                    onChange={e => setExtraForm(p => ({ ...p, course_code: e.target.value }))}>
+                    onChange={e => setExtraForm(p => ({ ...p, course_code: e.target.value, time: '' }))}>
                     {assignedClasses.map(c => (
                       <option key={c.course_code} value={c.course_code}>
                         {c.course_name} ({c.course_code})
@@ -474,20 +618,43 @@ export default function Timetable() {
                   </select>
                 </label>
                 <label>Day
-                  <select value={extraForm.day} onChange={e => setExtraForm(p => ({ ...p, day: e.target.value }))}>
+                  <select value={extraForm.day} onChange={e => setExtraForm(p => ({ ...p, day: e.target.value, time: '' }))}>
                     {WEEK_DAYS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
                   </select>
                 </label>
-                <label>Time
-                  <input required value={extraForm.time}
+                <label>Time Slot
+                  <select
+                    required
+                    value={extraForm.time}
+                    disabled={loadingExtraSlots || !extraForm.course_code || extraFreeSlots.length === 0}
                     onChange={e => setExtraForm(p => ({ ...p, time: e.target.value }))}
-                    placeholder="10:00 - 11:30" />
+                  >
+                    {loadingExtraSlots ? (
+                      <option value="">Checking availability...</option>
+                    ) : !extraForm.course_code ? (
+                      <option value="">Select course first</option>
+                    ) : extraFreeSlots.length === 0 ? (
+                      <option value="">No free slots available</option>
+                    ) : (
+                      <>
+                        <option value="" disabled>Select time slot...</option>
+                        {extraFreeSlots.map(slot => (
+                          <option key={slot} value={slot}>{slot}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
                 </label>
+                {extraForm.course_code && !loadingExtraSlots && extraFreeSlots.length === 0 && (
+                  <p style={{ color: 'var(--clr-danger, #ef4444)', fontSize: '0.85rem', margin: '0.25rem 0 0.5rem 0' }}>
+                    No free slots for this class on {WEEK_DAYS.find(d => d.key === extraForm.day)?.label || extraForm.day} — try another day.
+                  </p>
+                )}
                 <label>Room
                   <input required value={extraForm.room}
                     onChange={e => setExtraForm(p => ({ ...p, room: e.target.value }))} />
                 </label>
-                <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={addingExtra}>
+                <button type="submit" className="action-btn" style={{ width: '100%' }} disabled={addingExtra || !extraForm.course_code || !extraForm.time || extraFreeSlots.length === 0}>
                   {addingExtra ? 'Scheduling…' : 'Schedule Class'}
                 </button>
               </form>
