@@ -7,7 +7,7 @@
  * Role enforced server-side; we only gate the UI for convenience.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar, MapPin, Check, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -61,6 +61,18 @@ export default function Events() {
   const [deleting,   setDeleting]   = useState({});
 
   const canManage = isProfessor || isAdmin;
+  const isStudent = !isProfessor && !isAdmin;
+
+  // Load student's existing registrations on mount so the Registered state
+  // persists across page refreshes.
+  useEffect(() => {
+    if (!isStudent) return;
+    communityApi.getMyEventRegistrations?.().then(res => {
+      if (res?.registrations) {
+        setRegisteredIds(res.registrations.map(r => r.event_id));
+      }
+    }).catch(() => {});
+  }, [isStudent]);
 
   const filtered = useMemo(() =>
     cat === 'all' ? approvedEvents : approvedEvents.filter(e => (e.tag || e.category || e.event_type) === cat),
@@ -71,8 +83,9 @@ export default function Events() {
   async function handleRegister(ev) {
     if (registeredIds.includes(ev.id)) {
       setRegistering(p => ({ ...p, [ev.id]: true }));
-      await communityApi.unregisterFromEvent(ev.id);
+      const res = await communityApi.unregisterFromEvent(ev.id);
       setRegistering(p => ({ ...p, [ev.id]: false }));
+      if (res?.error) { showToast(res.error, 'error'); return; }
       setRegisteredIds(p => p.filter(id => id !== ev.id));
       showToast(`Unregistered from "${ev.name || ev.title}".`, 'info');
     } else {
@@ -252,6 +265,16 @@ export default function Events() {
                   style={{ background: TAG_COLORS[typeKey] || '#374151', color: '#fff' }}>
                   {typeKey.toUpperCase()}
                 </span>
+                {ev.class_branch && (
+                  <span style={{
+                    fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.5rem',
+                    borderRadius: '999px', background: 'rgba(99, 102, 241, 0.15)',
+                    color: '#818cf8', border: '1px solid rgba(99,102,241,0.35)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    📌 {ev.class_branch}
+                  </span>
+                )}
                 {canManage && (
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
                     <button className="edit-schedule-btn" aria-label="Edit event"

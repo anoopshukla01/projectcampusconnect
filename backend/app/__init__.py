@@ -81,12 +81,25 @@ def create_app(config_name: str | None = None) -> Flask:
     # ── Global error handlers ─────────────────────────────────────────────
     register_error_handlers(app)
 
-    # ── Health-check route (no auth, no rate limit) ───────────────────────
+    # ── Health-check routes (no auth, no rate limit) ──────────────────────
     @app.get("/api/health")
+    @app.get("/health")
     def health():
         from flask import jsonify
 
         return jsonify({"status": "ok", "service": "studentsphere-backend"}), 200
+
+    @app.get("/api/health/db")
+    @app.get("/health/db")
+    def health_db():
+        from flask import jsonify
+        import sqlalchemy as sa
+
+        try:
+            db.session.execute(sa.text("SELECT 1"))
+            return jsonify({"status": "ok", "database": "connected"}), 200
+        except Exception as exc:
+            return jsonify({"status": "error", "database": "disconnected", "error": str(exc)}), 500
 
     # ── CLI Commands ──────────────────────────────────────────────────────
     import click

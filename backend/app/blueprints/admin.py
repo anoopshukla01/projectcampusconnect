@@ -1546,13 +1546,31 @@ def dismiss_report(report_id):
 @require_roles("admin")
 def list_announcements():
     try:
-        announcements = db.session.query(Announcement).order_by(Announcement.created_at.desc()).all()
+        user = g.current_user
+        announcements = (
+            db.session.query(Announcement)
+            .filter_by(college_id=user.college_id)
+            .order_by(
+                Announcement.is_pinned.desc(),
+                Announcement.is_urgent.desc(),
+                Announcement.created_at.desc()
+            )
+            .all()
+        )
         res = [{
-            "id": str(a.id),
-            "title": a.title,
-            "content": a.content,
-            "author_name": a.author_name,
-            "created_at": a.created_at.isoformat() if a.created_at else ""
+            "id":              str(a.id),
+            "title":           a.title,
+            "content":         a.content,
+            "author_name":     a.author_name,
+            "author_role":     a.author_role,
+            "target_audience": a.target_audience or "everyone",
+            "target_branch":   a.target_branch,
+            "target_semester": a.target_semester,
+            "pinned":          a.is_pinned,
+            "urgent":          a.is_urgent,
+            "is_pinned":       a.is_pinned,
+            "is_urgent":       a.is_urgent,
+            "created_at":      a.created_at.isoformat() if a.created_at else ""
         } for a in announcements]
         return jsonify({"announcements": res}), 200
     except Exception as exc:
@@ -1567,15 +1585,39 @@ def create_announcement():
     title = data.get("title")
     content = data.get("content")
 
-    if not title or not content:
-        return error_response("title and content are required.", 400)
+    if not title or not title.strip() or not content or not content.strip():
+        return error_response("Title and content are required.", 400)
+
+    target_branch = data.get("target_branch") or data.get("branch")
+    if target_branch in ("all", "All", "All Branches", ""):
+        target_branch = None
+
+    target_sem = data.get("target_semester") or data.get("semester")
+    if target_sem in ("all", "All", "All Semesters", "", None):
+        target_sem = None
+    else:
+        try:
+            target_sem = int(target_sem)
+        except (ValueError, TypeError):
+            target_sem = None
+
+    target_audience = data.get("target_audience") or data.get("audience") or "everyone"
+    is_pinned = bool(data.get("is_pinned") if "is_pinned" in data else data.get("pinned", False))
+    is_urgent = bool(data.get("is_urgent") if "is_urgent" in data else data.get("urgent", False))
 
     try:
+        user = g.current_user
         a = Announcement(
-            title=title,
-            content=content,
+            college_id=user.college_id,
+            title=title.strip(),
+            content=content.strip(),
             author_name="Administrator",
-            author_role="admin"
+            author_role="admin",
+            target_audience=target_audience,
+            target_branch=target_branch,
+            target_semester=target_sem,
+            is_pinned=is_pinned,
+            is_urgent=is_urgent,
         )
         db.session.add(a)
         db.session.commit()

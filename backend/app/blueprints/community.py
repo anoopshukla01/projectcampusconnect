@@ -28,18 +28,32 @@ def get_announcements():
     base_q = (
         Announcement.query
         .filter_by(college_id=user.college_id)
-        .order_by(Announcement.created_at.desc())
+        .order_by(
+            Announcement.is_pinned.desc(),
+            Announcement.is_urgent.desc(),
+            Announcement.created_at.desc()
+        )
     )
     total         = base_q.count()
     announcements = base_q.offset(offset).limit(limit).all()
     total_pages   = max(1, (total + limit - 1) // limit)
 
     res = [{
-        "id":      str(a.id),
-        "title":   a.title,
-        "content": a.content,
-        "source":  a.author_name,
-        "time":    a.created_at.strftime("%b %d, %Y") if a.created_at else "Today"
+        "id":              str(a.id),
+        "title":           a.title,
+        "content":         a.content,
+        "source":          a.author_name,
+        "author_name":     a.author_name,
+        "author_role":     a.author_role,
+        "target_audience": a.target_audience or "everyone",
+        "target_branch":   a.target_branch,
+        "target_semester": a.target_semester,
+        "pinned":          a.is_pinned,
+        "urgent":          a.is_urgent,
+        "is_pinned":       a.is_pinned,
+        "is_urgent":       a.is_urgent,
+        "time":            a.created_at.strftime("%b %d, %Y") if a.created_at else "Today",
+        "created_at":      a.created_at.isoformat() if a.created_at else None,
     } for a in announcements]
 
     return jsonify({
@@ -59,17 +73,39 @@ def create_announcement():
     user = get_current_user()
     title = data.get("title")
     content = data.get("content")
-    if not title or not content:
+    if not title or not title.strip() or not content or not content.strip():
         return error_response("Title and content are required.", 400)
+
+    target_branch = data.get("target_branch") or data.get("branch")
+    if target_branch in ("all", "All", "All Branches", ""):
+        target_branch = None
+
+    target_sem = data.get("target_semester") or data.get("semester")
+    if target_sem in ("all", "All", "All Semesters", "", None):
+        target_sem = None
+    else:
+        try:
+            target_sem = int(target_sem)
+        except (ValueError, TypeError):
+            target_sem = None
+
+    target_audience = data.get("target_audience") or data.get("audience") or "everyone"
+
+    is_pinned = bool(data.get("is_pinned") if "is_pinned" in data else data.get("pinned", False))
+    is_urgent = bool(data.get("is_urgent") if "is_urgent" in data else data.get("urgent", False))
 
     role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
     a = Announcement(
         college_id=user.college_id,
-        title=title,
-        content=content,
+        title=title.strip(),
+        content=content.strip(),
         author_name=data.get("author_name") or (user.email or "").split("@")[0].capitalize(),
         author_role=role_str,
-        target_branch=data.get("target_branch") or data.get("branch"),
+        target_audience=target_audience,
+        target_branch=target_branch,
+        target_semester=target_sem,
+        is_pinned=is_pinned,
+        is_urgent=is_urgent,
     )
     db.session.add(a)
     db.session.commit()
@@ -142,15 +178,31 @@ def get_events():
     if user.role in (UserRole.STUDENT, UserRole.PROFESSOR):
         q = q.filter(CampusEvent.approval_status.in_(["live", "approved"]))
     events = q.order_by(CampusEvent.created_at.desc()).all()
-    res = [{
-        "id":      str(e.id),
-        "name":    e.title,
-        "tag":     e.event_type,
-        "meta":    e.date_time,
-        "venue":   e.venue,
-        "desc":    e.description,
-        "approval_status": e.approval_status,
-    } for e in events]
+
+    # Students: events scoped to a specific branch only appear to students
+    # whose own branch matches.  Global events (class_branch IS NULL) show to all.
+    student_branch = None
+    student_semester = None
+    if user.role == UserRole.STUDENT and hasattr(user, 'student_profile') and user.student_profile:
+        student_branch   = (user.student_profile.branch or "").lower()
+        student_semester = user.student_profile.semester
+
+    res = []
+    for e in events:
+        if user.role == UserRole.STUDENT and e.class_branch:
+            # Targeted event: only show to the matching branch
+            if student_branch and e.class_branch.lower() != student_branch:
+                continue
+        res.append({
+            "id":              str(e.id),
+            "name":            e.title,
+            "tag":             e.event_type,
+            "meta":            e.date_time,
+            "venue":           e.venue,
+            "desc":            e.description,
+            "class_branch":    e.class_branch,
+            "approval_status": e.approval_status,
+        })
     return jsonify({"events": res}), 200
 
 def mask_contact(info):
@@ -307,6 +359,7 @@ def create_event():
 
     try:
         e = CampusEvent(
+            college_id=user.college_id,
             title=title,
             event_type=data.get("event_type") or data.get("tag", "general"),
             date_time=date_time,
@@ -1017,13 +1070,10 @@ def manage_library_request(request_id):
 @require_roles("student")
 def register_event_student(event_id):
     from app.models.community import EventRegistration, CampusEvent
-    from app.models.student import StudentProfile
     from app.models.academic import TimetableSlot
+    from app.models.student import StudentProfile
 
     user = get_current_user()
-    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
-    if not student:
-        return error_response("Student profile not found", 404)
 
     event = db.session.get(CampusEvent, event_id)
     if not event:
@@ -1031,39 +1081,74 @@ def register_event_student(event_id):
     err = assert_college_match(event, user)
     if err:
         return err
+    if event.approval_status not in ("live", "approved"):
+        return error_response("Event is not yet live.", 403)
 
-    existing = EventRegistration.query.filter_by(event_id=event.id, student_id=student.id).first()
+    # Audience check: if the event is scoped to a branch, confirm the student matches
+    if event.class_branch:
+        sp = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+        if not sp or sp.branch.lower() != event.class_branch.lower():
+            return error_response("This event is restricted to students of a different branch.", 403)
+
+    # Duplicate-registration guard (keyed on user_id — what the model actually has)
+    existing = EventRegistration.query.filter_by(event_id=event.id, user_id=user.id).first()
     if existing:
         return error_response("You are already registered for this event.", 409)
 
-    reg = EventRegistration(event_id=event.id, student_id=student.id)
-    db.session.add(reg)
+    try:
+        reg = EventRegistration(event_id=event.id, user_id=user.id)
+        db.session.add(reg)
 
-    # Resolve timetable day & time from event description or datetime field
-    day_of_week = "Monday"
-    for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
-        if day.lower() in event.date_time.lower():
-            day_of_week = day
-            break
+        # Inject a timetable slot so the event shows on the student's timetable.
+        # Resolve the day of week from the free-text date_time string if possible.
+        day_of_week = "Monday"
+        for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+            if day.lower() in (event.date_time or "").lower():
+                day_of_week = day
+                break
 
-    # Inject TimetableSlot for the student
-    slot = TimetableSlot(
-        college_id=user.college_id,
-        user_id=user.id,
-        day_of_week=day_of_week,
-        time_slot="10:00 - 12:00",
-        course_name=event.title,
-        course_code="EVENT",
-        room=event.venue,
-        professor_name="Campus Event",
-        slot_type="event",
-        branch=student.branch,
-        semester=student.semester
-    )
-    db.session.add(slot)
-    db.session.commit()
+        # Fetch student profile for branch/semester (may be None for edge cases)
+        sp2 = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+        slot = TimetableSlot(
+            college_id=user.college_id,
+            user_id=user.id,
+            day_of_week=day_of_week,
+            time_slot="10:00 - 12:00",
+            course_name=event.title,
+            course_code="EVENT",
+            room=event.venue or "TBD",
+            professor_name="Campus Event",
+            slot_type="event",
+            branch=sp2.branch if sp2 else "",
+            semester=sp2.semester if sp2 else 1,
+        )
+        db.session.add(slot)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "register_event_student")
 
     return jsonify({"message": "Successfully registered for event. Timetable updated.", "registration_id": str(reg.id)}), 201
+
+
+@community_bp.route("/events/<uuid:event_id>/register", methods=["DELETE"])
+@require_auth
+@require_roles("student")
+def unregister_event_student(event_id):
+    """Cancel a student's registration for an event."""
+    from app.models.community import EventRegistration
+
+    user = get_current_user()
+    reg = EventRegistration.query.filter_by(event_id=event_id, user_id=user.id).first()
+    if not reg:
+        return error_response("You are not registered for this event.", 404)
+    try:
+        db.session.delete(reg)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "unregister_event_student")
+    return jsonify({"message": "Registration cancelled."}), 200
 
 
 @community_bp.route("/events/registrations/me", methods=["GET"])
@@ -1071,25 +1156,22 @@ def register_event_student(event_id):
 @require_roles("student")
 def get_my_event_registrations():
     from app.models.community import EventRegistration
-    from app.models.student import StudentProfile
 
     user = get_current_user()
-    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
-    if not student:
-        return error_response("Student profile not found", 404)
-
-    regs = EventRegistration.query.filter_by(student_id=student.id).all()
+    # EventRegistration.user_id FK → users.id
+    regs = EventRegistration.query.filter_by(user_id=user.id).all()
     res = []
     for r in regs:
         if r.event:
             res.append({
-                "id": str(r.id),
-                "event_id": str(r.event_id),
-                "title": r.event.title,
-                "event_type": r.event.event_type,
-                "date_time": r.event.date_time,
-                "venue": r.event.venue,
-                "description": r.event.description
+                "id":          str(r.id),
+                "event_id":    str(r.event_id),
+                "title":       r.event.title,
+                "event_type":  r.event.event_type,
+                "date_time":   r.event.date_time,
+                "venue":       r.event.venue,
+                "description": r.event.description,
+                "ticket_code": r.ticket_code or "",
             })
     return jsonify({"registrations": res}), 200
 

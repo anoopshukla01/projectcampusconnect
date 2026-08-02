@@ -178,7 +178,7 @@ their own post (not another professor's — this was a real bug, fixed).
 **Rules to remember:** TPO can only message/contact students within the
 eligible pool for their drives (5 semesters passed for jobs, 4 for
 internships). Mock interview recordings via Daily.co webhook — verify the
-signature before trusting any payload (was a real gap, fixed).
+signature before trusting any payload (was a real gap, fixed). Notice Board & Events share a unified structured audience-targeting model (`target_audience`, `target_branch`, `target_semester`), with `is_pinned` and `is_urgent` sorting.
 
 ### 2.4 Admin / Control Panel
 
@@ -266,6 +266,13 @@ part meant to stop regressions.
   768 / 1024 px). Patterns A/B/C applied per content type. `npm run build`
   clean after all changes. CSS bundle grew 135 kB → 142 kB (new media rules).
   Committed in the `feat: systemic mobile responsiveness` commit.
+
+### ✅ Fixed — Shared 500 Creation Crash Root Cause, DB Health Endpoint & Notice Board Audience Targeting
+- **Shared 500 Creation Crash Root Cause**: Across `create_event` (`community.py`), `create_notice` (`placement.py`), and `create_announcement` (`admin.py` & `community.py`), model instances (`CampusEvent`, `Announcement`) were created without explicitly setting `college_id=user.college_id`. In a multi-tenant DB where `DEFAULT_COLLEGE_ID` is not present, missing `college_id` caused foreign key / NOT NULL SQL constraint violations resulting in generic 500 internal server errors. Fixed across all four creation handlers by explicitly passing `college_id=user.college_id`.
+- **`GET /health/db` Diagnostic Endpoint**: Added lightweight `GET /health/db` and `GET /api/health/db` endpoints (`app/__init__.py`) performing `SELECT 1` via `db.session.execute` to verify database connectivity independently (returns 200 `{"status": "ok", "database": "connected"}` or 500 on DB failure).
+- **Unified Audience Targeting & Flag Persistence**: Updated `Announcement` model (`community.py`) and Alembic migration `n9o0p1q2r3s4` to add `target_audience` ("everyone" | "students" | "professors"), `target_semester` (1-8), `is_pinned`, and `is_urgent` columns. Both Events and Announcements/Notices now share one consistent audience-targeting model (`target_audience` + `target_branch` + `target_semester`). Updated `get_notices`, `list_announcements`, and `get_announcements` to sort pinned and urgent items first and return all target fields.
+- **TPO Post Notice Modal Refinement & Inline Validation**: Refined `PlacementNotices.jsx` to replace free-text audience input with structured dropdown selectors (`Target Audience`, `Branch` from `useBranches`, `Semester`) and `Pin notice` / `Mark urgent` checkboxes. Added client-side inline validation error messages (`Title is required`, `Content is required`) inside the modal to clearly distinguish input validation errors from server crashes.
+- **Tests & Build Verification**: Added `test_notices.py` (5 tests) and `test_events.py` (9 tests). Full pytest test suite passes (104 tests), and `npm run build` succeeds cleanly in 2.4s.
 
 ### ✅ Fixed (kept here as history, not for re-investigation)
 - **TPO Application Pipeline Navigation & Admin Student Detail Tenant-Isolation Fix**: Wired candidate profile navigation in `Applications.jsx` to navigate to `/placement/students/:studentId` (with `e.stopPropagation()` and dedicated View Profile action button). Fixed tenant boundary gap in `GET /students/<student_id>/detail` (`students.py`) by removing `role != UserRole.ADMIN` exemption and enforcing `assert_college_match(profile, current_user)` (returning 404) for all non-owner roles including Admin. Added `test_admin_cross_college_student_detail_denied` and `test_admin_same_college_student_detail_allowed` in `test_student_detail.py`. All 90 pytest tests pass.

@@ -333,11 +333,22 @@ export default function Marketplace() {
         }
 
         function launchApp(url) {
+          let didHide = false;
+          function onVisibilityChange() {
+            if (document.hidden) didHide = true;
+          }
+          document.addEventListener('visibilitychange', onVisibilityChange);
+
           window.location.href = url;
-          // Fallback to universal UPI if app protocol doesn't launch
+
           setTimeout(() => {
-            window.location.href = universalUpiUrl;
-          }, 600);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (!didHide) {
+              // Page never backgrounded — the app-specific link didn't launch
+              // anything, so fall back to the universal UPI link.
+              window.location.href = universalUpiUrl;
+            }
+          }, 1200);
         }
 
         return (

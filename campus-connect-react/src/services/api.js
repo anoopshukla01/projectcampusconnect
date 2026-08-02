@@ -465,6 +465,7 @@ export const communityApi = {
   deleteEvent: (eventId) => apiDelete(`/community/events/${eventId}`),
   registerForEvent: (eventId) => apiPost(`/community/events/${eventId}/register`, {}),
   unregisterFromEvent: (eventId) => apiDelete(`/community/events/${eventId}/register`),
+  getMyEventRegistrations: () => apiGet('/community/events/registrations/me'),
 
   /** Marketplace */
   getMarketplace: (params) => apiGet('/community/marketplace', params),

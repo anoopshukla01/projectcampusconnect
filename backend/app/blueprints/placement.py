@@ -1178,18 +1178,37 @@ def get_moderation_reports():
 def get_notices():
     """Placement notices visible to all authenticated users."""
     from app.models.community import Announcement
-    notices = Announcement.query.filter_by(
-        author_role="placement_cell"
-    ).order_by(Announcement.created_at.desc()).all()
-    res = [{
-        "id":       str(n.id),
-        "title":    n.title,
-        "content":  n.content,
-        "audience": "All Students",
-        "time":     n.created_at.strftime("%b %d, %Y") if n.created_at else "Today",
-        "pinned":   False,
-        "urgent":   False,
-    } for n in notices]
+    user = get_current_user()
+    notices = (
+        Announcement.query
+        .filter_by(college_id=user.college_id, author_role="placement_cell")
+        .order_by(
+            Announcement.is_pinned.desc(),
+            Announcement.is_urgent.desc(),
+            Announcement.created_at.desc()
+        )
+        .all()
+    )
+    res = []
+    for n in notices:
+        aud_label = n.target_branch or (n.target_audience.capitalize() if n.target_audience else "All Students")
+        if n.target_semester:
+            aud_label += f" (Sem {n.target_semester})"
+        res.append({
+            "id":              str(n.id),
+            "title":           n.title,
+            "content":         n.content,
+            "audience":        aud_label,
+            "target_audience": n.target_audience or "students",
+            "target_branch":   n.target_branch,
+            "target_semester": n.target_semester,
+            "time":            n.created_at.strftime("%b %d, %Y") if n.created_at else "Today",
+            "created_at":      n.created_at.isoformat() if n.created_at else None,
+            "pinned":          n.is_pinned,
+            "urgent":          n.is_urgent,
+            "is_pinned":       n.is_pinned,
+            "is_urgent":       n.is_urgent,
+        })
     return jsonify({"notices": res}), 200
 
 
@@ -1203,15 +1222,41 @@ def create_notice():
     data = request.get_json() or {}
     title   = data.get("title")
     content = data.get("content")
-    if not title or not content:
-        return error_response("title and content are required.", 400)
+    if not title or not title.strip() or not content or not content.strip():
+        return error_response("Title and content are required.", 400)
+
+    target_branch = data.get("target_branch") or data.get("branch")
+    if target_branch in ("all", "All", "All Branches", ""):
+        target_branch = None
+
+    target_sem = data.get("target_semester") or data.get("semester")
+    if target_sem in ("all", "All", "All Semesters", "", None):
+        target_sem = None
+    else:
+        try:
+            target_sem = int(target_sem)
+        except (ValueError, TypeError):
+            target_sem = None
+
+    target_audience = data.get("target_audience") or data.get("audience") or "students"
+    if target_audience in ("All", "All Students", "everyone"):
+        target_audience = "everyone"
+
+    is_pinned = bool(data.get("is_pinned") if "is_pinned" in data else data.get("pinned", False))
+    is_urgent = bool(data.get("is_urgent") if "is_urgent" in data else data.get("urgent", False))
+
     try:
         a = Announcement(
-            title       = title,
-            content     = content,
-            author_name = (user.email or "").split("@")[0].capitalize(),
-            author_role = "placement_cell",
-            target_branch = data.get("audience"),
+            college_id      = user.college_id,
+            title           = title.strip(),
+            content         = content.strip(),
+            author_name     = (user.email or "").split("@")[0].capitalize(),
+            author_role     = "placement_cell",
+            target_audience = target_audience,
+            target_branch   = target_branch,
+            target_semester = target_sem,
+            is_pinned       = is_pinned,
+            is_urgent       = is_urgent,
         )
         db.session.add(a)
         db.session.commit()
@@ -1227,7 +1272,8 @@ def create_notice():
 def delete_notice(notice_id):
     """Delete a placement notice."""
     from app.models.community import Announcement
-    a = Announcement.query.filter_by(id=notice_id).first()
+    user = get_current_user()
+    a = Announcement.query.filter_by(id=notice_id, college_id=user.college_id).first()
     if not a:
         return error_response("Notice not found.", 404)
     try:

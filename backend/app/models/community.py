@@ -13,7 +13,11 @@ class Announcement(db.Model):
     content = db.Column(db.Text, nullable=False)
     author_name = db.Column(db.String(255), nullable=False)
     author_role = db.Column(db.String(50), nullable=False, default="admin")
-    target_branch = db.Column(db.String(50), nullable=True)
+    target_audience = db.Column(db.String(50), nullable=True, default="everyone")  # everyone | students | professors
+    target_branch = db.Column(db.String(50), nullable=True)                        # CSE, ECE, MECH... or NULL/all
+    target_semester = db.Column(db.Integer, nullable=True)                         # 1-8 or NULL/all
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)
+    is_urgent = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class CampusEvent(db.Model):
