@@ -100,6 +100,28 @@
   .day-column.active-day-col { display: block; }
 }
 
+/* ── Additional 480px breakpoint ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .page-title { font-size: 1.2rem; }
+  .day-tab {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.78rem;
+  }
+  .class-card {
+    padding: 0.6rem 0.75rem;
+  }
+  .class-name {
+    font-size: 0.8rem;
+  }
+  .sell-form {
+    padding: 1rem 1.25rem;
+  }
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+}
+
+
 .edit-schedule-btn {
   background: var(--clr-primary-soft);
   border: 1px solid var(--clr-primary-soft);

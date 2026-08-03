@@ -48,3 +48,26 @@
   border-color: #ef4444 !important;
 }
 
+/* ── Responsive (Pattern C: notice cards on mobile) ─────────────────────── */
+@media (max-width: 768px) {
+  .pn-notice-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .pn-actions {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .pn-notice {
+    padding: 0.875rem 1rem;
+  }
+  .pn-title {
+    font-size: 0.88rem;
+  }
+  .pn-meta {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

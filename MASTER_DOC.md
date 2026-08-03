@@ -249,8 +249,10 @@ part meant to stop regressions.
 ### 🟠 Open — High
 *(None remaining)*
 
-### 🟡 Open — Medium / UI-UX
-*(None remaining)*
+### ✅ Fixed — Generic `useApiData` Emptiness Check & Systemic Blank-Page Prevention
+- **Generic Structural Emptiness Check**: Replaced the hardcoded key whitelist in `useApiData.js` (`subjects`, `grades`, `announcements`, `events`, `items`, `notes`, `resources`, `assignments`, `drives`, `rooms`, `messages`) with `isDataEmpty(data)` which structurally inspects responses. An object response is treated as empty if all array properties are empty (`length === 0`) or if all properties are null/undefined, ignoring scalar primitive counts (e.g. `{ students: [], total_students: 0 }`).
+- **Eliminated Blank-Page Regressions**: Automatically fixes empty-state handling across all 13 previously-missing response keys (`bookings`, `branch_stats`, `classes`, `companies`, `mentors`, `merchandise`, `notices`, `recordings`, `requests`, `sessions`, `students`, `timetable`, `total_students`), rendering `StateContainer`'s styled empty states instead of blank space.
+- **Mentorship Flow & Admin Designation Follow-Up**: Verified student mentorship request flow (`Mentorship.jsx`). Confirmed that Admin/TPO currently lacks a dedicated UI/endpoint to designate faculty as mentors—flagged as a follow-up feature enhancement.
 
 ### ✅ Fixed — Content & Moderation Reports Multi-Tenancy Scoping
 - **Missing `college_id` schema & query fix**: Added `college_id` FK column (nullable=False, indexed, no default) to `LectureRecording`, `SyllabusProgress`, `MockInterviewSession`, `MockInterviewBooking`, `MentorProfile`, `MentorshipRequest`, and `ModerationReport`. Created Alembic migration `k6l7m8n9o0p1` with join-based backfills. Updated all queries and constructors across `career.py`, `placement.py`, `professors.py`, and `admin.py` to enforce explicit `college_id` scoping. Added `test_content_tenancy.py` (78 tests passing).

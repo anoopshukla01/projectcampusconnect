@@ -198,3 +198,37 @@
 .pd-btn-primary:hover { background: var(--clr-secondary); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,.45); }
 .pd-btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text-primary); }
 .pd-btn-outline:hover { border-color: var(--clr-secondary); color: var(--clr-secondary); background: rgba(99,102,241,.07); }
+
+/* ── Mobile breakpoints (≤ 480px) ─────────────────────────────── */
+@media (max-width: 480px) {
+  .pd-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .pd-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .pd-card {
+    padding: 1rem 1.125rem;
+  }
+
+  .pd-stats-grid { gap: 0.875rem; }
+  .pd-stat-card  { padding: 1.125rem 1.25rem; }
+  .pd-stat-value { font-size: 1.6rem; }
+
+  .pd-table-wrap { -webkit-overflow-scrolling: touch; }
+
+  .pd-quick-actions {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.625rem;
+  }
+  .pd-quick-btn {
+    padding: 0.875rem 0.625rem;
+  }
+  .pd-quick-label {
+    font-size: 0.68rem;
+  }
+}
+

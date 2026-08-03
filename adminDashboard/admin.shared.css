@@ -362,3 +362,28 @@
   background-color: rgba(239, 68, 68, 0.08);
 }
 
+/* ── Mobile breakpoints (≤ 480px) ─────────────────────────────── */
+@media (max-width: 480px) {
+  .page-title { font-size: 1.2rem; }
+  .page-sub   { font-size: 0.78rem; }
+
+  .ad-header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .ad-header-actions .pd-btn,
+  .ad-header-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .ad-card {
+    padding: 1rem 1.125rem;
+  }
+
+  .ad-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .ad-stats-grid { gap: 0.875rem; }
+  .ad-stat-card  { padding: 1.125rem 1.25rem; }
+  .ad-stat-value { font-size: 1.6rem; }
+}

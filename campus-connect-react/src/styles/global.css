@@ -557,6 +557,133 @@ ul { list-style: none; }
   .event-cards { grid-template-columns: 1fr !important; }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE-FIRST GLOBAL PATCH  (≤ 480px — phone-only)
+   These rules override the base layout for small-screen devices.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Prevent iOS input zoom (needs font-size ≥ 16px) ─────────── */
+@media (max-width: 480px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Content area ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .content {
+    padding: 0.75rem;
+    gap: 0.875rem;
+  }
+}
+
+/* ── Topbar ───────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .topbar {
+    padding: 0.5rem 0.875rem;
+    gap: 0.5rem;
+  }
+  /* Hide verbose logout label; show only icon */
+  .logout-btn span {
+    display: none;
+  }
+  .logout-btn {
+    padding: 0.4rem 0.55rem;
+    min-width: 36px;
+    min-height: 36px;
+  }
+  /* Ensure icon-btn hit areas are at least 44×44px (touch target) */
+  .icon-btn {
+    padding: 0.6rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .menu-toggle {
+    padding: 0.6rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* notification dropdown – full-width on mobile */
+  .notif-dropdown {
+    width: calc(100vw - 2rem);
+    right: -0.5rem;
+  }
+}
+
+/* ── Modals – near-fullscreen on phone ───────────────────────── */
+@media (max-width: 480px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 1.25rem 1.25rem 0 0;
+    max-height: 92vh;
+    padding: 1rem 1.25rem;
+  }
+  /* Give modal headers a bit more room */
+  .modal-header h2 {
+    font-size: 1rem;
+  }
+}
+
+/* ── Nav items – larger tap targets ─────────────────────────── */
+@media (max-width: 480px) {
+  .nav-item {
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* ── Filter row – horizontal scroll on phone ─────────────────── */
+@media (max-width: 480px) {
+  .filter-row {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-btn { flex-shrink: 0; }
+}
+
+/* ── Panel padding tighter on phone ─────────────────────────── */
+@media (max-width: 480px) {
+  .panel {
+    padding: 0.875rem;
+  }
+}
+
+/* ── Buttons – full-width where stacking needed ──────────────── */
+@media (max-width: 480px) {
+  .modal-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .modal-footer button,
+  .modal-footer .btn-primary,
+  .modal-footer .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Tables – enable touch-scroll ───────────────────────────── */
+@media (max-width: 480px) {
+  .table-wrap,
+  .attend-table-wrap,
+  .grades-table-wrap,
+  .roster-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ── Filter / Action buttons (global) ────────── */
 .filter-btn {
   background: var(--clr-surface);

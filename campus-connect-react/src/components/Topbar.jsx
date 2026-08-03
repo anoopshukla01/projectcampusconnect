@@ -240,8 +240,9 @@ export default function Topbar({ onMenuToggle }) {
             <polyline points="16 17 21 12 16 7"/>
             <line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
-          Sign out
+          <span>Sign out</span>
         </button>
+
 
         {/* Avatar / Profile button triggers Modal */}
         <button className="avatar-btn" id="avatarBtn" aria-label="Profile menu" onClick={() => setModalOpen(true)}>

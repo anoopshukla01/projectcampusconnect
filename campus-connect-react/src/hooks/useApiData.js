@@ -13,6 +13,25 @@ import { apiGet } from '../services/api';
  * @param {*} defaultData           - Value to use while loading or on error.
  * @param {Record<string,any>} [queryParams] - Optional query-string params.
  */
+function isDataEmpty(data) {
+  if (data == null) return true;
+  if (Array.isArray(data)) return data.length === 0;
+  if (typeof data === 'object') {
+    const keys = Object.keys(data);
+    if (keys.length === 0) return true;
+
+    const values = Object.values(data);
+    const arrayValues = values.filter(v => Array.isArray(v));
+
+    if (arrayValues.length > 0) {
+      return arrayValues.every(arr => arr.length === 0);
+    }
+
+    return values.every(v => v == null);
+  }
+  return false;
+}
+
 export function useApiData(endpoint, defaultData = null, queryParams = undefined) {
   const [data, setData]       = useState(defaultData);
   const [loading, setLoading] = useState(endpoint !== null);
@@ -50,25 +69,7 @@ export function useApiData(endpoint, defaultData = null, queryParams = undefined
     fetchData();
   }, [fetchData]);
 
-  const isEmpty =
-    !loading &&
-    !error &&
-    (data === null ||
-      (Array.isArray(data) && data.length === 0) ||
-      (typeof data === 'object' &&
-        !Array.isArray(data) &&
-        Object.keys(data).length === 0) ||
-      (data?.subjects       && data.subjects.length       === 0) ||
-      (data?.grades         && data.grades.length         === 0) ||
-      (data?.announcements  && data.announcements.length  === 0) ||
-      (data?.events         && data.events.length         === 0) ||
-      (data?.items          && data.items.length          === 0) ||
-      (data?.notes          && data.notes.length          === 0) ||
-      (data?.resources      && data.resources.length      === 0) ||
-      (data?.assignments    && data.assignments.length    === 0) ||
-      (data?.drives         && data.drives.length         === 0) ||
-      (data?.rooms          && data.rooms.length          === 0) ||
-      (data?.messages       && data.messages.length       === 0));
+  const isEmpty = !loading && !error && isDataEmpty(data);
 
   /** Manually re-trigger the fetch (e.g. after a mutation). */
   const refetch = useCallback(() => { fetchData(); }, [fetchData]);
