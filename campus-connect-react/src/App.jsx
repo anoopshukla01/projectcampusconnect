@@ -64,6 +64,7 @@ import { useDeepLinks } from './hooks/useDeepLinks';
 import { Network } from '@capacitor/network';
 import { PrivacyScreen } from '@capacitor/privacy-screen';
 import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { useToast } from './context/ToastContext';
 
 export default function App() {
@@ -78,14 +79,28 @@ export default function App() {
       // Enable Privacy Screen
       PrivacyScreen.enable();
 
+      // Handle Android hardware back button & gestures
+      const backListener = CapApp.addListener('backButton', ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          CapApp.exitApp();
+        }
+      });
+
       // Listen for network changes
-      Network.addListener('networkStatusChange', status => {
+      const netListener = Network.addListener('networkStatusChange', status => {
         if (!status.connected) {
           showToast('No Internet Connection', 'error', 10000);
         } else {
           showToast('Connection Restored', 'success', 3000);
         }
       });
+
+      return () => {
+        backListener.then(h => h.remove());
+        netListener.then(h => h.remove());
+      };
     }
   }, [showToast]);
 
