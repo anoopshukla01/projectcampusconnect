@@ -9,7 +9,14 @@ android {
 
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
-
+    implementation project(':aparajita-capacitor-secure-storage')
+    implementation project(':capacitor-camera')
+    implementation project(':capacitor-geolocation')
+    implementation project(':capacitor-haptics')
+    implementation project(':capacitor-network')
+    implementation project(':capacitor-privacy-screen')
+    implementation project(':capacitor-push-notifications')
+    implementation project(':capgo-capacitor-native-biometric')
 
 }
 

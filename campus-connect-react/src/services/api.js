@@ -45,6 +45,8 @@ if (isLocal || isVercel) {
 }
 const BASE = apiURL ? `${apiURL}/api/v1` : '/api/v1';
 
+import { storage } from './storage';
+
 /** localStorage keys (must stay in sync with AuthContext) */
 const KEYS = {
   ACCESS:  'access_token',
@@ -56,18 +58,18 @@ const KEYS = {
 // 1.  Token helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getAccessToken()  { return localStorage.getItem(KEYS.ACCESS)  ?? ''; }
-function getRefreshToken() { return localStorage.getItem(KEYS.REFRESH) ?? ''; }
+async function getAccessToken()  { return await storage.get(KEYS.ACCESS)  ?? ''; }
+async function getRefreshToken() { return await storage.get(KEYS.REFRESH) ?? ''; }
 
-function saveTokens({ access_token, refresh_token }) {
-  if (access_token)  localStorage.setItem(KEYS.ACCESS,  access_token);
-  if (refresh_token) localStorage.setItem(KEYS.REFRESH, refresh_token);
+async function saveTokens({ access_token, refresh_token }) {
+  if (access_token)  await storage.set(KEYS.ACCESS,  access_token);
+  if (refresh_token) await storage.set(KEYS.REFRESH, refresh_token);
 }
 
-function clearSession() {
-  localStorage.removeItem(KEYS.ACCESS);
-  localStorage.removeItem(KEYS.REFRESH);
-  localStorage.removeItem(KEYS.USER);
+async function clearSession() {
+  await storage.remove(KEYS.ACCESS);
+  await storage.remove(KEYS.REFRESH);
+  await storage.remove(KEYS.USER);
   // Also clear legacy keys written by older code
   localStorage.removeItem('token');
   localStorage.removeItem('ss_token');

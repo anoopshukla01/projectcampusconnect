@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 const STUDENT_NAV_SECTIONS = [
   {
@@ -165,6 +167,12 @@ export default function Sidebar({ activePage, sidebarOpen, setSidebarOpen }) {
 
   function handleNavClick(item) {
     if (item.page === activePage) return;
+
+    // Haptic feedback on navigation
+    if (Capacitor.isNativePlatform()) {
+      Haptics.impact({ style: ImpactStyle.Light });
+    }
+
     setIsOpen(false);
     showToast('Loading page…', 'info', 800);
     setTimeout(() => navigate(item.path), 200);

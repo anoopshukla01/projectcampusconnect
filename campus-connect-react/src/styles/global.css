@@ -91,6 +91,27 @@
   --t-md: 0.28s ease;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --clr-bg:           #0f172a;
+    --clr-surface:      #1e293b;
+    --clr-primary-soft: #1e293b;
+    --clr-text:         #f8fafc;
+    --clr-text-2:       #e2e8f0;
+    --clr-muted:        #94a3b8;
+    --clr-border:       #334155;
+    --clr-input-bg:     #1e293b;
+    --sidebar-bg:       #1e293b;
+    --sidebar-bd:       #334155;
+    --surface:          #1e293b;
+    --bg:               #0f172a;
+    --border:           #334155;
+    --text-primary:     #f8fafc;
+    --text-secondary:   #e2e8f0;
+    --text-muted:       #94a3b8;
+  }
+}
+
 /* ── Responsive Breakpoints ──────────────────────────────────────────────────
    Standardised across the entire app. Every @media query must use ONLY these
    values — do NOT introduce new arbitrary numbers (500px, 540px, 800px, etc.)

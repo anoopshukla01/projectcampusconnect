@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Mail, GraduationCap, Check, AlertTriangle } from 'lucide-react';
+import { Mail, GraduationCap, Check, AlertTriangle, Fingerprint } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { auth } from '../../config/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import './Login.css';
 
 const EyeOpen = () => (
@@ -124,9 +127,46 @@ export default function Login() {
     if (tokenParam) { setInviteToken(tokenParam); setMode('accept_invite'); }
   }, [searchParams]);
 
+  /* ── Biometric Login ── */
+  const [canBiometric, setCanBiometric] = useState(false);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      NativeBiometric.isAvailable().then(result => {
+        if (result.isAvailable) setCanBiometric(true);
+      });
+    }
+  }, []);
+
+  async function handleBiometricLogin() {
+    try {
+      const verified = await NativeBiometric.verifyIdentity({
+        reason: "Log in to Campus Connect",
+        title: "Biometric Login",
+        subtitle: "Use Fingerprint or Face ID",
+        description: "Quickly access your student dashboard",
+      });
+
+      if (verified) {
+        // In a real app, you'd fetch stored credentials here.
+        // For this demo, we'll show a success message.
+        showToast('Biometric verified! Redirecting...', 'success', 2000);
+        setTimeout(() => navigate('/'), 800);
+      }
+    } catch (err) {
+      showToast('Biometric failed or cancelled.', 'error', 3000);
+    }
+  }
+
   /* ── Sign In ── */
   async function handleLoginSubmit(e) {
     e.preventDefault();
+
+    // Haptic feedback on button press
+    if (Capacitor.isNativePlatform()) {
+      Haptics.impact({ style: ImpactStyle.Medium });
+    }
+
     let ok = true;
     if (!identifier.trim()) { setIdError('Email or student ID is required.'); ok = false; }
     else if (!isValidIdentifier(identifier.trim())) { setIdError('Enter a valid email or student ID.'); ok = false; }
@@ -141,6 +181,9 @@ export default function Login() {
     const result = await login(identifier, password, role);
     setLoading(false);
     if (result && result.success) {
+      if (Capacitor.isNativePlatform()) {
+        Haptics.notification({ type: 'SUCCESS' });
+      }
       showToast(`Welcome back, ${result.user.name || 'User'}!`, 'success', 2000);
       setTimeout(() => navigate('/'), 800);
     } else {
@@ -491,6 +534,18 @@ export default function Login() {
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? <><span className="btn-spinner" />&nbsp;Signing in…</> : 'Sign In'}
             </button>
+
+            {canBiometric && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleBiometricLogin}
+                style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#f3f4f8', color: '#1d4ed8', border: '1px solid #dbeafe', width: '100%', padding: '0.75rem', borderRadius: '0.75rem', fontWeight: 600 }}
+              >
+                <Fingerprint size={20} />
+                Sign in with Biometrics
+              </button>
+            )}
 
             <div className="login-divider">
               <span className="divider-text">Signing in as</span>

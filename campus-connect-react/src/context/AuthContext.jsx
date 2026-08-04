@@ -16,6 +16,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { USERS } from '../data/users';
+import { storage } from '../services/storage';
 
 const AuthContext = createContext(null);
 
@@ -105,18 +106,18 @@ function buildUserFromResponse(data, identifierHint = '') {
   };
 }
 
-function persistSession(userObj, accessToken, refreshToken) {
-  localStorage.setItem(KEYS.USER,    JSON.stringify(userObj));
-  localStorage.setItem(KEYS.ACCESS,  accessToken);
-  localStorage.setItem(KEYS.TOKEN,   accessToken);   // legacy compat
-  if (refreshToken) localStorage.setItem(KEYS.REFRESH, refreshToken);
+async function persistSession(userObj, accessToken, refreshToken) {
+  await storage.set(KEYS.USER,    JSON.stringify(userObj));
+  await storage.set(KEYS.ACCESS,  accessToken);
+  await storage.set(KEYS.TOKEN,   accessToken);   // legacy compat
+  if (refreshToken) await storage.set(KEYS.REFRESH, refreshToken);
 }
 
-function clearSession() {
-  localStorage.removeItem(KEYS.USER);
-  localStorage.removeItem(KEYS.ACCESS);
-  localStorage.removeItem(KEYS.REFRESH);
-  localStorage.removeItem(KEYS.TOKEN);
+async function clearSession() {
+  await storage.remove(KEYS.USER);
+  await storage.remove(KEYS.ACCESS);
+  await storage.remove(KEYS.REFRESH);
+  await storage.remove(KEYS.TOKEN);
   localStorage.removeItem('ss_token');  // older legacy key
 }
 
@@ -125,25 +126,29 @@ function clearSession() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem(KEYS.USER);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      // Evict stale mock-session data: real backend sessions never populate
-      // classRank or pendingTasks on the user object — only the offline mock
-      // fallback does. If we find these keys, the cached value is from a past
-      // mock-login trigger and must be discarded so real API data loads fresh.
-      if (parsed && (parsed.classRank !== undefined || parsed.pendingTasks !== undefined)) {
-        localStorage.removeItem(KEYS.USER);
-        localStorage.removeItem(KEYS.ACCESS);
-        localStorage.removeItem(KEYS.REFRESH);
-        localStorage.removeItem(KEYS.TOKEN);
-        return null;
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    async function initAuth() {
+      try {
+        const raw = await storage.get(KEYS.USER);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && (parsed.classRank !== undefined || parsed.pendingTasks !== undefined)) {
+            await clearSession();
+          } else {
+            setUser(parsed);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to init auth', err);
+      } finally {
+        setAuthLoading(false);
       }
-      return parsed;
-    } catch { return null; }
-  });
+    }
+    initAuth();
+  }, []);
 
   // ── One-time boot migration: collapse legacy storage keys ─────────────────
   useEffect(() => {
@@ -190,7 +195,7 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         // ✅ Role resolved from backend JWT claim — never from client input
         const userObj = buildUserFromResponse(data, idStr);
-        persistSession(userObj, data.access_token, data.refresh_token);
+        await persistSession(userObj, data.access_token, data.refresh_token);
         setUser(userObj);
         return { success: true, user: userObj };
       }
@@ -204,7 +209,7 @@ export function AuthProvider({ children }) {
       if (import.meta.env.DEV) {
         const found = findOfflineUser(identifier, password);
         if (found) {
-          persistSession(found, 'mock-token', null);
+          await persistSession(found, 'mock-token', null);
           setUser(found);
           return { success: true, user: found };
         }
@@ -223,7 +228,7 @@ export function AuthProvider({ children }) {
    * This helper is only active in local dev (import.meta.env.DEV).
    * In production it always returns an error directing to the real flow.
    */
-  const register = useCallback((name, email, password, role) => {
+  const register = useCallback(async (name, email, password, role) => {
     if (!import.meta.env.DEV) {
       return { error: 'Please use the Sign Up / Claim flow to create an account.' };
     }
@@ -247,13 +252,13 @@ export function AuthProvider({ children }) {
 
     custom.push(newUser);
     localStorage.setItem('ss_custom_users', JSON.stringify(custom));
-    persistSession(newUser, 'mock-token', null);
+    await persistSession(newUser, 'mock-token', null);
     setUser(newUser);
     return { user: newUser };
   }, []);
 
   // ── Update local user metadata (name, avatar, etc.) ──────────────────────
-  const updateUser = useCallback((updatedFields) => {
+  const updateUser = useCallback(async (updatedFields) => {
     setUser((prev) => {
       if (!prev) return null;
       const nextUser = {
@@ -264,7 +269,7 @@ export function AuthProvider({ children }) {
         backendRole: prev.backendRole,
         initials: (updatedFields.name ?? prev.name).slice(0, 2).toUpperCase(),
       };
-      localStorage.setItem(KEYS.USER, JSON.stringify(nextUser));
+      storage.set(KEYS.USER, JSON.stringify(nextUser));
 
       // Keep offline custom-users list in sync
       const custom = getCustomUsers();
@@ -282,7 +287,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     // Best-effort server-side token revocation (fire and forget)
     try {
-      const token = localStorage.getItem(KEYS.ACCESS);
+      const token = await storage.get(KEYS.ACCESS);
       if (token && token !== 'mock-token') {
         await fetch('/api/v1/auth/logout', {
           method:  'POST',
@@ -295,7 +300,7 @@ export function AuthProvider({ children }) {
       }
     } catch { /* ignore network errors on logout */ }
 
-    clearSession();
+    await clearSession();
     setUser(null);
   }, []);
 
@@ -309,6 +314,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
+        authLoading,
         login,
         register,
         updateUser,

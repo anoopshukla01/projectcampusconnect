@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 const ToastContext = createContext(null);
 
@@ -10,6 +12,16 @@ export function ToastProvider({ children }) {
   const showToast = useCallback((message, type = 'default', duration = 3000) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setToast({ visible: true, message, type });
+
+    // Trigger haptic feedback on native
+    if (Capacitor.isNativePlatform()) {
+      if (type === 'error' || type === 'danger') {
+        Haptics.vibrate();
+      } else {
+        Haptics.impact({ style: ImpactStyle.Light });
+      }
+    }
+
     timerRef.current = setTimeout(() => {
       setToast(t => ({ ...t, visible: false }));
     }, duration);

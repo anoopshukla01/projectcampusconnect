@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, User } from 'lucide-react';
+import { AlertTriangle, User, Camera as CameraIcon } from 'lucide-react';
 import { studentsApi } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import './Settings.css';
 
 export default function Settings() {
@@ -15,6 +17,7 @@ export default function Settings() {
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [githubVisible, setGithubVisible] = useState(false);
   const [linkedinVisible, setLinkedinVisible] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
     fetchProfile();
@@ -26,7 +29,8 @@ export default function Settings() {
       const res = await studentsApi.getMe();
       setGithubUrl(res.github_url || '');
       setLinkedinUrl(res.linkedin_url || '');
-      
+      setProfileImage(res.profile_image_url || null);
+
       const visibility = res.social_links_visibility || {};
       setGithubVisible(!!visibility.github);
       setLinkedinVisible(!!visibility.linkedin);
@@ -34,6 +38,27 @@ export default function Settings() {
       showToast(err.message || 'Failed to load profile settings.', 'error');
     }
     setLoading(false);
+  }
+
+  async function handleTakePicker() {
+    if (!Capacitor.isNativePlatform()) {
+      showToast('Camera is only available on mobile devices.', 'info');
+      return;
+    }
+
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Prompt
+      });
+
+      setProfileImage(image.webPath);
+      showToast('Photo updated locally! Save to persist.', 'success');
+    } catch (err) {
+      console.error('Camera error:', err);
+    }
   }
 
   async function handleSaveSettings(e) {
@@ -72,6 +97,28 @@ export default function Settings() {
       </div>
 
       <div className="settings-card-shell">
+        <div className="settings-card-header">
+          <h2 className="settings-card-title">Profile Picture</h2>
+        </div>
+        <div className="settings-profile-photo-section" style={{ padding: '1.5rem', textAlign: 'center' }}>
+          <div className="profile-photo-wrap" style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 1rem', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {profileImage ? (
+              <img src={profileImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <User size={48} color="#94a3b8" />
+            )}
+          </div>
+          <button
+            type="button"
+            className="pd-btn pd-btn-secondary"
+            onClick={handleTakePicker}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <CameraIcon size={16} />
+            {profileImage ? 'Change Photo' : 'Add Photo'}
+          </button>
+        </div>
+
         <div className="settings-card-header">
           <h2 className="settings-card-title">Connected Platforms (DPDP Compliant)</h2>
         </div>
