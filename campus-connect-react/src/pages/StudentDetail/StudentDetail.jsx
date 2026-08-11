@@ -9,11 +9,14 @@
  * Updates via studentsApi.updateSelf() → S2 PATCH /students/me.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User, BookOpen, Home, Briefcase, Award, Activity,
-  Calendar, CheckCircle, Edit3, Check, X, Camera, Code, Plus
+  Calendar, CheckCircle, Edit3, Check, X, Camera, Code, Plus,
+  UploadCloud, ImagePlus, Link2
 } from 'lucide-react';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import app from '../../config/firebase';
 import { studentsApi } from '@/services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -167,6 +170,169 @@ function SkillsSection({ skills, onUpdate, saving }) {
             <Plus size={13} /> Add Skill
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Drag-and-Drop Photo Uploader ──────────────────────────────────────────
+function PhotoUploader({ currentUrl, onSave, onCancel, saving }) {
+  const [isDragging, setIsDragging]   = useState(false);
+  const [preview,    setPreview]      = useState(currentUrl || null);
+  const [file,       setFile]         = useState(null);
+  const [progress,   setProgress]     = useState(0);
+  const [uploading,  setUploading]    = useState(false);
+  const [urlMode,    setUrlMode]      = useState(false);
+  const [urlDraft,   setUrlDraft]     = useState('');
+  const inputRef = useRef(null);
+
+  function acceptFile(f) {
+    if (!f || !f.type.startsWith('image/')) return;
+    setFile(f);
+    const reader = new FileReader();
+    reader.onload = e => setPreview(e.target.result);
+    reader.readAsDataURL(f);
+    setUrlMode(false);
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    setIsDragging(false);
+    acceptFile(e.dataTransfer.files[0]);
+  }
+
+  async function handleUpload() {
+    if (!file) return;
+    setUploading(true);
+    const storage = getStorage(app);
+    const path    = `profile_photos/${Date.now()}_${file.name}`;
+    const sRef    = storageRef(storage, path);
+    const task    = uploadBytesResumable(sRef, file);
+    task.on('state_changed',
+      snap => setProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      err  => { console.error(err); setUploading(false); },
+      async () => {
+        const url = await getDownloadURL(task.snapshot.ref);
+        setUploading(false);
+        setProgress(0);
+        onSave(url);
+      }
+    );
+  }
+
+  async function handleUrlSave() {
+    if (!urlDraft.trim()) return;
+    onSave(urlDraft.trim());
+  }
+
+  const circumference = 2 * Math.PI * 22;
+  const dash = circumference - (progress / 100) * circumference;
+
+  return (
+    <div className="pu-root">
+      {/* Drop zone */}
+      {!urlMode && (
+        <div
+          className={`pu-dropzone${isDragging ? ' pu-dropzone--over' : ''}`}
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={onDrop}
+          onClick={() => !uploading && inputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => e.key === 'Enter' && inputRef.current?.click()}
+          aria-label="Drop image here or click to browse"
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => acceptFile(e.target.files[0])}
+          />
+
+          {preview ? (
+            <div className="pu-preview-wrap">
+              <img src={preview} alt="Preview" className="pu-preview" />
+              {uploading && (
+                <div className="pu-progress-overlay">
+                  <svg width="52" height="52" viewBox="0 0 52 52" className="pu-ring">
+                    <circle cx="26" cy="26" r="22" className="pu-ring-track" />
+                    <circle
+                      cx="26" cy="26" r="22"
+                      className="pu-ring-fill"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={dash}
+                    />
+                  </svg>
+                  <span className="pu-pct">{progress}%</span>
+                </div>
+              )}
+              {!uploading && (
+                <div className="pu-preview-overlay">
+                  <ImagePlus size={20} />
+                  <span>Replace</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="pu-empty">
+              <UploadCloud size={36} className="pu-cloud-icon" />
+              <p className="pu-drop-label">Drag & drop your photo here</p>
+              <p className="pu-drop-hint">or <u>click to browse</u> — JPG, PNG, WEBP · max 5 MB</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* URL fallback */}
+      {urlMode && (
+        <div className="pu-url-row">
+          <input
+            className="sd-edit-input"
+            style={{ flex: 1 }}
+            placeholder="https://example.com/photo.jpg"
+            value={urlDraft}
+            onChange={e => setUrlDraft(e.target.value)}
+            autoFocus
+            aria-label="Photo URL"
+          />
+          <button className="ad-btn ad-btn-primary" style={{ padding: '.35rem .65rem' }}
+            onClick={handleUrlSave} disabled={saving || !urlDraft.trim()} aria-label="Save URL">
+            <Check size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Action bar */}
+      <div className="pu-actions">
+        <button
+          type="button"
+          className="ad-btn ad-btn-outline"
+          style={{ fontSize: '.78rem', display: 'inline-flex', alignItems: 'center', gap: '.3rem' }}
+          onClick={() => setUrlMode(v => !v)}
+          disabled={uploading}
+        >
+          <Link2 size={12} /> {urlMode ? 'Use file upload' : 'Use URL instead'}
+        </button>
+
+        <div style={{ display: 'flex', gap: '.5rem', marginLeft: 'auto' }}>
+          <button className="ad-btn ad-btn-outline" style={{ padding: '.35rem .65rem' }}
+            onClick={onCancel} disabled={uploading} aria-label="Cancel">
+            <X size={13} />
+          </button>
+          {!urlMode && (
+            <button
+              className="ad-btn ad-btn-primary"
+              style={{ padding: '.35rem .75rem', display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}
+              onClick={handleUpload}
+              disabled={!file || uploading || saving}
+              aria-label="Upload photo"
+            >
+              {uploading ? `${progress}%` : <><UploadCloud size={13} /> Upload</>}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -328,26 +494,30 @@ export default function StudentSelfView() {
         )}
       </div>
 
-      {/* Photo URL edit when active */}
+      {/* Photo drag-and-drop uploader when active */}
       {editing['profile_photo_url'] && (
-        <div className="sd-section" style={{ padding: '1rem 1.5rem' }}>
-          <p className="sd-field-label">Profile Photo URL</p>
-          <div className="sd-editable-row" style={{ marginTop: '.4rem' }}>
-            <input
-              className="sd-edit-input"
-              value={editDraft['profile_photo_url'] ?? ''}
-              onChange={e => setEditDraft(p => ({ ...p, profile_photo_url: e.target.value }))}
-              placeholder="https://..."
-              autoFocus
+        <div className="sd-section">
+          <div className="sd-section-header" style={{ cursor: 'default' }}>
+            <h2 className="sd-section-title"><Camera aria-hidden="true" /> Update Profile Photo</h2>
+          </div>
+          <div style={{ padding: '1.25rem 1.5rem' }}>
+            <PhotoUploader
+              currentUrl={data.profile_photo_url}
+              saving={saving}
+              onSave={async (url) => {
+                setSaving(true);
+                const res = await studentsApi.updateSelf({ profile_photo_url: url });
+                setSaving(false);
+                if (res?.error) {
+                  showToast(res.error, 'error', 3500);
+                } else {
+                  showToast('Profile photo updated!', 'success', 2500);
+                  setData(prev => ({ ...prev, profile_photo_url: url }));
+                  setEditing(p => ({ ...p, profile_photo_url: false }));
+                }
+              }}
+              onCancel={() => cancelEdit('profile_photo_url')}
             />
-            <button className="ad-btn ad-btn-primary" style={{ padding: '.35rem .65rem' }}
-              onClick={() => saveField('profile_photo_url')} disabled={saving}>
-              <Check size={13} />
-            </button>
-            <button className="ad-btn ad-btn-outline" style={{ padding: '.35rem .65rem' }}
-              onClick={() => cancelEdit('profile_photo_url')}>
-              <X size={13} />
-            </button>
           </div>
         </div>
       )}

@@ -223,3 +223,174 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ================================================================
+   Photo Uploader (pu-*) — drag-and-drop photo uploader widget
+   ================================================================ */
+
+.pu-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Drop zone ── */
+.pu-dropzone {
+  border: 2px dashed rgba(99, 179, 255, 0.35);
+  border-radius: 1rem;
+  background: rgba(99, 179, 255, 0.04);
+  cursor: pointer;
+  transition: border-color .2s, background .2s, box-shadow .2s, transform .15s;
+  overflow: hidden;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  outline: none;
+}
+
+.pu-dropzone:hover,
+.pu-dropzone:focus {
+  border-color: rgba(99, 179, 255, 0.7);
+  background: rgba(99, 179, 255, 0.08);
+  box-shadow: 0 0 0 4px rgba(99, 179, 255, 0.12);
+}
+
+.pu-dropzone--over {
+  border-color: var(--clr-primary, #3b82f6) !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.18) !important;
+  transform: scale(1.01);
+}
+
+/* ── Empty state ── */
+.pu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  padding: 2rem 1rem;
+  pointer-events: none;
+}
+
+.pu-cloud-icon {
+  color: var(--clr-secondary, #60a5fa);
+  opacity: .75;
+}
+
+.pu-drop-label {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pu-drop-hint {
+  margin: 0;
+  font-size: .78rem;
+  color: var(--text-secondary);
+}
+
+.pu-drop-hint u {
+  text-decoration-color: var(--clr-secondary, #60a5fa);
+  color: var(--clr-secondary, #60a5fa);
+}
+
+/* ── Preview ── */
+.pu-preview-wrap {
+  width: 100%;
+  height: 220px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pu-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pu-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.pu-dropzone:hover .pu-preview-overlay,
+.pu-dropzone:focus .pu-preview-overlay {
+  opacity: 1;
+}
+
+/* ── Progress ring overlay ── */
+.pu-progress-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+}
+
+.pu-ring {
+  filter: drop-shadow(0 0 6px rgba(99, 179, 255, 0.6));
+}
+
+.pu-ring-track {
+  fill: none;
+  stroke: rgba(255,255,255,.18);
+  stroke-width: 4;
+}
+
+.pu-ring-fill {
+  fill: none;
+  stroke: var(--clr-secondary, #60a5fa);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset .3s ease;
+}
+
+.pu-pct {
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+/* ── URL row ── */
+.pu-url-row {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+/* ── Action bar ── */
+.pu-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .pu-preview-wrap { height: 160px; }
+  .pu-actions { flex-direction: column-reverse; align-items: stretch; }
+  .pu-actions > * { width: 100%; justify-content: center; }
+}
+
