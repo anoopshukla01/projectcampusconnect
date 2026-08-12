@@ -8,12 +8,15 @@ import { PermissionProvider } from './context/PermissionContext'
 import './styles/global.css'
 import App from './App'
 
-// Redirect API requests to the deployed Railway backend when on Vercel.
-// VITE_API_BASE is set in Vercel env vars.
-// In local dev, Vite's proxy handles /api → localhost:5001 so API_BASE stays empty.
+// Redirect API requests to the correct backend based on environment:
+//   • localhost / 127.0.0.1  → empty string (Vite proxy handles /api → local backend)
+//   • vercel.app             → empty string (Vercel rewrites handle routing)
+//   • anything else (native Android APK) → production Render backend
 let API_BASE = import.meta.env.VITE_API_BASE || '';
-const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-const isNative = !isVercel;
+const _host = typeof window !== 'undefined' ? window.location.hostname : '';
+const isVercel    = _host.includes('vercel.app');
+const isLocalhost = _host === 'localhost' || _host === '127.0.0.1' || _host === '';
+const isNative    = !isVercel && !isLocalhost;
 
 if (isNative) {
   API_BASE = 'https://projectcampusconnect.onrender.com';
