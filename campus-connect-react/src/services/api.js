@@ -105,7 +105,7 @@ async function _drainQueue(newToken, err) {
  */
 async function _request(path, opts = {}, _isRetry = false) {
   const url = BASE + path;
-  const token = getAccessToken();
+  const token = await getAccessToken();
 
   const headers = {
     ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
@@ -153,7 +153,7 @@ async function _request(path, opts = {}, _isRetry = false) {
 
 /** Attempt to exchange the stored refresh token for a new access token. */
 async function _silentRefresh() {
-  const rt = getRefreshToken();
+  const rt = await getRefreshToken();
   if (!rt) return false;
 
   // If a refresh is already in-flight, queue this call
