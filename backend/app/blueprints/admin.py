@@ -848,12 +848,13 @@ def import_students_csv():
         reader = csv.DictReader(stream)
         for row in reader:
             students_data.append({
-                "roll_no": row.get("roll_no") or row.get("Roll No"),
-                "full_name": row.get("full_name") or row.get("Name"),
-                "branch": row.get("branch") or row.get("Branch") or "Computer Science",
-                "batch_year": int(row.get("batch_year") or row.get("Batch") or 2026),
-                "semester": int(row.get("semester") or row.get("Semester") or 6),
-                "cgpa": float(row.get("cgpa") or row.get("CGPA") or 8.0)
+                "roll_no":    row.get("roll_no")    or row.get("Roll No"),
+                "full_name":  row.get("full_name")  or row.get("Name"),
+                "email":      row.get("email")      or row.get("Email")      or None,
+                "branch":     row.get("branch")     or row.get("Branch")     or "Computer Science",
+                "batch_year": int(row.get("batch_year") or row.get("Batch")    or 2026),
+                "semester":   int(row.get("semester")   or row.get("Semester") or 6),
+                "cgpa":       float(row.get("cgpa")     or row.get("CGPA")     or 8.0),
             })
     # 2. Check JSON payload
     elif request.is_json:
@@ -878,8 +879,18 @@ def import_students_csv():
                 skipped_count += 1
                 continue
 
+            email = (item.get("email") or "").strip().lower() or None
+
+            # If an email is provided, skip this row if that email already belongs to
+            # another user in this college (avoids unique-constraint crash).
+            if email:
+                email_clash = db.session.query(User).filter_by(college_id=cid, email=email).first()
+                if email_clash:
+                    skipped_count += 1
+                    continue
+
             # Create inactive stub User & StudentProfile
-            user = User(college_id=cid, role=UserRole.STUDENT, is_active=False)
+            user = User(college_id=cid, role=UserRole.STUDENT, is_active=False, email=email)
             db.session.add(user)
             db.session.flush()
 
