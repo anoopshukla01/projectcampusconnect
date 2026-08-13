@@ -24,6 +24,7 @@ SELF-REVIEW CHECKLIST:
 import uuid
 from flask import Blueprint, jsonify, request, g
 from marshmallow import ValidationError
+from sqlalchemy.orm import joinedload
 
 from app.auth.permissions import require_auth, require_roles, require_self_or_roles, get_current_user, assert_college_match
 from app.extensions import db
@@ -512,11 +513,16 @@ def get_student_detail(student_id):
     current_user = get_current_user()
     role = current_user.role
 
-    # ── Fetch the base profile ──────────────────────────────────────────────
-    profile = db.session.query(StudentProfile).filter(
-        (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
-        StudentProfile.is_deleted == False
-    ).first()
+    # ── Fetch the base profile (eager-load user so email/phone serialize correctly) ──
+    profile = (
+        db.session.query(StudentProfile)
+        .options(joinedload(StudentProfile.user))
+        .filter(
+            (StudentProfile.id == student_id) | (StudentProfile.user_id == student_id),
+            StudentProfile.is_deleted == False,
+        )
+        .first()
+    )
     if not profile:
         return error_response("Student profile not found.", 404)
 
