@@ -910,46 +910,6 @@ def import_students_csv():
     }), 201
 
 
-# ── AD12: POST /admin/branches ──────────────────────────────────────────────
-@admin_bp.post("/branches")
-@require_auth
-@require_roles("admin")
-def add_branch():
-    """Create a new academic branch/department in the system."""
-    try:
-        data = request.get_json(force=True) or {}
-        branch = data.get("branch")
-
-        if not branch or not branch.strip():
-            return jsonify({"error": "Branch name is required."}), 400
-
-        branch_name = branch.strip()
-        cid = g.current_user.college_id
-
-        # Check if it already exists as a BranchPlacement
-        existing = db.session.query(BranchPlacement).filter_by(branch=branch_name, college_id=cid).first()
-        if existing:
-            return jsonify({"error": f"Branch '{branch_name}' already exists."}), 400
-
-        # Create a BranchPlacement with 0 placed / 0 total as a stub
-        bp = BranchPlacement(college_id=cid, branch=branch_name, placed_count=0, total_count=0)
-        db.session.add(bp)
-        db.session.commit()
-
-        audit_action("admin.branch.created", detail={"branch": branch_name})
-        return jsonify({
-            "message": f"Successfully added branch: {branch_name}",
-            "branch": {
-                "id": str(bp.id),
-                "branch": bp.branch,
-                "placed_count": bp.placed_count,
-                "total_count": bp.total_count
-            }
-        }), 201
-    except Exception as exc:
-        db.session.rollback()
-        return internal_error_response(exc, "add_branch")
-
 
 # ── AD14: POST /admin/branch-placements ─────────────────────────────────────
 @admin_bp.post("/branch-placements")
