@@ -1,9 +1,10 @@
 /**
  * Admin — Student Detail Page
- *
- * Full access: all 6 sections visible and editable.
- * Every edit triggers a confirmation modal and logs to the Audit Log via S5.
- * Section-level "last edited by/at" metadata shown when available.
+ * ===========================
+ * Full access: all sections visible and modularly editable.
+ * Every edit triggers confirmation for sensitive fields and logs to Audit Log via S5.
+ * Driven by centralized field schema with type safety, custom input widgets,
+ * optimistic updates, and error rollback.
  *
  * Data fetched from S9 GET /students/<id>/detail.
  * Saves via S5 PATCH /students/<id> with edited_section tag.
@@ -12,20 +13,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  User, BookOpen, FileText, ShieldCheck,
+  User, BookOpen, Award, ShieldCheck,
   Briefcase, Activity, ChevronDown, AlertTriangle,
-  Edit3, Check, X, ArrowLeft, Calendar, Award, Code, Mail
+  ArrowLeft, Calendar, Code, Camera
 } from 'lucide-react';
 import { studentsApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
 import '@admin/admin.shared.css';
 import './StudentDetail.css';
 
-// ─── Sensitive fields that require a confirmation modal before saving ─────────
-const SENSITIVE_FIELDS = new Set([
-  'fees_submitted', 'scholarship_details', 'quota_category',
-  'active_backlogs', 'cgpa', 'is_active',
-]);
+import { FIELD_SCHEMAS, formatFieldValue } from './fieldSchema';
+import StudentDetailField from './StudentDetailField';
+import PhotoUploader from './PhotoUploader';
 
 // ─── Section definitions — icon, title, field keys ────────────────────────────
 const SECTIONS = [
@@ -33,29 +32,53 @@ const SECTIONS = [
     key: 'identity',
     icon: User,
     title: 'Identity & Basic Info',
-    fields: ['full_name', 'roll_no', 'email', 'phone', 'branch', 'semester', 'batch_year', 'profile_photo_url'],
-    editable: ['full_name', 'email', 'phone', 'profile_photo_url'],
+    fields: [
+      'full_name', 'roll_no', 'email', 'phone',
+      'branch', 'semester', 'batch_year', 'profile_photo_url'
+    ],
+    editable: [
+      'full_name', 'roll_no', 'email', 'phone',
+      'branch', 'semester', 'batch_year', 'profile_photo_url'
+    ],
   },
   {
     key: 'academic',
     icon: BookOpen,
     title: 'Academic Snapshot',
-    fields: ['cgpa', 'attendance_pct', 'active_backlogs', 'profile_complete', 'dpdp_consent_given'],
-    editable: ['cgpa', 'attendance_pct', 'active_backlogs'],
+    fields: [
+      'cgpa', 'attendance_pct', 'active_backlogs',
+      'profile_complete', 'dpdp_consent_given', 'is_active'
+    ],
+    editable: [
+      'cgpa', 'attendance_pct', 'active_backlogs',
+      'profile_complete', 'dpdp_consent_given', 'is_active'
+    ],
   },
   {
     key: 'admission',
     icon: Award,
     title: 'Admission Details',
-    fields: ['entrance_exam_type', 'entrance_rank', 'quota_category', 'batch_year', 'college_name'],
-    editable: ['entrance_exam_type', 'entrance_rank', 'quota_category'],
+    fields: [
+      'entrance_exam_type', 'entrance_rank', 'quota_category',
+      'batch_year', 'college_name'
+    ],
+    editable: [
+      'entrance_exam_type', 'entrance_rank', 'quota_category',
+      'batch_year', 'college_name'
+    ],
   },
   {
     key: 'admin_details',
     icon: ShieldCheck,
     title: 'Administrative Details',
-    fields: ['fees_submitted', 'scholarship_details', 'hostel_address', 'home_address', 'parent_contact'],
-    editable: ['fees_submitted', 'scholarship_details', 'hostel_address', 'home_address', 'parent_contact'],
+    fields: [
+      'fees_submitted', 'scholarship_details',
+      'hostel_address', 'home_address', 'parent_contact'
+    ],
+    editable: [
+      'fees_submitted', 'scholarship_details',
+      'hostel_address', 'home_address', 'parent_contact'
+    ],
   },
   {
     key: 'career',
@@ -63,7 +86,7 @@ const SECTIONS = [
     title: 'Career / Placement',
     fields: ['linkedin_url', 'github_url', 'resume_url'],
     editable: ['linkedin_url', 'github_url', 'resume_url'],
-    customSkills: true,  // skills rendered as chips below the field list
+    customSkills: true,
   },
   {
     key: 'activity',
@@ -71,23 +94,9 @@ const SECTIONS = [
     title: 'Platform Activity',
     fields: [],
     editable: [],
-    custom: true, // rendered separately
+    custom: true,
   },
 ];
-
-const FIELD_LABELS = {
-  full_name: 'Full Name', roll_no: 'Roll Number', email: 'Email', phone: 'Phone',
-  branch: 'Branch', semester: 'Semester', batch_year: 'Batch Year',
-  profile_photo_url: 'Profile Photo URL', cgpa: 'CGPA', attendance_pct: 'Attendance %',
-  active_backlogs: 'Active Backlogs', profile_complete: 'Profile Complete',
-  dpdp_consent_given: 'DPDP Consent', entrance_exam_type: 'Entrance Exam',
-  entrance_rank: 'Entrance Rank/Score', quota_category: 'Quota/Category',
-  college_name: 'College', fees_submitted: 'Fees Submitted (₹)',
-  scholarship_details: 'Scholarship', hostel_address: 'Hostel Address',
-  home_address: 'Home Address', parent_contact: 'Parent Contact',
-  linkedin_url: 'LinkedIn URL', github_url: 'GitHub URL', resume_url: 'Resume URL',
-  skills: 'Skills',
-};
 
 export default function AdminStudentDetail() {
   const { studentId } = useParams();
@@ -101,13 +110,13 @@ export default function AdminStudentDetail() {
   // Section collapse state — all expanded by default
   const [collapsed, setCollapsed] = useState({});
 
-  // Inline edit state — { fieldKey: draftValue }
+  // Inline edit state
   const [editing, setEditing] = useState({});
   const [editDraft, setEditDraft] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [savingField, setSavingField] = useState(null);
 
-  // Confirmation modal
-  const [confirmState, setConfirmState] = useState(null); // { section, field, oldVal, newVal }
+  // Confirmation modal state: { section, field, oldVal, newVal }
+  const [confirmState, setConfirmState] = useState(null);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -121,31 +130,43 @@ export default function AdminStudentDetail() {
     setLoading(false);
   }, [studentId]);
 
-  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
-  // ── Toggle section collapse ──────────────────────────────────────────────
-  const toggleSection = (key) =>
-    setCollapsed(p => ({ ...p, [key]: !p[key] }));
+  const toggleSection = (key) => {
+    setCollapsed((p) => ({ ...p, [key]: !p[key] }));
+  };
 
-  // ── Start inline edit ────────────────────────────────────────────────────
   const startEdit = (field, currentVal) => {
-    setEditing(p => ({ ...p, [field]: true }));
-    setEditDraft(p => ({ ...p, [field]: currentVal ?? '' }));
+    setEditing((p) => ({ ...p, [field]: true }));
+    setEditDraft((p) => ({ ...p, [field]: currentVal ?? '' }));
   };
 
   const cancelEdit = (field) => {
-    setEditing(p => ({ ...p, [field]: false }));
+    setEditing((p) => ({ ...p, [field]: false }));
+    setEditDraft((p) => {
+      const copy = { ...p };
+      delete copy[field];
+      return copy;
+    });
   };
 
-  // ── Save edit — with confirmation gate for sensitive fields ───────────────
-  const requestSave = (section, field) => {
+  const handleDraftChange = (field, val) => {
+    setEditDraft((p) => ({ ...p, [field]: val }));
+  };
+
+  const requestSave = (section, field, overrideVal) => {
     const oldVal = data[field];
-    const newVal = editDraft[field];
+    const newVal = overrideVal !== undefined ? overrideVal : editDraft[field];
+
     if (String(oldVal ?? '') === String(newVal ?? '')) {
       cancelEdit(field);
       return;
     }
-    if (SENSITIVE_FIELDS.has(field)) {
+
+    const schema = FIELD_SCHEMAS[field];
+    if (schema?.sensitive) {
       setConfirmState({ section, field, oldVal, newVal });
     } else {
       commitSave(section, field, newVal);
@@ -153,91 +174,147 @@ export default function AdminStudentDetail() {
   };
 
   const commitSave = async (section, field, newVal) => {
-    setSaving(true);
+    const previousValue = data[field];
+    const schema = FIELD_SCHEMAS[field];
+
+    let formattedValue = newVal === '' ? null : newVal;
+    if (schema?.type === 'number' && formattedValue !== null) {
+      formattedValue = Number(formattedValue);
+    }
+
+    // Optimistic local update
+    setData((prev) => ({
+      ...prev,
+      [field]: formattedValue,
+    }));
+    setEditing((p) => ({ ...p, [field]: false }));
+    setSavingField(field);
     setConfirmState(null);
-    const payload = { [field]: newVal === '' ? null : newVal, edited_section: section };
+
+    const payload = {
+      [field]: formattedValue,
+      edited_section: section,
+    };
+
     const res = await studentsApi.adminUpdate(studentId, payload);
-    setSaving(false);
+    setSavingField(null);
+
     if (res?.error) {
-      showToast(res.error, 'error', 3500);
-    } else {
-      showToast(`${FIELD_LABELS[field] || field} updated.`, 'success', 2500);
-      setEditing(p => ({ ...p, [field]: false }));
-      setData(prev => ({
+      // Rollback to previous value on API failure
+      setData((prev) => ({
         ...prev,
-        [field]: newVal === '' ? null : newVal,
+        [field]: previousValue,
+      }));
+      showToast(res.error, 'error', 4000);
+    } else {
+      const fieldLabel = schema?.label || field;
+      showToast(`${fieldLabel} updated successfully.`, 'success', 2500);
+      setData((prev) => ({
+        ...prev,
         admin_edits_meta: {
           ...(prev?.admin_edits_meta || {}),
-          [section]: { editor_name: 'You', edited_at: new Date().toISOString() },
+          [section]: {
+            editor_name: 'You (Admin)',
+            edited_at: new Date().toISOString(),
+          },
         },
       }));
     }
   };
 
-  // ── CGPA badge ────────────────────────────────────────────────────────────
   const cgpaBadgeClass = (val) => {
     const n = parseFloat(val);
+    if (isNaN(n)) return '';
     if (n >= 8.0) return 'sd-cgpa-badge sd-cgpa-high';
     if (n >= 6.0) return 'sd-cgpa-badge sd-cgpa-mid';
     return 'sd-cgpa-badge sd-cgpa-low';
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  if (loading) return <div className="sd-spinner" aria-label="Loading student profile" />;
-  if (error) return (
-    <div className="sd-root">
-      <div className="sd-empty">
-        <AlertTriangle className="sd-empty-icon" />
-        <p className="sd-empty-text">{error}</p>
-        <button className="ad-btn ad-btn-outline" onClick={fetchDetail}>Retry</button>
+  // ── Render States ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="sd-root">
+        <div className="sd-spinner" aria-label="Loading student profile" />
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="sd-root">
+        <div className="sd-empty">
+          <AlertTriangle className="sd-empty-icon" />
+          <p className="sd-empty-text">{error}</p>
+          <button type="button" className="ad-btn ad-btn-outline" onClick={fetchDetail}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!data) return null;
 
-  const initials = (data.full_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const initials = (data.full_name || '?')
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <div className="sd-root">
-      {/* ── Confirmation Modal ─────────────────────────────────────────── */}
+      {/* ── Confirmation Modal for Sensitive Edits ─────────────────────── */}
       {confirmState && (
         <div className="sd-confirm-overlay" role="dialog" aria-modal="true">
           <div className="sd-confirm-modal">
             <p className="sd-confirm-title">⚠️ Confirm Sensitive Edit</p>
             <p className="sd-confirm-sub">
-              You are about to change a sensitive field on this student's record.
-              This action will be written to the Audit Log.
+              You are about to change a sensitive field on this student record. This modification
+              will be permanently logged to the Admin Audit Log.
             </p>
             <div className="sd-confirm-diff">
               <div className="sd-confirm-diff-row">
-                <span>{FIELD_LABELS[confirmState.field] || confirmState.field}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {FIELD_SCHEMAS[confirmState.field]?.label || confirmState.field}:
+                </span>
                 <span>
-                  <span className="sd-confirm-diff-old">{String(confirmState.oldVal ?? '—')}</span>
+                  <span className="sd-confirm-diff-old">
+                    {formatFieldValue(confirmState.field, confirmState.oldVal)}
+                  </span>
                   {' → '}
-                  <span className="sd-confirm-diff-new">{String(confirmState.newVal ?? '—')}</span>
+                  <span className="sd-confirm-diff-new">
+                    {formatFieldValue(confirmState.field, confirmState.newVal)}
+                  </span>
                 </span>
               </div>
             </div>
             <div className="sd-confirm-actions">
-              <button className="ad-btn ad-btn-outline" onClick={() => setConfirmState(null)}>
+              <button
+                type="button"
+                className="ad-btn ad-btn-outline"
+                onClick={() => setConfirmState(null)}
+              >
                 Cancel
               </button>
               <button
+                type="button"
                 className="ad-btn ad-btn-primary"
                 onClick={() => commitSave(confirmState.section, confirmState.field, confirmState.newVal)}
-                disabled={saving}
+                disabled={Boolean(savingField)}
               >
-                {saving ? 'Saving…' : 'Confirm & Save'}
+                {savingField ? 'Saving…' : 'Confirm & Save'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="page-header">
         <div>
           <button
+            type="button"
             className="ad-btn ad-btn-outline"
             style={{ marginBottom: '.75rem' }}
             onClick={() => navigate(-1)}
@@ -245,47 +322,62 @@ export default function AdminStudentDetail() {
           >
             <ArrowLeft size={14} /> Back
           </button>
-          <h1 className="page-title">Student Profile</h1>
-          <p className="page-sub">Admin view — full access, all edits logged to Audit Log</p>
+          <h1 className="page-title">Student Profile Management</h1>
+          <p className="page-sub">Admin view — full record access, granular schema validation & audit-logged edits</p>
         </div>
-        <span className={`ad-badge ${data.is_active !== false ? 'ad-badge-active' : 'ad-badge-inactive'}`}>
-          {data.is_active !== false ? 'Active' : 'Inactive'}
-        </span>
+        <div style={{ display: 'flex', gap: '.6rem', alignItems: 'center' }}>
+          <span className={`ad-badge ${data.is_active !== false ? 'ad-badge-active' : 'ad-badge-inactive'}`}>
+            {data.is_active !== false ? 'Active Account' : 'Inactive Account'}
+          </span>
+        </div>
       </div>
 
       {/* ── Hero Strip ─────────────────────────────────────────────────── */}
       <div className="sd-hero">
-        {data.profile_photo_url
-          ? <img src={data.profile_photo_url} alt={data.full_name} className="sd-avatar" />
-          : <div className="sd-avatar-placeholder" aria-label="Avatar">{initials}</div>
-        }
+        <div style={{ position: 'relative' }}>
+          {data.profile_photo_url ? (
+            <img src={data.profile_photo_url} alt={data.full_name} className="sd-avatar" />
+          ) : (
+            <div className="sd-avatar-placeholder" aria-label="Avatar">
+              {initials}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => startEdit('profile_photo_url', data.profile_photo_url)}
+            className="sd-avatar-edit-btn"
+            aria-label="Change student photo"
+            title="Upload or change photo"
+          >
+            <Camera size={13} color="#fff" />
+          </button>
+        </div>
+
         <div className="sd-hero-info">
           <p className="sd-hero-name">{data.full_name || '—'}</p>
-          <p className="sd-hero-sub">{data.roll_no} · {data.branch} · Sem {data.semester}</p>
-          {data.email && (
-            <a
-              href={`mailto:${data.email}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '.35rem',
-                color: 'var(--clr-secondary)', fontSize: '.82rem',
-                textDecoration: 'none', marginBottom: '.4rem',
-              }}
-              aria-label={`Email ${data.email}`}
-            >
-              <Mail size={13} />
-              {data.email}
-            </a>
-          )}
+          <p className="sd-hero-sub">
+            {data.roll_no || 'No Roll No'} · {data.branch || 'No Branch'} · Sem {data.semester || '—'}
+          </p>
           <div className="sd-hero-chips">
             <span className="sd-hero-chip">{data.college_name || 'College'}</span>
-            <span className="sd-hero-chip">Batch {data.batch_year}</span>
+            <span className="sd-hero-chip">Batch {data.batch_year || '—'}</span>
             {data.active_backlogs > 0 && (
               <span className="sd-hero-chip" style={{ background: 'rgba(239,68,68,.3)' }}>
                 {data.active_backlogs} Backlog{data.active_backlogs > 1 ? 's' : ''}
               </span>
             )}
+            {data.dpdp_consent_given ? (
+              <span className="sd-hero-chip" style={{ background: 'rgba(34,197,94,.25)' }}>
+                DPDP Consent ✓
+              </span>
+            ) : (
+              <span className="sd-hero-chip" style={{ background: 'rgba(239,68,68,.25)' }}>
+                DPDP Not Given
+              </span>
+            )}
           </div>
         </div>
+
         {data.cgpa != null && (
           <span className={cgpaBadgeClass(data.cgpa)} style={{ fontSize: '1.1rem', padding: '.35rem 1rem' }}>
             CGPA {parseFloat(data.cgpa).toFixed(2)}
@@ -293,8 +385,27 @@ export default function AdminStudentDetail() {
         )}
       </div>
 
-      {/* ── Sections ─────────────────────────────────────────────────────── */}
-      {SECTIONS.filter(s => !s.custom).map(section => {
+      {/* ── Photo Uploader Panel (when editing photo) ──────────────────── */}
+      {editing['profile_photo_url'] && (
+        <div className="sd-section">
+          <div className="sd-section-header" style={{ cursor: 'default' }}>
+            <h2 className="sd-section-title">
+              <Camera aria-hidden="true" /> Update Student Profile Photo
+            </h2>
+          </div>
+          <div style={{ padding: '1.25rem 1.5rem' }}>
+            <PhotoUploader
+              currentUrl={data.profile_photo_url}
+              saving={savingField === 'profile_photo_url'}
+              onSave={(newUrl) => requestSave('identity', 'profile_photo_url', newUrl)}
+              onCancel={() => cancelEdit('profile_photo_url')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Configurable Schema-Driven Sections ────────────────────────── */}
+      {SECTIONS.filter((s) => !s.custom).map((section) => {
         const Icon = section.icon;
         const meta = data.admin_edits_meta?.[section.key];
         const isOpen = !collapsed[section.key];
@@ -306,6 +417,8 @@ export default function AdminStudentDetail() {
               onClick={() => toggleSection(section.key)}
               aria-expanded={isOpen}
               role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && toggleSection(section.key)}
             >
               <h2 className="sd-section-title">
                 <Icon aria-hidden="true" />
@@ -324,106 +437,74 @@ export default function AdminStudentDetail() {
 
             {isOpen && (
               <div className="sd-section-body">
-                {section.fields.map(field => {
-                  const label = FIELD_LABELS[field] || field;
-                  const val = data[field];
-                  const isEditing = editing[field];
-                  const canEdit = section.editable.includes(field);
-                  const isSensitive = SENSITIVE_FIELDS.has(field);
+                {section.fields
+                  .filter((f) => f !== 'profile_photo_url') // Rendered in hero/modal
+                  .map((field) => {
+                    const schema = FIELD_SCHEMAS[field];
+                    return (
+                      <StudentDetailField
+                        key={field}
+                        field={field}
+                        value={data[field]}
+                        isEditing={Boolean(editing[field])}
+                        draftValue={editDraft[field]}
+                        canEdit={section.editable.includes(field)}
+                        isSensitive={Boolean(schema?.sensitive)}
+                        saving={savingField === field}
+                        onStartEdit={startEdit}
+                        onCancelEdit={cancelEdit}
+                        onDraftChange={handleDraftChange}
+                        onSave={(f, override) => requestSave(section.key, f, override)}
+                      />
+                    );
+                  })}
 
-                  return (
-                    <div key={field} className="sd-field">
-                      <span className="sd-field-label">{label}</span>
-                      {isEditing ? (
-                        <div className="sd-editable-row">
-                          {isSensitive && (
-                            <span title="Sensitive field — edit will be confirmed" style={{ color: 'var(--clr-warning)', fontSize: '.8rem' }}>
-                              ⚠️
-                            </span>
-                          )}
-                          <input
-                            className="sd-edit-input"
-                            value={editDraft[field] ?? ''}
-                            onChange={e => setEditDraft(p => ({ ...p, [field]: e.target.value }))}
-                            autoFocus
-                            aria-label={`Edit ${label}`}
-                          />
-                          <button
-                            className="ad-btn ad-btn-primary"
-                            style={{ padding: '.35rem .65rem' }}
-                            onClick={() => requestSave(section.key, field)}
-                            disabled={saving}
-                            aria-label="Save"
-                          >
-                            <Check size={13} />
-                          </button>
-                          <button
-                            className="ad-btn ad-btn-outline"
-                            style={{ padding: '.35rem .65rem' }}
-                            onClick={() => cancelEdit(field)}
-                            aria-label="Cancel"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="sd-editable-row">
-                          <span className="sd-field-value">
-                            {val == null || val === '' ? '—'
-                              : field === 'email'
-                                ? <a href={`mailto:${val}`} style={{ color: 'var(--clr-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '.3rem' }}><Mail size={12} />{String(val)}</a>
-                                : String(val)
-                            }
-                          </span>
-                          {canEdit && (
-                            <button
-                              className="ad-btn ad-btn-outline"
-                              style={{ padding: '.25rem .5rem', marginLeft: 'auto', flexShrink: 0 }}
-                              onClick={() => startEdit(field, val)}
-                              aria-label={`Edit ${label}`}
-                            >
-                              <Edit3 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Skills chips — read-only display (admin view) */}
+                {/* Skills chips in Career Section */}
                 {section.customSkills && (
-                  <div style={{ padding: '.5rem 0 .25rem' }}>
-                    <p className="sd-field-label" style={{ marginBottom: '.5rem' }}>
+                  <div className="sd-field sd-field-full" style={{ marginTop: '.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                    <p className="sd-field-label" style={{ marginBottom: '.6rem' }}>
                       <Code size={13} style={{ verticalAlign: 'middle', marginRight: '.3rem' }} />
-                      Skills
+                      Reported Skills
                     </p>
                     {(data.skills || []).length === 0 ? (
-                      <span className="sd-field-value" style={{ color: 'var(--text-secondary)' }}>—</span>
+                      <span className="sd-field-value sd-field-empty">No skills listed yet</span>
                     ) : (
-                      ['technical', 'soft'].map(cat => {
-                        const group = (data.skills || []).filter(s => s.category === cat);
+                      ['technical', 'soft'].map((cat) => {
+                        const group = (data.skills || []).filter((s) => s.category === cat);
                         if (!group.length) return null;
                         const PROF_BADGE = {
-                          beginner:     'ad-badge ad-badge-info',
+                          beginner: 'ad-badge ad-badge-info',
                           intermediate: 'ad-badge ad-badge-pending',
-                          advanced:     'ad-badge ad-badge-active',
+                          advanced: 'ad-badge ad-badge-active',
                         };
                         return (
-                          <div key={cat} style={{ marginBottom: '.6rem' }}>
-                            <p className="sd-field-label" style={{ fontSize: '.7rem', textTransform: 'uppercase', marginBottom: '.35rem' }}>
-                              {cat === 'technical' ? 'Technical' : 'Soft Skills'}
+                          <div key={cat} style={{ marginBottom: '.75rem' }}>
+                            <p
+                              className="sd-field-label"
+                              style={{ fontSize: '.7rem', textTransform: 'uppercase', marginBottom: '.35rem' }}
+                            >
+                              {cat === 'technical' ? 'Technical Skills' : 'Soft Skills'}
                             </p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
                               {group.map((s, i) => (
-                                <span key={i} style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: '.3rem',
-                                  background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.1)',
-                                  borderRadius: '999px', padding: '.2rem .6rem', fontSize: '.8rem',
-                                }}>
+                                <span
+                                  key={i}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '.3rem',
+                                    background: 'rgba(255,255,255,.07)',
+                                    border: '1px solid rgba(255,255,255,.1)',
+                                    borderRadius: '999px',
+                                    padding: '.2rem .6rem',
+                                    fontSize: '.8rem',
+                                  }}
+                                >
                                   {s.name}
-                                  <span className={PROF_BADGE[s.proficiency] || 'ad-badge ad-badge-info'}
-                                    style={{ fontSize: '.63rem', padding: '.08rem .35rem' }}>
+                                  <span
+                                    className={PROF_BADGE[s.proficiency] || 'ad-badge ad-badge-info'}
+                                    style={{ fontSize: '.63rem', padding: '.08rem .35rem' }}
+                                  >
                                     {s.proficiency}
                                   </span>
                                 </span>
@@ -441,17 +522,19 @@ export default function AdminStudentDetail() {
         );
       })}
 
-      {/* ── Platform Activity (custom section) ──────────────────────────── */}
+      {/* ── Platform Activity (Custom Section) ─────────────────────────── */}
       <div className="sd-section">
         <div
           className="sd-section-header"
           onClick={() => toggleSection('activity')}
           aria-expanded={!collapsed['activity']}
           role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && toggleSection('activity')}
         >
           <h2 className="sd-section-title">
             <Activity aria-hidden="true" />
-            Platform Activity
+            Platform Activity & Outcomes
           </h2>
           <ChevronDown className={`sd-chevron ${!collapsed['activity'] ? 'open' : ''}`} size={16} />
         </div>
@@ -460,17 +543,23 @@ export default function AdminStudentDetail() {
           <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Event registrations */}
             <div>
-              <p className="sd-field-label" style={{ marginBottom: '.6rem' }}>Event Registrations</p>
+              <p className="sd-field-label" style={{ marginBottom: '.6rem' }}>
+                Event Registrations
+              </p>
               {data.platform_activity?.event_registrations?.length > 0 ? (
                 <div className="sd-activity-list">
-                  {data.platform_activity.event_registrations.map(r => (
+                  {data.platform_activity.event_registrations.map((r) => (
                     <div key={r.event_id} className="sd-activity-item">
                       <div className="sd-activity-icon">
                         <Calendar size={15} aria-hidden="true" />
                       </div>
                       <div className="sd-activity-body">
                         <strong>{r.event_title}</strong>
-                        {r.event_type && <span style={{ color: 'var(--text-secondary)', marginLeft: '.5rem', fontSize: '.75rem' }}>{r.event_type}</span>}
+                        {r.event_type && (
+                          <span style={{ color: 'var(--text-secondary)', marginLeft: '.5rem', fontSize: '.75rem' }}>
+                            {r.event_type}
+                          </span>
+                        )}
                       </div>
                       <span className="sd-activity-time">
                         {r.registered_at ? new Date(r.registered_at).toLocaleDateString() : '—'}
@@ -479,13 +568,15 @@ export default function AdminStudentDetail() {
                   ))}
                 </div>
               ) : (
-                <p className="sd-field-value" style={{ color: 'var(--text-secondary)' }}>No event registrations.</p>
+                <p className="sd-field-value sd-field-empty">No event registrations found.</p>
               )}
             </div>
 
             {/* Placement offers */}
             <div>
-              <p className="sd-field-label" style={{ marginBottom: '.6rem' }}>Placement Offers</p>
+              <p className="sd-field-label" style={{ marginBottom: '.6rem' }}>
+                Placement Offers & Drives
+              </p>
               {data.placement_offers?.length > 0 ? (
                 <div className="sd-offer-list">
                   {data.placement_offers.map((off, i) => (
@@ -494,7 +585,15 @@ export default function AdminStudentDetail() {
                         <div className="sd-offer-company">{off.company}</div>
                         <div className="sd-offer-role">{off.role}</div>
                       </div>
-                      <span className={`ad-badge ${off.status === 'accepted' ? 'ad-badge-active' : off.status === 'pending' ? 'ad-badge-pending' : 'ad-badge-info'}`}>
+                      <span
+                        className={`ad-badge ${
+                          off.status === 'accepted'
+                            ? 'ad-badge-active'
+                            : off.status === 'pending'
+                            ? 'ad-badge-pending'
+                            : 'ad-badge-info'
+                        }`}
+                      >
                         {off.status}
                       </span>
                       {off.ctc && <span className="sd-offer-ctc">₹{off.ctc} LPA</span>}
@@ -502,7 +601,7 @@ export default function AdminStudentDetail() {
                   ))}
                 </div>
               ) : (
-                <p className="sd-field-value" style={{ color: 'var(--text-secondary)' }}>No placement offers.</p>
+                <p className="sd-field-value sd-field-empty">No placement offers recorded.</p>
               )}
             </div>
           </div>

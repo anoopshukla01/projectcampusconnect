@@ -25,17 +25,18 @@ export default defineConfig({
   resolve: {
     // Ensure only one copy of React & react-router-dom is used even when
     // importing from outside the src/ tree
-    dedupe: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
+    dedupe: ['react', 'react-dom', 'react-router-dom', 'lucide-react', 'firebase'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
       '@placement': path.resolve(__dirname, '../placementDashboard'),
       '@ctx': path.resolve(__dirname, 'src/context'),
       '@admin': path.resolve(__dirname, '../adminDashboard'),
       '@professor': path.resolve(__dirname, '../professorDashboard'),
+      'firebase': path.resolve(__dirname, 'node_modules/firebase'),
     },
   },
   optimizeDeps: {
     // Pre-bundle these so Rollup can find them from outside the src/ root
-    include: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
+    include: ['react', 'react-dom', 'react-router-dom', 'lucide-react', 'firebase/app', 'firebase/auth', 'firebase/storage'],
   },
 })
