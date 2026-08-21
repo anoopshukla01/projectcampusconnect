@@ -29,6 +29,7 @@ SECURITY CHECKLIST:
 """
 
 import uuid
+import math
 import logging
 from datetime import datetime, timezone, timedelta, date
 from flask import Blueprint, jsonify, request
@@ -242,6 +243,16 @@ def get_grades():
 # Attendance
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _haversine_meters(lat1, lon1, lat2, lon2):
+    r = 6371000  # Earth radius in meters
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return round(r * c, 2)
+
 @academics_bp.route("/attendance", methods=["GET"])
 @require_auth
 def get_attendance():
@@ -264,6 +275,103 @@ def get_attendance():
             "pct":      pct,
         })
     return jsonify({"subjects": res}), 200
+
+
+@academics_bp.route("/attendance/geocheckin", methods=["POST"])
+@require_auth
+def geofenced_checkin():
+    """
+    Automated zero-touch GPS geofenced attendance verification & check-in.
+    Validates coordinates and accuracy against registered classroom coordinates.
+    """
+    user = get_current_user()
+    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    if not student:
+        return jsonify({"error": "Student profile not found.", "status": 404}), 404
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user_lat = float(data.get("latitude"))
+        user_lng = float(data.get("longitude"))
+        accuracy = float(data.get("accuracy", 15))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid or missing GPS coordinates.", "status": 400}), 400
+
+    subject_code = data.get("subject_code", "CS401")
+    subject_name = data.get("subject_name", "Core Subject")
+    room = data.get("room", "Room 302")
+
+    # Campus classroom coordinate registry
+    ROOM_COORDS = {
+        "Room 101": (28.614120, 77.209150, 35),
+        "Room 102": (28.614210, 77.209220, 35),
+        "Room 201": (28.614130, 77.209160, 35),
+        "Room 202": (28.614230, 77.209240, 35),
+        "Room 301": (28.614150, 77.209170, 35),
+        "Room 302": (28.614250, 77.209260, 35),
+        "Lab 1":    (28.614400, 77.209400, 40),
+        "Lab 2":    (28.614420, 77.209420, 40),
+        "Audi 1":   (28.613800, 77.208800, 50),
+    }
+
+    target = ROOM_COORDS.get(room, (28.6139, 77.2090, 60))
+    distance = _haversine_meters(user_lat, user_lng, target[0], target[1])
+    allowed_radius = target[2]
+
+    # Verify geofence (with accuracy margin)
+    if distance > (allowed_radius + min(accuracy, 25)):
+        return jsonify({
+            "error": f"You are {distance}m away from {room}. You must be inside the classroom ({allowed_radius}m) to check in.",
+            "distance": distance,
+            "status": 403,
+        }), 403
+
+    # Record / increment attendance
+    rec = AttendanceRecord.query.filter_by(
+        student_id=student.id,
+        subject_code=subject_code
+    ).first()
+
+    if not rec:
+        rec = AttendanceRecord(
+            student_id=student.id,
+            subject_name=subject_name,
+            subject_code=subject_code,
+            attended_classes=1,
+            total_classes=1
+        )
+        db.session.add(rec)
+    else:
+        rec.attended_classes += 1
+        rec.total_classes += 1
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "geofenced_checkin")
+
+    audit_action("academics.attendance.geocheckin", {
+        "student_id": str(student.id),
+        "subject_code": subject_code,
+        "room": room,
+        "distance": distance,
+        "accuracy": accuracy,
+        "mode": data.get("mode", "auto_geofence"),
+    })
+
+    pct = round((rec.attended_classes / rec.total_classes) * 100) if rec.total_classes > 0 else 100
+
+    return jsonify({
+        "success": True,
+        "message": f"Zero-Touch GPS Check-in verified for {subject_name} ({room})!",
+        "distance": distance,
+        "accuracy": accuracy,
+        "subject_code": subject_code,
+        "attended_classes": rec.attended_classes,
+        "total_classes": rec.total_classes,
+        "pct": pct,
+    }), 200
 
 
 @academics_bp.route("/attendance/mark", methods=["POST"])

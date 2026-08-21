@@ -346,6 +346,9 @@ export const academicsApi = {
   /** Student: own attendance */
   getAttendance: () => apiGet('/academics/attendance'),
 
+  /** Student: GPS Geofenced automated check-in */
+  geoCheckIn: (payload) => apiPost('/academics/attendance/geocheckin', payload),
+
   /** Student / Professor / Admin: timetable (role-scoped server-side) */
   getTimetable: () => apiGet('/academics/timetable'),
 

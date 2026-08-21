@@ -15,6 +15,7 @@ import { useToast } from '../../context/ToastContext';
 import { useApiData } from '../../hooks/useApiData';
 import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
+import GeofenceRadar from '../../components/Attendance/GeofenceRadar';
 import './Attendance.css';
 
 function CircleProgress({ pct }) {
@@ -36,7 +37,7 @@ export default function Attendance() {
   const showToast = useToast();
 
   // ── Student data ───────────────────────────────────────────────────────────
-  const { data: apiData, loading, error, isEmpty } = useApiData(
+  const { data: apiData, loading, error, isEmpty, refetch: refetchAttendance } = useApiData(
     '/academics/attendance',
     { subjects: [] },
   );
@@ -311,6 +312,16 @@ export default function Attendance() {
           <p className="page-sub">{user?.branch || 'General'} · Semester {user?.semester || 1}</p>
         </div>
       </div>
+
+      {/* GPS Geofence Live Radar & Auto Check-in Engine */}
+      <GeofenceRadar
+        activeSubject={subjects[0] || { name: 'Core Lecture', code: 'CS401' }}
+        activeRoom="Room 302"
+        onAttendanceMarked={() => {
+          refetchAttendance();
+          showToast('Attendance recorded via GPS Geofence!', 'success', 3500);
+        }}
+      />
 
       <div className="attend-top-row">
         {/* Circle Summary */}
