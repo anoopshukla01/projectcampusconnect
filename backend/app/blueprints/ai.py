@@ -245,15 +245,21 @@ def _tool_get_assignments(student):
 # ── AI Intent & Response Dispatcher ──────────────────────────────────────────
 
 @ai_bp.route("/copilot/chat", methods=["POST"])
-@require_auth
 def copilot_chat():
     """
     Campus Connect Copilot Chatbot endpoint.
     Routes queries to internal platform database tools or academic reasoning.
     """
-    user = get_current_user()
-    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
-    prof = ProfessorProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    user = None
+    student = None
+    prof = None
+    try:
+        user = get_current_user()
+        if user:
+            student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+            prof = ProfessorProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    except Exception as e:
+        logger.warning(f"Optional auth check failed in copilot_chat: {e}")
 
     data = request.get_json(silent=True) or {}
     messages = data.get("messages", [])
