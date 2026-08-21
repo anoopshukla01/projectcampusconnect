@@ -17,6 +17,7 @@ import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import GeofenceRadar from '../../components/Attendance/GeofenceRadar';
 import LivePresenceStream from '../../components/Attendance/LivePresenceStream';
+import StudentAttendanceDashboard from '../../components/student/attendance/StudentAttendanceDashboard';
 import './Attendance.css';
 
 function CircleProgress({ pct }) {
@@ -314,119 +315,15 @@ export default function Attendance() {
 
   // ── Student render ─────────────────────────────────────────────────────────
   return (
-    <StateContainer loading={loading} error={error} isEmpty={isEmpty}
-      emptyMessage="Attendance tracking hasn't started yet. Check back once your classes begin.">
-      <div className="page-header">
+    <div className="attendance-page-wrap">
+      <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
-          <h1 className="page-title">Attendance</h1>
-          <p className="page-sub">{user?.branch || 'General'} · Semester {user?.semester || 1}</p>
+          <h1 className="page-title">Attendance & Presence Analytics</h1>
+          <p className="page-sub">{user?.branch || 'General'} · Semester {user?.semester || 1} · Continuous GPS Dwell Tracker</p>
         </div>
       </div>
 
-      {/* GPS Geofence Live Radar & Auto Check-in Engine */}
-      <GeofenceRadar
-        activeSubject={subjects[0] || { name: 'Core Lecture', code: 'CS401' }}
-        activeRoom="Room 302"
-        onAttendanceMarked={() => {
-          refetchAttendance();
-          showToast('Attendance recorded via GPS Geofence!', 'success', 3500);
-        }}
-      />
-
-      <div className="attend-top-row">
-        {/* Circle Summary */}
-        <section className="panel summary-card" aria-labelledby="summaryTitle">
-          <div className="circle-wrap">
-            <CircleProgress pct={overallPct} />
-            <div className="circle-center">
-              <span className="circle-pct" id="summaryPctText">{overallPct}%</span>
-              <span className="circle-label">overall</span>
-            </div>
-          </div>
-          <div className="summary-info">
-            <h2 className="summary-title" id="summaryTitle">Overall Attendance</h2>
-            <p className={`summary-sub${overallPct < 75 ? ' danger-alert' : ''}`}>
-              {overallPct >= 75
-                ? `Safe · ${overallPct - 75}% above the 75% minimum`
-                : `Critical! Below 75%. Attend ${Math.ceil(0.75 * totalClasses - totalAttended)} more.`}
-            </p>
-            <p className="summary-detail">{totalAttended} / {totalClasses} classes attended</p>
-          </div>
-        </section>
-
-        {/* Bunk Calculator */}
-        <section className="panel calc-card" aria-labelledby="calcTitle">
-          <h2 className="panel-title" id="calcTitle" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Calculator size={18} /> Bunk Calculator
-          </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.75rem' }}>
-            Check if you can safely skip a class.
-          </p>
-          <label htmlFor="calcSubjectSelect"
-            style={{ fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem', display: 'block' }}>
-            Select subject
-          </label>
-          <select id="calcSubjectSelect" className="calc-select" value={calcSub}
-            onChange={e => { setCalcSub(e.target.value); setCalcResult(null); }}>
-            <option value="">— Pick a subject —</option>
-            {subjects.map(s => (
-              <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
-            ))}
-          </select>
-          <div className="calc-btns">
-            <button className="calc-btn action-btn" onClick={bunkOne} disabled={!calcSub}>Can I bunk next?</button>
-            <button className="calc-btn btn-secondary" onClick={bunkMax} disabled={!calcSub}>Max I can bunk</button>
-          </div>
-          {calcResult && (
-            <div className={`calc-result${calcResult.ok ? ' ok' : ' no'}`} role="status" aria-live="polite">
-              {calcResult.text}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* Subject Table */}
-      <section className="panel" aria-labelledby="subjectTableTitle">
-        <div className="panel-header">
-          <h2 className="panel-title" id="subjectTableTitle">Subject-wise Breakdown</h2>
-        </div>
-        <div className="attend-table-wrap">
-          <table className="attend-table" role="table">
-            <thead>
-              <tr>
-                <th>Subject</th><th>Code</th><th>Attended</th>
-                <th>Total</th><th>Percentage</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subjects.map(sub => {
-                const status = sub.pct >= 85 ? 'safe' : sub.pct >= 75 ? 'warning' : 'critical';
-                const label  = sub.pct >= 85 ? 'Safe' : sub.pct >= 75 ? 'Low' : 'Critical';
-                return (
-                  <tr key={sub.code || sub.id}>
-                    <td className="subject-name-cell">{sub.name}</td>
-                    <td className="code-cell"><code>{sub.code}</code></td>
-                    <td>{sub.attended}</td>
-                    <td>{sub.total}</td>
-                    <td>
-                      <div className="bar-wrap">
-                        <div className="bar-fill" style={{
-                          width: `${sub.pct}%`,
-                          background: status === 'safe' ? 'var(--clr-success)'
-                                    : status === 'warning' ? 'var(--clr-warning)'
-                                    : 'var(--clr-danger)',
-                        }}/>
-                        <span className="bar-pct">{sub.pct}%</span>
-                      </div>
-                    </td>
-                    <td><span className={`status-pill ${status}`}>{label}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </StateContainer>
+      <StudentAttendanceDashboard />
+    </div>
   );
 }
