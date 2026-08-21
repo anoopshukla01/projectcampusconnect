@@ -24,6 +24,8 @@ const DEFAULT_BRANCHES = [
   { id: 'b-aids', name: 'Artificial Intelligence & Data Science', code: 'AIDS', is_active: true },
 ];
 
+let _cache = null;
+
 export function useBranches() {
   const [branches, setBranches] = useState(_cache ?? DEFAULT_BRANCHES);
   const [loading, setLoading]   = useState(!_cache);
