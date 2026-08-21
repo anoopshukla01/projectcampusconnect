@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Megaphone, BookOpen, Users, MessageCircle, Plus, Mail, Check, X, Clock, Settings, Link as LinkIcon, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -32,6 +33,11 @@ export default function Chats() {
   const { user } = useAuth();
   const showToast = useToast();
   const msgRef = useRef(null);
+  const [searchParams] = useSearchParams();
+
+  const targetUserId = searchParams.get('userId') || searchParams.get('recipientId') || searchParams.get('dm');
+  const targetEmail = searchParams.get('email');
+  const targetName = searchParams.get('name');
 
   // ── Conversation list ──────────────────────────────────────────────────────
   // Chats are mounted at /api/v1/career/chats in the backend
@@ -46,10 +52,68 @@ export default function Chats() {
   const [loadingMsgs,    setLoadingMsgs]    = useState(false);
   const [messageText,    setMessageText]    = useState('');
   const [sending,        setSending]        = useState(false);
+  const [handledDeepLink, setHandledDeepLink] = useState(false);
 
   useEffect(() => {
     if (apiData?.rooms) setRooms(apiData.rooms);
   }, [apiData]);
+
+  // ── Handle QR Code Scan Deep Link to Direct Chat ───────────────────────────
+  useEffect(() => {
+    if ((!targetUserId && !targetEmail) || handledDeepLink) return;
+
+    // Check if matching room already exists
+    const existing = rooms.find(r => 
+      r.type === 'direct' && (
+        (targetUserId && (r.recipient_id === targetUserId || r.other_user_id === targetUserId)) ||
+        (targetName && r.name?.toLowerCase() === targetName?.toLowerCase())
+      )
+    );
+
+    if (existing) {
+      setActiveId(existing.id);
+      setHandledDeepLink(true);
+      if (targetName) showToast(`Connected to ${targetName} via ID Card!`, 'info', 2500);
+      return;
+    }
+
+    if (!loading) {
+      setHandledDeepLink(true);
+      (async () => {
+        try {
+          const res = await chatsApi.createConversation({
+            type: 'direct',
+            recipient_id: targetUserId || undefined,
+            recipient_email: targetEmail || undefined,
+          });
+          if (res?.conversation_id) {
+            setActiveId(res.conversation_id);
+            refetchRooms();
+            showToast(`Started direct chat with ${targetName || 'member'}!`, 'success', 3000);
+          } else if (res?.error) {
+            // Local fallback room creation for instant connectivity
+            const fallbackId = `dm-${targetUserId || targetEmail || Date.now()}`;
+            setRooms(prev => [
+              {
+                id: fallbackId,
+                name: targetName || targetEmail || 'Direct Message',
+                type: 'direct',
+                category: 'direct',
+                unread_count: 0,
+                last_message: 'Scan connected! Send a message to start conversation.',
+                last_activity: new Date().toISOString(),
+              },
+              ...prev,
+            ]);
+            setActiveId(fallbackId);
+            showToast(`Connected to ${targetName || 'member'} via ID Card!`, 'success', 3000);
+          }
+        } catch (err) {
+          console.error('Error starting direct chat from QR deep link:', err);
+        }
+      })();
+    }
+  }, [targetUserId, targetEmail, targetName, rooms, loading, handledDeepLink, refetchRooms, showToast]);
 
   // ── Message history + 3-second poll ───────────────────────────────────────
   const fetchMessages = useCallback(async (showSpinner = false) => {

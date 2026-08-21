@@ -14,11 +14,12 @@
  */
 
 import { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   User, Mail, Phone, MapPin, BadgeCheck, Building2,
   GraduationCap, Briefcase, ShieldCheck, RotateCcw,
-  Download, Link2, Calendar
+  Download, Link2, Calendar, MessageSquare
 } from 'lucide-react';
 import './VirtualIDCard.css';
 
@@ -54,22 +55,25 @@ const ROLE_META = {
   },
 };
 
-// ── Build vCard / QR payload ──────────────────────────────────────────────────
+// ── Build Chat QR payload ──────────────────────────────────────────────────
 function buildQRPayload(user) {
-  const role = ROLE_META[user?.role]?.label ?? user?.role ?? 'Member';
+  const origin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://campusconnect.edu';
+  const userId = user?.id ?? user?.user_id ?? user?.studentId ?? '';
+  const email = user?.email ?? '';
   const name = user?.name ?? user?.full_name ?? 'Campus Member';
-  const sysId = user?.systemId ?? user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? 'N/A';
-  return [
-    `BEGIN:VCARD`,
-    `VERSION:3.0`,
-    `FN:${name}`,
-    `TITLE:${role}`,
-    `EMAIL:${user?.email ?? ''}`,
-    `TEL:${user?.phone ?? ''}`,
-    `ORG:Campus Connect`,
-    `NOTE:ID:${sysId}`,
-    `END:VCARD`,
-  ].join('\n');
+  const role = user?.role ?? 'student';
+  const sysId = user?.systemId ?? user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? '';
+
+  const params = new URLSearchParams();
+  if (userId) params.set('userId', String(userId));
+  if (email) params.set('email', String(email));
+  if (name) params.set('name', String(name));
+  if (role) params.set('role', String(role));
+  if (sysId) params.set('sysId', String(sysId));
+
+  return `${origin}/chats?${params.toString()}`;
 }
 
 // ── Field row helper ──────────────────────────────────────────────────────────
@@ -159,6 +163,7 @@ const FIELD_SETS = {
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownload }) {
+  const navigate = useNavigate();
   const role = user?.role ?? 'student';
   const meta = ROLE_META[role] ?? ROLE_META.student;
   const RoleIcon = meta.icon;
@@ -325,7 +330,7 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
                 includeMargin={false}
               />
             </div>
-            <p className="vic-qr-hint">Scan to verify identity</p>
+            <p className="vic-qr-hint">📲 Scan with Phone Camera to Text User</p>
           </div>
 
           {/* Verification meta */}
@@ -356,7 +361,7 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
           <div className="vic-security-strip" style={{ background: meta.gradient }} />
 
           {/* Footer */}
-          <div className="vic-footer">
+          <div className="vic-footer" style={{ flexWrap: 'wrap', gap: '0.4rem' }}>
             <button
               className="vic-flip-btn"
               onClick={onFlip}
@@ -365,6 +370,20 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
             >
               <RotateCcw size={13} />
               Front View
+            </button>
+            <button
+              className="vic-flip-btn"
+              onClick={() => {
+                const targetId = user?.id || user?.user_id || user?.studentId || '';
+                const targetName = user?.name || user?.full_name || 'Member';
+                const targetEmail = user?.email || '';
+                navigate(`/chats?userId=${encodeURIComponent(targetId)}&name=${encodeURIComponent(targetName)}&email=${encodeURIComponent(targetEmail)}`);
+              }}
+              title="Text this member on Campus Connect"
+              style={{ '--accent': meta.accent }}
+            >
+              <MessageSquare size={13} />
+              Text User
             </button>
             <button
               className="vic-flip-btn"

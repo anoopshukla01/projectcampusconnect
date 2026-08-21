@@ -147,9 +147,35 @@ def create_conversation():
 
     if conv_type == ConversationType.DIRECT:
         recipient_id_str = data.get("recipient_id")
-        recipient_id = parse_uuid(recipient_id_str)
-        if not recipient_id:
-            return error_response("Valid recipient_id is required for direct chat", 400)
+        recipient_email = data.get("recipient_email")
+        recipient = None
+
+        if recipient_id_str:
+            rec_uuid = parse_uuid(recipient_id_str)
+            if rec_uuid:
+                recipient = db.session.get(User, rec_uuid)
+            if not recipient:
+                from app.models.student import StudentProfile
+                from app.models.professor import ProfessorProfile
+                stud = db.session.query(StudentProfile).filter(
+                    (StudentProfile.roll_no == str(recipient_id_str).upper())
+                ).first()
+                if stud:
+                    recipient = stud.user
+                else:
+                    prof = db.session.query(ProfessorProfile).filter(
+                        (ProfessorProfile.employee_id == str(recipient_id_str).upper())
+                    ).first()
+                    if prof:
+                        recipient = prof.user
+
+        if not recipient and recipient_email:
+            recipient = db.session.query(User).filter_by(email=recipient_email, is_deleted=False).first()
+
+        if not recipient:
+            return error_response("Recipient user not found", 404)
+
+        recipient_id = recipient.id
         
         # Check if direct conversation already exists
         existing_mem = db.session.query(GroupMembership.conversation_id).join(Conversation).filter(
@@ -161,9 +187,6 @@ def create_conversation():
             c = db.session.get(Conversation, existing_mem.conversation_id)
             return jsonify({"conversation_id": str(c.id), "name": c.name, "type": "direct"}), 200
 
-        recipient = db.session.get(User, recipient_id)
-        if not recipient:
-            return error_response("Recipient user not found", 404)
         err = assert_college_match(recipient, user)
         if err:
             return err
