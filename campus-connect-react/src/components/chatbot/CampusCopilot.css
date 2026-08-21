@@ -1,6 +1,6 @@
 /**
- * CampusCopilot Styles
- * ====================
+ * CampusCopilot Styles (Refined & Workable)
+ * =========================================
  * Floating AI Copilot Drawer & FAB styling.
  */
 
@@ -70,8 +70,8 @@
   position: fixed;
   bottom: 2rem;
   right: 2rem;
-  width: 420px;
-  height: 600px;
+  width: 440px;
+  height: 620px;
   max-width: calc(100vw - 2rem);
   max-height: calc(100vh - 4rem);
   background: #090e1a;
@@ -86,8 +86,8 @@
 }
 
 .cc-drawer--expanded {
-  width: 680px;
-  height: 780px;
+  width: 720px;
+  height: 800px;
 }
 
 @keyframes ccDrawerIn {
@@ -182,7 +182,7 @@
   display: flex;
   gap: 0.45rem;
   padding: 0.6rem 1rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   overflow-x: auto;
   white-space: nowrap;
@@ -206,7 +206,7 @@
   color: #cbd5e1;
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.25rem 0.6rem;
+  padding: 0.25rem 0.65rem;
   border-radius: 1rem;
   cursor: pointer;
   flex-shrink: 0;
@@ -347,6 +347,7 @@
   border-radius: 0.25rem;
 }
 
+/* Code Snippet Block */
 .cc-code-block {
   background: #0b1120;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -356,14 +357,42 @@
 }
 
 .cc-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: rgba(255, 255, 255, 0.05);
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.65rem;
   font-size: 0.68rem;
   color: #94a3b8;
   font-family: monospace;
-  text-transform: uppercase;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+.cc-code-lang {
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.cc-copy-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  transition: all 0.15s ease;
+}
+
+.cc-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.text-green { color: #34d399; }
 
 .cc-code-pre {
   padding: 0.75rem;
@@ -375,12 +404,61 @@
   color: #a5f3fc;
 }
 
+/* Interactive Action Button */
+.cc-action-box {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cc-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cc-action-btn:hover {
+  background: #059669;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+/* Footer Toolbar */
+.cc-msg-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.cc-speak-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 0.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.cc-speak-btn:hover {
+  color: #fff;
+}
+
 .cc-msg-time {
-  display: block;
   font-size: 0.625rem;
   color: rgba(255, 255, 255, 0.4);
-  text-align: right;
-  margin-top: 0.35rem;
 }
 
 /* Loading Dots */
@@ -415,6 +493,38 @@
   padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.02);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cc-mic-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.cc-mic-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.cc-mic-btn.listening {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #f87171;
+  animation: ccMicPulse 1s infinite alternate;
+}
+
+@keyframes ccMicPulse {
+  from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); }
+  to { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
 }
 
 .cc-input {

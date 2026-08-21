@@ -1,13 +1,16 @@
 /**
- * CampusCopilot Component
- * =======================
+ * CampusCopilot Component (Refined & Workable)
+ * ============================================
  * Context-Aware AI Assistant Floating Widget for Campus Connect:
- * - Direct function-calling integration for Attendance, Schedule, Notices, CR/CS.
- * - Academic concept reasoning with formatted markdown & code blocks.
- * - Floating action drawer with quick-prompt chips.
+ * - Direct function-calling integration for Attendance, Schedule, Notices, CR/CS, Placements, Assignments.
+ * - Interactive action buttons to jump directly to app routes.
+ * - Copy code snippets with 1-click clipboard integration.
+ * - Voice Input (Speech-to-Text) & Voice Output (Read Aloud).
+ * - Persistent message history in localStorage.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   Bot,
@@ -16,7 +19,6 @@ import {
   Trash2,
   Minimize2,
   Maximize2,
-  ChevronDown,
   Activity,
   Calendar,
   Megaphone,
@@ -24,6 +26,15 @@ import {
   BookOpen,
   CheckCircle2,
   Search,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Copy,
+  Check,
+  ArrowRight,
+  Briefcase,
+  FileText,
 } from 'lucide-react';
 import { copilotApi } from '../../services/api';
 import './CampusCopilot.css';
@@ -31,29 +42,55 @@ import './CampusCopilot.css';
 const QUICK_ACTIONS = [
   { label: 'My Attendance %', icon: '📊', prompt: 'What is my current attendance percentage and safe bunk margin?' },
   { label: "Today's Timetable", icon: '📅', prompt: "Show me today's class timetable and room allocations." },
+  { label: 'Placement Drives', icon: '💼', prompt: 'Show active campus placement drives, CTC packages, and eligibility.' },
+  { label: 'Pending Assignments', icon: '📝', prompt: 'Do I have any pending assignments or lab submissions due?' },
   { label: 'Latest Notices', icon: '📢', prompt: 'Summarize the latest official campus notices and announcements.' },
   { label: 'Who is our CR?', icon: '👑', prompt: 'Who is the active Class Representative (CR) for my batch?' },
   { label: "Dijkstra's Code", icon: '💻', prompt: "Explain Dijkstra's shortest path algorithm with Python code." },
+  { label: 'Quick Sort', icon: '⚡', prompt: 'Explain Quick Sort algorithm with Python implementation.' },
 ];
 
 export default function CampusCopilot() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content:
-        "👋 Hi! I'm your **Campus Connect Copilot**.\n\nI can answer questions about your **attendance**, **class schedule**, **circulars**, or help explain **engineering & coding concepts**.\n\nTry clicking a quick prompt below or type your question!",
-      tool_used: null,
-      timestamp: new Date().toISOString(),
-    },
-  ]);
+  const [isListening, setIsListening] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cc_copilot_messages');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content:
+          "👋 Hi! I'm your **Campus Connect Copilot**.\n\nI can assist with **live attendance & bunk calculations**, **daily timetables**, **placement drives**, **assignments**, and **DSA / engineering coding concepts**.\n\nClick a suggestion chip below, type a query, or tap the 🎙️ mic to speak!",
+        tool_used: null,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+  });
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  // Save messages to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('cc_copilot_messages', JSON.stringify(messages));
+    } catch {
+      // ignore
+    }
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,6 +102,77 @@ export default function CampusCopilot() {
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpen, messages]);
+
+  // Handle Speech Recognition (Web Speech API)
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setInput(transcript);
+          handleSend(transcript);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleSpeak = (msgId, text) => {
+    if (!('speechSynthesis' in window)) return;
+
+    if (speakingMsgId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    // Clean markdown symbols for cleaner speech
+    const cleanText = text.replace(/[*#`_>\[\]]/g, '').replace(/```[\s\S]*?```/g, 'Code block omitted.');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.onend = () => setSpeakingMsgId(null);
+    utterance.onerror = () => setSpeakingMsgId(null);
+
+    setSpeakingMsgId(msgId);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleCopyCode = (codeText, idx) => {
+    navigator.clipboard.writeText(codeText);
+    setCopiedCodeIdx(idx);
+    setTimeout(() => setCopiedCodeIdx(null), 2500);
+  };
 
   const handleSend = async (textToSend = null) => {
     const query = (textToSend || input).trim();
@@ -92,6 +200,7 @@ export default function CampusCopilot() {
             role: 'assistant',
             content: res.content,
             tool_used: res.tool_used,
+            action: res.action,
             timestamp: res.timestamp || new Date().toISOString(),
           },
         ]);
@@ -114,7 +223,7 @@ export default function CampusCopilot() {
         {
           id: `asst-${Date.now()}`,
           role: 'assistant',
-          content: '⚠️ Network connection error. Please verify your backend connection.',
+          content: '⚠️ Network error communicating with Copilot backend.',
           tool_used: null,
           timestamp: new Date().toISOString(),
         },
@@ -129,22 +238,29 @@ export default function CampusCopilot() {
       e.preventDefault();
       handleSend();
     }
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
   };
 
   const handleClear = () => {
-    setMessages([
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeakingMsgId(null);
+    const resetMsg = [
       {
         id: 'welcome-reset',
         role: 'assistant',
-        content: "Chat cleared! How can I assist with your campus academics today?",
+        content: "Chat cleared! How can I assist with your campus academics or coding doubts today?",
         tool_used: null,
         timestamp: new Date().toISOString(),
       },
-    ]);
+    ];
+    setMessages(resetMsg);
+    localStorage.removeItem('cc_copilot_messages');
   };
 
-  // Basic markdown-like parser for bold, code blocks, lists
-  const renderMessageContent = (text) => {
+  // Markdown-like parser
+  const renderMessageContent = (text, msgId) => {
     const codeBlockRegex = /```([a-z]*)\n([\s\S]*?)```/g;
     const parts = [];
     let lastIndex = 0;
@@ -154,7 +270,7 @@ export default function CampusCopilot() {
       if (match.index > lastIndex) {
         parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
       }
-      parts.push({ type: 'code', lang: match[1] || 'text', code: match[2] });
+      parts.push({ type: 'code', lang: match[1] || 'text', code: match[2].trim() });
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < text.length) {
@@ -162,11 +278,28 @@ export default function CampusCopilot() {
     }
 
     return parts.map((part, idx) => {
+      const codeId = `${msgId}-code-${idx}`;
       if (part.type === 'code') {
+        const isCopied = copiedCodeIdx === codeId;
         return (
           <div key={idx} className="cc-code-block">
             <div className="cc-code-header">
-              <span>{part.lang}</span>
+              <span className="cc-code-lang">{part.lang}</span>
+              <button
+                className="cc-copy-btn"
+                onClick={() => handleCopyCode(part.code, codeId)}
+                title="Copy code to clipboard"
+              >
+                {isCopied ? (
+                  <>
+                    <Check size={12} className="text-green" /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} /> Copy
+                  </>
+                )}
+              </button>
             </div>
             <pre className="cc-code-pre">
               <code>{part.code}</code>
@@ -175,7 +308,6 @@ export default function CampusCopilot() {
         );
       }
 
-      // Convert line breaks and basic formatting
       const lines = part.content.split('\n');
       return (
         <div key={idx} className="cc-text-part">
@@ -203,7 +335,6 @@ export default function CampusCopilot() {
   };
 
   const parseInline = (str) => {
-    // Bold **text**
     const boldRegex = /\*\*(.*?)\*\*/g;
     const parts = [];
     let last = 0;
@@ -291,8 +422,12 @@ export default function CampusCopilot() {
               </button>
               <button
                 className="cc-icon-btn cc-close-btn"
-                onClick={() => setIsOpen(false)}
-                title="Close Copilot"
+                onClick={() => {
+                  if (window.speechSynthesis) window.speechSynthesis.cancel();
+                  setSpeakingMsgId(null);
+                  setIsOpen(false);
+                }}
+                title="Close Copilot (ESC)"
               >
                 <X size={17} />
               </button>
@@ -346,6 +481,16 @@ export default function CampusCopilot() {
                           <Megaphone size={12} /> Official Campus Notice Board
                         </>
                       )}
+                      {msg.tool_used === 'get_placement_drives' && (
+                        <>
+                          <Briefcase size={12} /> Placement Portal Service
+                        </>
+                      )}
+                      {msg.tool_used === 'get_active_assignments' && (
+                        <>
+                          <FileText size={12} /> Academic Assignments Tracker
+                        </>
+                      )}
                       {msg.tool_used === 'get_delegation_info' && (
                         <>
                           <CheckCircle2 size={12} /> Student Privileges Registry
@@ -360,12 +505,40 @@ export default function CampusCopilot() {
                   )}
 
                   <div className="cc-msg-content">
-                    {renderMessageContent(msg.content)}
+                    {renderMessageContent(msg.content, msg.id)}
                   </div>
 
-                  <span className="cc-msg-time">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  {/* Interactive Action Button */}
+                  {msg.action && (
+                    <div className="cc-action-box">
+                      <button
+                        className="cc-action-btn"
+                        onClick={() => {
+                          setIsOpen(false);
+                          navigate(msg.action.target);
+                        }}
+                      >
+                        <span>{msg.action.label}</span>
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Footer toolbar: Timestamp + Speak Button */}
+                  <div className="cc-msg-footer">
+                    {msg.role === 'assistant' && (
+                      <button
+                        className="cc-speak-btn"
+                        onClick={() => handleSpeak(msg.id, msg.content)}
+                        title={speakingMsgId === msg.id ? 'Stop reading' : 'Read aloud'}
+                      >
+                        {speakingMsgId === msg.id ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                      </button>
+                    )}
+                    <span className="cc-msg-time">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -388,15 +561,25 @@ export default function CampusCopilot() {
 
           {/* Input Bar */}
           <div className="cc-input-wrap">
+            <button
+              className={`cc-mic-btn ${isListening ? 'listening' : ''}`}
+              onClick={toggleListening}
+              title={isListening ? 'Listening... click to stop' : 'Voice Input (Click to speak)'}
+              type="button"
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+
             <textarea
               ref={inputRef}
               className="cc-input"
               rows={1}
-              placeholder="Ask about attendance, timetable, notices, or coding doubts..."
+              placeholder={isListening ? 'Listening to your voice...' : 'Ask about attendance, timetable, notices, or coding doubts...'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
             />
+
             <button
               className="cc-send-btn"
               onClick={() => handleSend()}
