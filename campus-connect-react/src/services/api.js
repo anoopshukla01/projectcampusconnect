@@ -84,14 +84,13 @@ function notifySessionExpired() {
 // 2.  Core fetch wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Flag to prevent concurrent refresh races */
-let _refreshing = false;
-let _refreshQueue = [];  // { resolve, reject }[]
-
-async function _drainQueue(newToken, err) {
-  _refreshQueue.forEach(({ resolve, reject }) => err ? reject(err) : resolve(newToken));
-  _refreshQueue = [];
-}
+/**
+ * Single in-flight refresh promise.
+ * All concurrent callers await the same promise so only one network
+ * request is made and the rotated token is shared — preventing the
+ * "second caller uses already-revoked token" logout loop.
+ */
+let _refreshPromise = null;
 
 /**
  * Low-level fetch with:
@@ -127,9 +126,13 @@ async function _request(path, opts = {}, _isRetry = false) {
       // Retry original request with the new token
       return _request(path, opts, true);
     }
-    // Refresh failed → session is dead
-    clearSession();
-    notifySessionExpired();
+    // Refresh failed → session is dead.
+    // Only notify if there WAS a token — prevents fresh-visit 401s
+    // (e.g. unauthenticated endpoint returning 401) from logging the user out.
+    if (token) {
+      clearSession();
+      notifySessionExpired();
+    }
     return { error: 'Session expired. Please log in again.', _sessionExpired: true };
   }
 
@@ -151,41 +154,46 @@ async function _request(path, opts = {}, _isRetry = false) {
   return body;
 }
 
-/** Attempt to exchange the stored refresh token for a new access token. */
+/**
+ * Attempt to exchange the stored refresh token for a new access token.
+ *
+ * Uses a single shared promise (_refreshPromise) so that if multiple
+ * requests race on a 401, they all await the SAME network call instead
+ * of each firing their own. This prevents the second caller from trying
+ * to use an already-rotated (revoked) refresh token and getting logged out.
+ */
 async function _silentRefresh() {
+  // If a refresh is already in-flight, piggyback on it
+  if (_refreshPromise) {
+    return _refreshPromise;
+  }
+
+  // Read refresh token synchronously before going async so we can bail early
   const rt = await getRefreshToken();
   if (!rt) return false;
 
-  // If a refresh is already in-flight, queue this call
-  if (_refreshing) {
-    return new Promise((resolve, reject) => _refreshQueue.push({ resolve, reject }))
-      .then(() => true)
-      .catch(() => false);
-  }
+  _refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE}/auth/token/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
 
-  _refreshing = true;
-  try {
-    const res = await fetch(`${BASE}/auth/token/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: rt }),
-    });
+      if (!res.ok) return false;
 
-    if (!res.ok) {
-      _drainQueue(null, new Error('refresh_failed'));
+      const data = await res.json();
+      await saveTokens(data);   // saves both access_token + refresh_token
+      return true;
+    } catch {
       return false;
+    } finally {
+      // Always clear the shared promise so future refreshes can start fresh
+      _refreshPromise = null;
     }
+  })();
 
-    const data = await res.json();
-    saveTokens(data);           // saves both access_token + refresh_token
-    _drainQueue(data.access_token, null);
-    return true;
-  } catch {
-    _drainQueue(null, new Error('refresh_network_error'));
-    return false;
-  } finally {
-    _refreshing = false;
-  }
+  return _refreshPromise;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

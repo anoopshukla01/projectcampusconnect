@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   User, BookOpen, Briefcase, Calendar, ArrowLeft,
-  AlertTriangle, Award, TrendingUp, CheckCircle
+  AlertTriangle, Award, TrendingUp, CheckCircle, Mail
 } from 'lucide-react';
 import { studentsApi } from '@/services/api';
 import '@admin/admin.shared.css';
@@ -109,7 +109,19 @@ export default function TPOStudentDetail() {
         </div>
         <div className="sd-section-body">
           {['full_name','roll_no','email','phone','branch','semester','batch_year','college_name'].map(f => (
-            <ReadField key={f} label={FIELD_LABELS[f]} value={data[f]} />
+            f === 'email' && data[f]
+              ? (
+                <div key={f} className="sd-field">
+                  <span className="sd-field-label">{FIELD_LABELS[f]}</span>
+                  <a
+                    href={`mailto:${data[f]}`}
+                    style={{ color: 'var(--clr-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '.3rem', fontSize: '.9rem' }}
+                  >
+                    <Mail size={13} />{data[f]}
+                  </a>
+                </div>
+              )
+              : <ReadField key={f} label={FIELD_LABELS[f]} value={data[f]} />
           ))}
         </div>
       </div>

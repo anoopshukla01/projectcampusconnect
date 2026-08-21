@@ -29,6 +29,24 @@ const KEYS = {
   TOKEN:   'token',
 };
 
+// ────────────────────────────────────────────────────────────────────────────────
+// JWT helpers (no extra library — JWTs are just base64-encoded JSON)
+// ────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the JWT is already expired or expires within `bufferSecs`
+ * seconds (default 60). Returns true on any parse error (fail-safe).
+ */
+function isTokenExpiredSoon(token, bufferSecs = 60) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp) return false;
+    return (payload.exp - bufferSecs) * 1000 < Date.now();
+  } catch {
+    return true; // unparseable → treat as expired
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Offline-mode helpers (dev only, never used when backend is reachable)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,14 +151,54 @@ export function AuthProvider({ children }) {
     async function initAuth() {
       try {
         const raw = await storage.get(KEYS.USER);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && (parsed.classRank !== undefined || parsed.pendingTasks !== undefined)) {
-            await clearSession();
+        if (!raw) return; // no stored session → nothing to restore
+
+        const parsed = JSON.parse(raw);
+        // Purge stale mock-data objects that snuck in from old offline builds
+        if (parsed && (parsed.classRank !== undefined || parsed.pendingTasks !== undefined)) {
+          await clearSession();
+          return;
+        }
+
+        // ── Proactive token refresh ─────────────────────────────────────────────
+        // If the stored access token is already expired (or within 60s of
+        // expiring), silently exchange the refresh token for a new one BEFORE
+        // any page component fires its first API call. This prevents the
+        // “login → immediate 401 → logout” cycle that occurred when the
+        // access token expired while the app was closed.
+        const accessToken = await storage.get(KEYS.ACCESS);
+        if (accessToken && accessToken !== 'mock-token' && isTokenExpiredSoon(accessToken)) {
+          const refreshToken = await storage.get(KEYS.REFRESH);
+          if (refreshToken) {
+            try {
+              const res = await fetch('/api/v1/auth/token/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                await storage.set(KEYS.ACCESS,  data.access_token);
+                await storage.set(KEYS.TOKEN,   data.access_token); // legacy compat
+                if (data.refresh_token) await storage.set(KEYS.REFRESH, data.refresh_token);
+                // Token refreshed → continue with the stored user object
+              } else {
+                // Refresh token is also expired/revoked → force re-login
+                await clearSession();
+                return;
+              }
+            } catch {
+              // Network error on boot → keep the session alive in offline mode
+              // (the api.js refresh path will retry when network is back)
+            }
           } else {
-            setUser(parsed);
+            // No refresh token → expired session, force re-login
+            await clearSession();
+            return;
           }
         }
+
+        if (parsed) setUser(parsed);
       } catch (err) {
         console.error('Failed to init auth', err);
       } finally {

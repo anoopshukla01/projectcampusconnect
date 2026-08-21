@@ -9,7 +9,9 @@ SECURITY NOTES:
       a) It prevents a DB dump from revealing valid OTPs
       b) It is consistent with our password hashing strategy
   - MOCK_OTP mode: when enabled (dev/test), the OTP is logged to the
-    console instead of sent. This makes local development safe and simple.
+    console in send_otp_email(). This module's send_otp() no longer logs
+    the raw OTP value — even in mock mode, to avoid double-logging.
+  - The plaintext OTP is NEVER included in error log lines in production.
 """
 
 import logging
@@ -54,28 +56,31 @@ def verify_otp(otp: str, otp_hash: str) -> bool:
         return False
 
 
-# ── SMS OTP delivery ──────────────────────────────────────────────────────────
+# ── OTP delivery dispatcher ────────────────────────────────────────────────────
 
-def send_otp(phone: str, otp: str) -> None:
+def send_otp(identifier: str, otp: str) -> None:
     """
-    Dispatch an OTP to the given phone number via the configured SMS provider.
+    Dispatch an OTP to the given identifier (phone number or email address).
 
-    In MOCK_OTP mode (development/testing), logs the OTP to the console
-    instead of calling any external API. This eliminates the need for real
-    SMS credentials during development.
+    Email path  — identifier contains '@': delegates to send_otp_email().
+    Phone path  — delegates to the configured SMS provider.
 
-    In production, delegates to the appropriate provider adapter.
-    Currently supports: fast2sms, msg91, twilio.
+    In MOCK_OTP mode (development/testing), email delivery is handled
+    (and logged) inside send_otp_email(). The phone path logs to console.
+
+    SECURITY: The raw OTP is NEVER logged in this function. It is only
+    logged by send_otp_email() when MOCK_OTP=True (dev only).
     """
-    if "@" in phone:
+    if "@" in identifier:
         from app.utils.email import send_otp_email
-        send_otp_email(to_email=phone, otp=otp)
+        send_otp_email(to_email=identifier, otp=otp)
         return
 
+    # ── Phone / SMS path ──────────────────────────────────────────────────────
     if current_app.config.get("MOCK_OTP", True):
         # Safe to log — this only runs in dev/test, never in production.
         logger.warning(
-            "⚠️  MOCK OTP (development only) — phone=%s OTP=%s", phone, otp
+            "⚠️  MOCK OTP (development only) — phone=%s OTP=%s", identifier, otp
         )
         return
 
@@ -84,24 +89,23 @@ def send_otp(phone: str, otp: str) -> None:
 
     try:
         if provider == "fast2sms":
-            _send_via_fast2sms(phone, otp, api_key)
+            _send_via_fast2sms(identifier, otp, api_key)
         elif provider == "msg91":
-            _send_via_msg91(phone, otp, api_key)
+            _send_via_msg91(identifier, otp, api_key)
         elif provider == "twilio":
-            _send_via_twilio(phone, otp, api_key)
+            _send_via_twilio(identifier, otp, api_key)
         elif provider == "2factor":
-            _send_via_2factor(phone, otp, api_key)
+            _send_via_2factor(identifier, otp, api_key)
         else:
             raise ValueError(f"Unknown SMS provider: {provider!r}")
-        logger.info("✅ Successfully sent real OTP to %s via %s", phone, provider)
+        logger.info("✅ OTP SMS dispatched to %s via %s", identifier, provider)
     except Exception as exc:
+        # SECURITY: Do NOT include `otp` in this log line — it would appear
+        # in production log streams and violate the security requirement.
         logger.error(
-            "❌ Failed to dispatch real OTP to %s via %s: %s. "
-            "Falling back. Stored OTP in DB for manual/verification logs: %s",
-            phone, provider, str(exc), otp
+            "❌ Failed to dispatch OTP SMS to %s via %s: %s",
+            identifier, provider, type(exc).__name__,
         )
-
-
 
 
 # ── Private SMS provider adapters ─────────────────────────────────────────────
@@ -158,7 +162,7 @@ def _send_via_twilio(phone: str, otp: str, api_key: str) -> None:
         data={
             "From": from_number,
             "To": f"+91{phone}",
-            "Body": f"Your StudentSphere OTP is {otp}. Valid for 10 minutes. Do not share.",
+            "Body": f"Your theVidyaverse OTP is {otp}. Valid for 5 minutes. Do not share.",
         },
         timeout=10,
     )

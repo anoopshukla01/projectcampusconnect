@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User, BookOpen, Home, Briefcase, Award, Activity,
   Calendar, CheckCircle, Edit3, Check, X, Camera, Code, Plus,
-  UploadCloud, ImagePlus, Link2
+  UploadCloud, ImagePlus, Link2, Mail
 } from 'lucide-react';
 import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import app from '../../config/firebase';
@@ -422,6 +422,10 @@ export default function StudentSelfView() {
                 <span style={{ color: 'var(--text-secondary)', fontStyle: canEdit ? 'italic' : 'normal', fontSize: canEdit ? '.82rem' : 'inherit' }}>
                   {canEdit ? 'Not set (click ✏️ to add)' : '—'}
                 </span>
+              ) : field === 'email' ? (
+                <a href={`mailto:${val}`} style={{ color: 'var(--clr-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '.3rem' }}>
+                  <Mail size={12} />{String(val)}
+                </a>
               ) : String(val)}
             </span>
             {canEdit && (

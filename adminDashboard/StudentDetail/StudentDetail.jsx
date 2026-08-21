@@ -14,7 +14,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   User, BookOpen, FileText, ShieldCheck,
   Briefcase, Activity, ChevronDown, AlertTriangle,
-  Edit3, Check, X, ArrowLeft, Calendar, Award, Code
+  Edit3, Check, X, ArrowLeft, Calendar, Award, Code, Mail
 } from 'lucide-react';
 import { studentsApi } from '@/services/api';
 import { useToast } from '@ctx/ToastContext';
@@ -262,6 +262,20 @@ export default function AdminStudentDetail() {
         <div className="sd-hero-info">
           <p className="sd-hero-name">{data.full_name || '—'}</p>
           <p className="sd-hero-sub">{data.roll_no} · {data.branch} · Sem {data.semester}</p>
+          {data.email && (
+            <a
+              href={`mailto:${data.email}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '.35rem',
+                color: 'var(--clr-secondary)', fontSize: '.82rem',
+                textDecoration: 'none', marginBottom: '.4rem',
+              }}
+              aria-label={`Email ${data.email}`}
+            >
+              <Mail size={13} />
+              {data.email}
+            </a>
+          )}
           <div className="sd-hero-chips">
             <span className="sd-hero-chip">{data.college_name || 'College'}</span>
             <span className="sd-hero-chip">Batch {data.batch_year}</span>
@@ -355,7 +369,11 @@ export default function AdminStudentDetail() {
                       ) : (
                         <div className="sd-editable-row">
                           <span className="sd-field-value">
-                            {val == null || val === '' ? '—' : String(val)}
+                            {val == null || val === '' ? '—'
+                              : field === 'email'
+                                ? <a href={`mailto:${val}`} style={{ color: 'var(--clr-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '.3rem' }}><Mail size={12} />{String(val)}</a>
+                                : String(val)
+                            }
                           </span>
                           {canEdit && (
                             <button

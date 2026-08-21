@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, Settings, X, Bell, Loader2 } from 'lucide-react';
+import { User, Lock, Settings, X, Bell, Loader2, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { notificationsApi } from '../services/api';
+import { IDCardModal } from './VirtualIDCard';
 
 export default function Topbar({ onMenuToggle }) {
   const { user, logout, updateUser } = useAuth();
@@ -67,8 +68,9 @@ export default function Topbar({ onMenuToggle }) {
   }
 
   /* ── Profile & Settings Modal ── */
-  const [modalOpen, setModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'security' | 'preferences'
+  const [modalOpen,  setModalOpen]  = useState(false);
+  const [idCardOpen, setIdCardOpen] = useState(false);
+  const [activeTab,  setActiveTab]  = useState('profile'); // 'profile' | 'security' | 'preferences'
   
   // Profile Form
   const [formName, setFormName] = useState('');
@@ -275,6 +277,12 @@ export default function Topbar({ onMenuToggle }) {
                 <button className={`ps-tab-btn${activeTab === 'preferences' ? ' active' : ''}`} onClick={() => setActiveTab('preferences')}>
                   <Settings size={14} style={{ display: 'inline', marginRight: '4px' }} /> Preferences
                 </button>
+                <button
+                  className="ps-tab-btn"
+                  onClick={() => { setModalOpen(false); setIdCardOpen(true); }}
+                >
+                  <CreditCard size={14} style={{ display: 'inline', marginRight: '4px' }} /> ID Card
+                </button>
               </div>
 
               {/* Form Content */}
@@ -358,6 +366,17 @@ export default function Topbar({ onMenuToggle }) {
           </div>
         </div>
       )}
+
+      {/* Virtual ID Card Modal — triggered from Account Settings or avatar menu */}
+      <IDCardModal
+        isOpen={idCardOpen}
+        onClose={() => setIdCardOpen(false)}
+        user={user}
+        onPhotoSave={(url) => {
+          updateUser({ photo: url });
+          showToast('Profile photo updated!', 'success');
+        }}
+      />
     </header>
   );
 }

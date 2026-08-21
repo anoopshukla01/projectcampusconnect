@@ -265,21 +265,20 @@ export default function Login() {
       const data = await res.json();
       setLoading(false);
       if (res.ok) {
-        // Auto-login: persist tokens and redirect
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('token', data.access_token);
-        const userObj = {
-          id: data.user_id,
-          email: signupEmail.trim().toLowerCase(),
-          role: 'student',
-          backendRole: 'student',
-          name: data.full_name || signupEmail.split('@')[0],
-          initials: (data.full_name || signupEmail.split('@')[0]).slice(0, 2).toUpperCase(),
-        };
-        localStorage.setItem('ss_user', JSON.stringify(userObj));
-        showToast(`Welcome, ${userObj.name}! Account created 🎉`, 'success', 3000);
-        setTimeout(() => window.location.href = '/', 800);
+        // Auto-login via AuthContext so React state stays consistent.
+        // We call login() with the email + password the user just set so the
+        // context sets the user object and persists all tokens properly \u2014
+        // no direct localStorage writes, no hard page reload needed.
+        const loginResult = await login(signupEmail.trim().toLowerCase(), signupPassword);
+        if (loginResult?.success) {
+          showToast(`Welcome, ${loginResult.user.name || 'there'}! Account created 🎉`, 'success', 3000);
+          setTimeout(() => navigate('/'), 800);
+        } else {
+          // Login after registration failed (shouldn't normally happen) \u2014
+          // fall back to showing a toast and redirecting to sign-in tab.
+          showToast('Account created! Please sign in.', 'success', 3000);
+          setMode('login');
+        }
       } else {
         if (res.status === 409) {
           setSignupError('An account with this email already exists. Please sign in instead.');

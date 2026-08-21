@@ -74,67 +74,143 @@ from app.utils.otp import generate_otp, hash_otp, send_otp, verify_otp
 auth_bp = Blueprint("auth", __name__)
 
 
-# ── A1: POST /auth/otp/send ───────────────────────────────────────────────────
+# ── A1: POST /auth/otp/send ─────────────────────────────────────────────────────────────
 
 @auth_bp.post("/otp/send")
-@limiter.limit("3 per 15 minutes", key_func=lambda: request.json.get("phone", "unknown"))
+@limiter.limit(
+    "3 per 15 minutes",
+    key_func=lambda: (
+        request.get_json(silent=True, force=True) or {}
+    ).get("email") or (
+        request.get_json(silent=True, force=True) or {}
+    ).get("phone", "unknown"),
+)
 def otp_send():
     """
-    Send a 6-digit OTP to the given phone number.
+    Send a 6-digit OTP to the given phone number or email address.
 
-    Rate limit: 3 requests per 15 minutes per phone number.
-    Previous un-used OTPs for the same phone+purpose are invalidated.
+    Accepts either { phone } or { email + college_code }.
+
+    Rate limit: 3 requests per 15 minutes per identifier (phone or email).
+    Cooldown:   1 request per 60 seconds per identifier (checked in handler).
+    Previous un-used OTPs for the same identifier+purpose are invalidated.
+
+    SECURITY: Returns the same generic response whether or not the identifier
+    exists in our system — prevents user enumeration.
     """
     try:
         data = OTPSendSchema().load(request.get_json(force=True) or {})
     except ValidationError as e:
         return validation_error_response(e.messages)
 
-    phone = data["phone"]
+    # Resolve identifier (email or phone)
+    identifier   = data.get("email") or data["phone"]
+    is_email     = "@" in identifier
+    college_id   = None
 
-    # Invalidate any existing unused OTPs for this phone+purpose
-    # so a user can't accumulate multiple valid OTPs.
+    # ── Email path: resolve college tenant first (security requirement) ────────
+    # We do this BEFORE querying OTPToken or StudentProfile so that an attacker
+    # cannot enumerate whether a given email exists in a specific college by
+    # observing different response timings or messages.
+    if is_email:
+        college = College.query.filter_by(
+            code=data["college_code"].strip().upper(), is_active=True
+        ).first()
+        if not college:
+            # Return generic success — never reveal whether the college code or
+            # the email is wrong (prevents enumeration).
+            audit_action(
+                "auth.otp.email.send.invalid_college",
+                detail={"college_code": data["college_code"]},
+            )
+            expiry_minutes = current_app.config.get("OTP_EXPIRY_MINUTES", 5)
+            return jsonify({
+                "message": f"If that email is registered, an OTP has been sent. Valid for {expiry_minutes} minutes."
+            }), 200
+        college_id = college.id
+
+    # ── Per-identifier cooldown: 1 OTP request per 60 seconds ───────────────
+    cooldown_seconds = 60
+    recent_otp = (
+        db.session.query(OTPToken)
+        .filter(
+            OTPToken.identifier == identifier,
+            OTPToken.purpose == OTPPurpose.REGISTRATION,
+            OTPToken.is_used == False,  # noqa: E712
+        )
+        .order_by(OTPToken.created_at.desc())
+        .first()
+    )
+    if recent_otp:
+        created = recent_otp.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_seconds = (datetime.now(timezone.utc) - created).total_seconds()
+        if age_seconds < cooldown_seconds:
+            wait = int(cooldown_seconds - age_seconds)
+            # Generic rate-limit message — do not reveal whether identifier exists
+            return jsonify({
+                "message": f"Please wait {wait} second(s) before requesting another OTP."
+            }), 429
+
+    # ── Invalidate previous un-used OTPs for this identifier+purpose ─────────
     db.session.query(OTPToken).filter(
-        OTPToken.identifier == phone,
+        OTPToken.identifier == identifier,
         OTPToken.purpose == OTPPurpose.REGISTRATION,
         OTPToken.is_used == False,  # noqa: E712
     ).update({"is_used": True})
 
     otp = generate_otp()
-    expiry = datetime.now(timezone.utc) + timedelta(
-        minutes=current_app.config.get("OTP_EXPIRY_MINUTES", 10)
-    )
+    expiry_minutes = current_app.config.get("OTP_EXPIRY_MINUTES", 5)
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
     token = OTPToken(
-        identifier=phone,
+        identifier=identifier,
         purpose=OTPPurpose.REGISTRATION,
         otp_hash=hash_otp(otp),
         expires_at=expiry,
+        college_id=college_id,  # NULL for phone OTPs; set for email OTPs
     )
     try:
         db.session.add(token)
         db.session.commit()
-        send_otp(phone, otp)  # mock in dev, real SMS in prod
+        send_otp(identifier, otp)  # email or SMS dispatch
     except Exception as exc:
         db.session.rollback()
-        audit_action("auth.otp.send.error", detail={"phone": phone, "error": type(exc).__name__})
+        audit_action(
+            "auth.otp.email.send.error" if is_email else "auth.otp.send.error",
+            detail={"error": type(exc).__name__},
+        )
         return internal_error_response(exc, "otp_send")
 
-    audit_action("auth.otp.send", detail={"phone": phone})
-    res_data = {"message": "OTP sent successfully. Valid for 10 minutes."}
+    audit_action(
+        "auth.otp.email.send" if is_email else "auth.otp.send",
+        detail={"identifier_type": "email" if is_email else "phone"},
+    )
+    expiry_minutes = current_app.config.get("OTP_EXPIRY_MINUTES", 5)
+    res_data = {
+        "message": (
+            f"If that email is registered, an OTP has been sent. Valid for {expiry_minutes} minutes."
+            if is_email
+            else f"OTP sent successfully. Valid for {expiry_minutes} minutes."
+        )
+    }
     if current_app.config.get("MOCK_OTP", False):
         res_data["mock_otp"] = otp
     return jsonify(res_data), 200
 
 
-# ── A2: POST /auth/otp/verify ─────────────────────────────────────────────────
+# ── A2: POST /auth/otp/verify ───────────────────────────────────────────────────────────────
 
 @auth_bp.post("/otp/verify")
 @limiter.limit("10 per minute")
 def otp_verify():
     """
     Verify an OTP. On success, returns an otp_verified_token (short-lived JWT,
-    additional_claims={"otp_verified": True, "phone": phone}).
+    additional_claims={"otp_verified": True, "identifier": identifier}).
+
+    Accepts either { phone, otp } or { email, otp } — matching whichever was
+    used in the /otp/send request.
 
     This token can ONLY be used to complete registration (A3).
     It is NOT a full access token — it grants no other permissions.
@@ -146,14 +222,15 @@ def otp_verify():
     except ValidationError as e:
         return validation_error_response(e.messages)
 
-    phone = data["phone"]
+    identifier   = data.get("email") or data["phone"]
+    is_email     = "@" in identifier
     supplied_otp = data["otp"]
     max_attempts = current_app.config.get("OTP_MAX_ATTEMPTS", 5)
 
     token_record = (
         db.session.query(OTPToken)
         .filter(
-            OTPToken.identifier == phone,
+            OTPToken.identifier == identifier,
             OTPToken.purpose == OTPPurpose.REGISTRATION,
             OTPToken.is_used == False,  # noqa: E712
         )
@@ -162,26 +239,46 @@ def otp_verify():
     )
 
     if not token_record:
-        audit_action("auth.otp.verify.no_otp", detail={"phone": phone})
+        audit_action(
+            "auth.otp.verify.no_otp",
+            detail={"identifier_type": "email" if is_email else "phone"},
+        )
         return error_response("No active OTP found. Please request a new one.", 400)
 
     exp = token_record.expires_at
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) > exp:
-        audit_action("auth.otp.verify.expired", detail={"phone": phone})
+        audit_action(
+            "auth.otp.verify.expired",
+            detail={"identifier_type": "email" if is_email else "phone"},
+        )
         return error_response("OTP has expired. Please request a new one.", 400)
 
     if token_record.attempt_count >= max_attempts:
-        audit_action("auth.otp.verify.locked", detail={"phone": phone})
+        audit_action(
+            "auth.otp.verify.locked",
+            detail={"identifier_type": "email" if is_email else "phone"},
+        )
         return error_response("Too many incorrect attempts. Please request a new OTP.", 429)
 
-    is_bypass = (phone == "9336973784" and supplied_otp == "123456")
+    # ── Dev bypass ────────────────────────────────────────────────────────────────────────
+    # LOCAL_OTP_BYPASS_ENABLED must NEVER be set in staging or production.
+    # ProductionConfig.validate() will raise if it is True.
+    bypass_enabled = current_app.config.get("LOCAL_OTP_BYPASS_ENABLED", False)
+    is_bypass = bypass_enabled and supplied_otp == "123456"
+
     if not (is_bypass or verify_otp(supplied_otp, token_record.otp_hash)):
         token_record.attempt_count += 1
         db.session.commit()
         remaining = max_attempts - token_record.attempt_count
-        audit_action("auth.otp.verify.fail", detail={"phone": phone, "attempts": token_record.attempt_count})
+        audit_action(
+            "auth.otp.verify.fail",
+            detail={
+                "identifier_type": "email" if is_email else "phone",
+                "attempts": token_record.attempt_count,
+            },
+        )
         return error_response(f"Incorrect OTP. {remaining} attempt(s) remaining.", 400)
 
     # ✅ OTP is valid — mark as used and issue otp_verified_token
@@ -189,12 +286,20 @@ def otp_verify():
     db.session.commit()
 
     otp_verified_token = create_access_token(
-        identity=f"otp:{phone}",
-        additional_claims={"purpose": "otp_verified", "phone": phone},
+        identity=f"otp:{identifier}",
+        additional_claims={
+            "purpose": "otp_verified",
+            # Carry both keys so A3 can use whichever is set
+            "phone": identifier if not is_email else None,
+            "email": identifier if is_email else None,
+        },
         expires_delta=timedelta(minutes=15),
     )
 
-    audit_action("auth.otp.verify.success", detail={"phone": phone})
+    audit_action(
+        "auth.otp.verify.success",
+        detail={"identifier_type": "email" if is_email else "phone"},
+    )
     return jsonify({
         "message": "OTP verified.",
         "otp_verified_token": otp_verified_token,
@@ -222,7 +327,11 @@ def register_student():
         decoded = decode_token(data["otp_verified_token"])
         if decoded.get("purpose") != "otp_verified":
             raise ValueError("Wrong token purpose")
-        phone = decoded.get("phone")
+        # Token carries either phone or email depending on which OTP path was used.
+        verified_phone = decoded.get("phone")
+        verified_email = decoded.get("email")
+        if not verified_phone and not verified_email:
+            raise ValueError("Token missing identifier")
     except Exception:
         return error_response("Invalid or expired verification token. Please re-verify your OTP.", 400)
 
@@ -263,10 +372,12 @@ def register_student():
         return error_response("This student account has already been claimed and activated.", 409)
 
     try:
-        # Update user and profile with claim data
+        # Update user and profile with claim data.
+        # Stamp phone/email from the verified OTP token — never from client-submitted fields.
         if not user:
             user = User(
-                phone=phone,
+                phone=verified_phone,
+                email=verified_email,
                 role=UserRole.STUDENT,
                 is_active=True,
                 college_id=college.id,   # stamp college from DB lookup, never from client
@@ -276,7 +387,10 @@ def register_student():
             profile.user_id = user.id
             profile.college_id = college.id  # denormalize onto profile too
         else:
-            user.phone = phone
+            if verified_phone:
+                user.phone = verified_phone
+            if verified_email:
+                user.email = verified_email
             user.is_active = True
             # Ensure college_id is set even on pre-existing stub users
             if user.college_id is None:

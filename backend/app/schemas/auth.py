@@ -37,20 +37,70 @@ def validate_otp(value: str) -> None:
 # ── OTP endpoints ─────────────────────────────────────────────────────────────
 
 class OTPSendSchema(Schema):
-    """A1 — POST /auth/otp/send"""
+    """
+    A1 — POST /auth/otp/send
+
+    Accepts either `phone` (SMS OTP) or `email` (email OTP), not both.
+    When using email, `college_code` is required so the OTP can be scoped
+    to the correct college tenant — this prevents a student from College A
+    claiming a roll_no that exists in College B.
+    """
     class Meta:
         unknown = RAISE  # reject any extra fields
 
-    phone = fields.Str(required=True, validate=validate_phone)
+    phone       = fields.Str(load_default=None, validate=validate_phone)
+    email       = fields.Email(load_default=None)
+    # Required for email path — identifies the tenant before any DB lookup
+    college_code = fields.Str(load_default=None, validate=validate.Length(min=2, max=20))
+
+    @validates_schema
+    def validate_identifier(self, data: dict, **kwargs) -> None:
+        has_phone = bool(data.get("phone"))
+        has_email = bool(data.get("email"))
+        if not has_phone and not has_email:
+            raise ValidationError(
+                "Provide either 'phone' or 'email'.",
+                field_name="phone",
+            )
+        if has_phone and has_email:
+            raise ValidationError(
+                "Provide either 'phone' or 'email', not both.",
+                field_name="phone",
+            )
+        if has_email and not data.get("college_code"):
+            raise ValidationError(
+                "'college_code' is required when using email OTP.",
+                field_name="college_code",
+            )
 
 
 class OTPVerifySchema(Schema):
-    """A2 — POST /auth/otp/verify"""
+    """
+    A2 — POST /auth/otp/verify
+
+    Accepts either `phone` or `email` (matching whichever was used in A1).
+    """
     class Meta:
         unknown = RAISE
 
-    phone = fields.Str(required=True, validate=validate_phone)
+    phone = fields.Str(load_default=None, validate=validate_phone)
+    email = fields.Email(load_default=None)
     otp   = fields.Str(required=True, validate=validate_otp)
+
+    @validates_schema
+    def validate_identifier(self, data: dict, **kwargs) -> None:
+        has_phone = bool(data.get("phone"))
+        has_email = bool(data.get("email"))
+        if not has_phone and not has_email:
+            raise ValidationError(
+                "Provide either 'phone' or 'email'.",
+                field_name="phone",
+            )
+        if has_phone and has_email:
+            raise ValidationError(
+                "Provide either 'phone' or 'email', not both.",
+                field_name="phone",
+            )
 
 
 # ── Student registration (Claim Pre-Imported Record) ───────────────────────

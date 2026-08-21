@@ -1,0 +1,193 @@
+/* ════════════════════════════════════════════════════════════════
+   ImageDropzone.css
+   ════════════════════════════════════════════════════════════════ */
+
+.idz-root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ── Drop zone shell ────────────────────────────────────────────── */
+.idz-zone {
+  position: relative;
+  border: 2px dashed var(--clr-border, #e5e7eb);
+  border-radius: 14px;
+  background: var(--clr-bg, #f3f4f8);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.idz-zone:hover,
+.idz-zone:focus-visible {
+  border-color: var(--idz-accent, #3b82f6);
+  background: color-mix(in srgb, var(--idz-accent, #3b82f6) 4%, var(--clr-bg, #f3f4f8));
+  outline: none;
+}
+
+.idz-zone--drag {
+  border-color: var(--idz-accent, #3b82f6);
+  background: color-mix(in srgb, var(--idz-accent, #3b82f6) 8%, var(--clr-bg, #f3f4f8));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--idz-accent, #3b82f6) 15%, transparent);
+}
+
+.idz-zone--has-image {
+  cursor: default;
+  border-style: solid;
+}
+
+/* ── Empty state ────────────────────────────────────────────────── */
+.idz-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.idz-avatar-fallback {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.idz-initials {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.idz-empty-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--clr-text-2, #374151);
+  line-height: 1.55;
+  flex-direction: column;
+}
+
+.idz-empty-text svg { flex-shrink: 0; }
+
+.idz-hint {
+  font-size: 0.72rem;
+  color: var(--clr-muted, #6b7280);
+  margin: 0;
+}
+
+/* ── Preview ────────────────────────────────────────────────────── */
+.idz-preview-wrap {
+  position: relative;
+  width: 100%;
+  height: 200px;
+}
+
+.idz-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.idz-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.idz-preview-wrap:hover .idz-preview-overlay {
+  opacity: 1;
+}
+
+.idz-change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: var(--font, 'Inter', sans-serif);
+  transition: filter 0.18s;
+}
+.idz-change-btn:hover { filter: brightness(1.1); }
+
+.idz-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.18s;
+  backdrop-filter: blur(4px);
+}
+.idz-remove-btn:hover { background: rgba(239, 68, 68, 0.6); }
+
+/* ── Drag overlay (shown on top while dragging) ─────────────────── */
+.idz-drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 12px;
+  border: 2px dashed;
+  z-index: 10;
+}
+.idz-drag-overlay p {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--clr-text, #111827);
+  margin: 0;
+}
+
+/* ── Error & hints ──────────────────────────────────────────────── */
+.idz-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: var(--clr-danger, #ef4444);
+  margin: 0;
+}
+
+.idz-aspect-hint {
+  font-size: 0.72rem;
+  color: var(--clr-muted, #6b7280);
+  margin: 0;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .idz-drag-overlay { background: rgba(15, 23, 42, 0.92); }
+}

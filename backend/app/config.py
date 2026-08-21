@@ -81,7 +81,8 @@ class BaseConfig:
     # single-tenant assumptions.
 
     # ── OTP ───────────────────────────────────────────────────────────────────
-    OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "10"))
+    # Default is 5 minutes (per security spec). Override via OTP_EXPIRY_MINUTES env var.
+    OTP_EXPIRY_MINUTES: int = int(os.environ.get("OTP_EXPIRY_MINUTES", "5"))
     OTP_MAX_ATTEMPTS: int   = int(os.environ.get("OTP_MAX_ATTEMPTS", "5"))
     MOCK_OTP: bool          = os.environ.get("MOCK_OTP", "false").lower() == "true"
 
@@ -89,7 +90,7 @@ class BaseConfig:
     INVITE_EXPIRY_HOURS: int = int(os.environ.get("INVITE_EXPIRY_HOURS", "48"))
 
     # ── Account lockout ───────────────────────────────────────────────────────
-    MAX_LOGIN_ATTEMPTS: int     = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
+    MAX_LOGIN_ATTEMPTS: int      = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
     ACCOUNT_LOCKOUT_MINUTES: int = int(os.environ.get("ACCOUNT_LOCKOUT_MINUTES", "30"))
 
     # ── DPDP Act ──────────────────────────────────────────────────────────────
@@ -100,12 +101,33 @@ class BaseConfig:
     SMS_API_KEY: str  = os.environ.get("SMS_API_KEY", "")
 
     # ── Email ─────────────────────────────────────────────────────────────────
+    # — Resend (primary provider for OTP emails)
+    # Get your free API key at https://resend.com — no SDK needed, uses `requests`.
+    RESEND_API_KEY: str    = os.environ.get("RESEND_API_KEY", "")
+    # Must be a verified sender in your Resend account, e.g. "noreply@thevidyaverse.com"
+    RESEND_FROM_EMAIL: str = os.environ.get("RESEND_FROM_EMAIL", "")
+
+    # — SMTP (fallback if RESEND_API_KEY is not set; also used for invite emails)
     MAIL_SERVER: str           = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT: int             = int(os.environ.get("MAIL_PORT", "587"))
     MAIL_USE_TLS: bool         = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
     MAIL_USERNAME: str         = os.environ.get("MAIL_USERNAME", "")
     MAIL_PASSWORD: str         = os.environ.get("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER: str   = os.environ.get("MAIL_DEFAULT_SENDER", "")
+
+    # ── Local development overrides ───────────────────────────────────────────
+    # SECURITY: These MUST be empty/False in staging and production.
+    # ProductionConfig.validate() raises at startup if they are set.
+
+    # If set, ALL outbound emails are redirected to this address instead of the
+    # real recipient. Use a personal inbox for local testing. Never set in prod.
+    LOCAL_DEV_EMAIL_REDIRECT: str = os.environ.get("LOCAL_DEV_EMAIL_REDIRECT", "")
+
+    # If True, OTP "123456" is accepted for any identifier without bcrypt check.
+    # Must NEVER be True outside of local development.
+    LOCAL_OTP_BYPASS_ENABLED: bool = (
+        os.environ.get("LOCAL_OTP_BYPASS_ENABLED", "false").lower() == "true"
+    )
 
 
 class DevelopmentConfig(BaseConfig):
@@ -224,6 +246,25 @@ class ProductionConfig(BaseConfig):
                 "MOCK_OTP is True in production. Real OTP verification is bypassed. "
                 "This MUST be disabled before onboarding any students."
             )
+
+        # Guard: LOCAL_OTP_BYPASS_ENABLED must NEVER be True in production.
+        bypass = os.environ.get("LOCAL_OTP_BYPASS_ENABLED", "false").lower() == "true"
+        if bypass:
+            raise RuntimeError(
+                "LOCAL_OTP_BYPASS_ENABLED=true is set in a production environment. "
+                "This is a critical security misconfiguration. "
+                "Remove this variable before starting the server."
+            )
+        cls.LOCAL_OTP_BYPASS_ENABLED = False
+
+        # Guard: LOCAL_DEV_EMAIL_REDIRECT must be empty in production.
+        redirect = os.environ.get("LOCAL_DEV_EMAIL_REDIRECT", "").strip()
+        if redirect:
+            raise RuntimeError(
+                f"LOCAL_DEV_EMAIL_REDIRECT is set to '{redirect}' in a production environment. "
+                "This redirects ALL emails away from real recipients — remove it immediately."
+            )
+        cls.LOCAL_DEV_EMAIL_REDIRECT = ""
 
         origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
         for fallback in ["http://localhost", "https://localhost", "capacitor://localhost"]:
