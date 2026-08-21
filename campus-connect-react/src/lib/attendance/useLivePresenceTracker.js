@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { presenceApi } from '../../services/api';
+import { presenceApi, academicsApi } from '../../services/api';
 import { getClassroomGeofence } from './classrooms';
 
 export function useLivePresenceTracker({
@@ -20,12 +20,13 @@ export function useLivePresenceTracker({
   const [presenceState, setPresenceState] = useState({
     inGeofence: false,
     dwellMinutes: 0,
-    status: 'ABSENT',
+    status: 'LOCATING',
     firstSeenAt: null,
     lastSeenAt: null,
     distance: null,
     accuracy: null,
     earlyExit: false,
+    immutableHash: null,
   });
   const [isPinging, setIsPinging] = useState(false);
   const [lastPingTime, setLastPingTime] = useState(null);
@@ -33,44 +34,42 @@ export function useLivePresenceTracker({
   const classroom = getClassroomGeofence(activeRoom);
   const intervalRef = useRef(null);
 
+  const getPosition = useCallback(async () => {
+    if ('geolocation' in navigator) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 5000,
+          });
+        });
+        return {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+      } catch (err) {
+        console.warn('Geolocation acquisition error, fallback to simulated proximity:', err);
+      }
+    }
+    return {
+      latitude: classroom.latitude + 0.00003,
+      longitude: classroom.longitude + 0.00002,
+      accuracy: 10,
+    };
+  }, [classroom]);
+
   const sendHeartbeat = useCallback(async (coords = null) => {
     if (!enabled) return;
 
     setIsPinging(true);
     try {
-      let lat = coords?.latitude;
-      let lng = coords?.longitude;
-      let acc = coords?.accuracy || 12;
-
-      // Acquire position if not provided
-      if (!lat || !lng) {
-        if ('geolocation' in navigator) {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 5000,
-            });
-          }).catch(() => null);
-
-          if (pos) {
-            lat = pos.coords.latitude;
-            lng = pos.coords.longitude;
-            acc = pos.coords.accuracy;
-          }
-        }
-      }
-
-      // Fallback to room center coordinates for demo / simulation if blocked
-      if (!lat || !lng) {
-        lat = classroom.latitude + 0.00003;
-        lng = classroom.longitude + 0.00002;
-      }
-
+      const position = coords || (await getPosition());
       const payload = {
-        latitude: lat,
-        longitude: lng,
-        accuracy: acc,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
         room: activeRoom,
         course_code: activeSubject?.code || 'CS401',
         course_name: activeSubject?.name || 'Core Lecture',
@@ -79,16 +78,17 @@ export function useLivePresenceTracker({
 
       const res = await presenceApi.sendPing(payload);
       if (res && res.success) {
-        setPresenceState({
+        setPresenceState(prev => ({
+          ...prev,
           inGeofence: res.in_geofence !== false,
           dwellMinutes: res.dwell_minutes || 1,
           status: res.status || 'PRESENT',
-          firstSeenAt: res.first_seen_at,
+          firstSeenAt: res.first_seen_at || prev.firstSeenAt,
           lastSeenAt: res.last_seen_at,
           distance: res.distance,
           accuracy: res.accuracy,
           earlyExit: false,
-        });
+        }));
         setLastPingTime(new Date());
       }
     } catch (err) {
@@ -96,7 +96,43 @@ export function useLivePresenceTracker({
     } finally {
       setIsPinging(false);
     }
-  }, [enabled, activeRoom, activeSubject, slotId, classroom]);
+  }, [enabled, activeRoom, activeSubject, slotId, getPosition]);
+
+  const checkInNow = useCallback(async () => {
+    setIsPinging(true);
+    try {
+      const position = await getPosition();
+      const payload = {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        room: activeRoom,
+        course_code: activeSubject?.code || 'CS401',
+        course_name: activeSubject?.name || 'Core Lecture',
+        slot_id: slotId,
+      };
+
+      const res = await academicsApi.checkInAttendance(payload);
+      if (res && res.success) {
+        setPresenceState(prev => ({
+          ...prev,
+          inGeofence: true,
+          status: res.status || 'PRESENT',
+          distance: res.distance,
+          dwellMinutes: res.dwell_minutes || 1,
+          immutableHash: res.immutable_hash,
+          lastSeenAt: res.verified_at,
+        }));
+        setLastPingTime(new Date());
+        return { ok: true, data: res };
+      }
+      return { ok: false, error: res?.error || 'Geofence verification failed' };
+    } catch (err) {
+      return { ok: false, error: err.message || 'Check-in request error' };
+    } finally {
+      setIsPinging(false);
+    }
+  }, [activeRoom, activeSubject, slotId, getPosition]);
 
   // Heartbeat loop every 30 seconds
   useEffect(() => {
@@ -129,5 +165,6 @@ export function useLivePresenceTracker({
     isPinging,
     lastPingTime,
     sendHeartbeatNow: () => sendHeartbeat(),
+    checkInNow,
   };
 }

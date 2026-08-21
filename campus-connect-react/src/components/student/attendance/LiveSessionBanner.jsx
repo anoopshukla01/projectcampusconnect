@@ -1,32 +1,71 @@
 /**
- * LiveSessionBanner Component
- * ============================
+ * LiveSessionBanner Component (Refactored & Dynamic)
+ * =================================================
  * Displays active live lecture presence status for students:
- * - Current ongoing classroom & subject.
- * - Live dwell-time tracker.
- * - Real-time GPS verification status.
+ * - Dynamic ongoing classroom, subject, professor, and time.
+ * - Idle state display when no class is active.
+ * - Real-time GPS verification states: Locating, In Bounds, Out of Bounds.
+ * - Immediate [Mark Attendance] trigger.
  */
 
 import React from 'react';
-import { Activity, Radio, MapPin, Clock, ShieldCheck, DoorOpen } from 'lucide-react';
+import { Activity, Radio, MapPin, Clock, ShieldCheck, ShieldAlert, CheckCircle2, User, RefreshCw } from 'lucide-react';
 
 export default function LiveSessionBanner({
-  activeSubject = { code: 'CS401', name: 'Operating Systems' },
-  activeRoom = 'Room 302',
+  activeSession = null,
   presenceState = {
-    inGeofence: true,
-    dwellMinutes: 28,
-    status: 'PRESENT',
-    firstSeenAt: new Date().toISOString(),
-    distance: 12.4,
-    accuracy: 8.5,
+    inGeofence: false,
+    dwellMinutes: 0,
+    status: 'LOCATING',
+    firstSeenAt: null,
+    distance: null,
+    accuracy: null,
+    immutableHash: null,
   },
   onManualPing = null,
+  onCheckIn = null,
+  isPinging = false,
 }) {
+  // If no active lecture scheduled right now
+  if (!activeSession || !activeSession.is_active) {
+    return (
+      <div className="lsb-banner lsb-banner--idle">
+        <div className="lsb-idle-content">
+          <div className="lsb-idle-icon">
+            <Clock size={20} />
+          </div>
+          <div>
+            <h4 className="lsb-idle-title">No Active Lecture Scheduled</h4>
+            <p className="lsb-idle-sub">
+              Your next class geofence will automatically unlock when scheduled lecture time commences.
+            </p>
+          </div>
+        </div>
+        {onManualPing && (
+          <button className="lsb-ping-btn" onClick={onManualPing} disabled={isPinging}>
+            <RefreshCw size={13} className={isPinging ? 'spin' : ''} />
+            Check Schedule
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const {
+    course_name = 'Core Lecture',
+    course_code = 'CS401',
+    room = 'Room 302',
+    professor_name = 'Faculty Member',
+    time_slot = 'Active Slot',
+  } = activeSession;
+
   const dwellPct = Math.min(100, Math.round((presenceState.dwellMinutes / 50) * 100));
   const firstSeen = presenceState.firstSeenAt
     ? new Date(presenceState.firstSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : 'Just now';
+
+  const distanceMeters = presenceState.distance ? Math.round(presenceState.distance) : null;
+  const isVerified = presenceState.status === 'PRESENT' || presenceState.status === 'LATE';
 
   return (
     <div className="lsb-banner">
@@ -43,27 +82,50 @@ export default function LiveSessionBanner({
               LIVE SESSION ACTIVE
             </span>
             <span className="lsb-room-badge">
-              <MapPin size={11} /> {activeRoom}
+              <MapPin size={11} /> {room}
             </span>
-            {presenceState.inGeofence && (
+            <span className="lsb-time-badge">
+              <Clock size={11} /> {time_slot}
+            </span>
+            {isVerified ? (
               <span className="lsb-verified-badge">
-                <ShieldCheck size={11} /> GPS Verified ({Math.round(presenceState.distance || 10)}m)
+                <ShieldCheck size={11} /> Verified ({distanceMeters !== null ? `${distanceMeters}m` : 'In Bounds'})
+              </span>
+            ) : presenceState.inGeofence ? (
+              <span className="lsb-bounds-badge">
+                <ShieldCheck size={11} /> Within Classroom Bounds ({distanceMeters}m)
+              </span>
+            ) : (
+              <span className="lsb-out-badge">
+                <ShieldAlert size={11} /> Out of Bounds ({distanceMeters !== null ? `${distanceMeters}m away` : 'Locating...'})
               </span>
             )}
           </div>
 
           <h3 className="lsb-subject-title">
-            {activeSubject.name} ({activeSubject.code})
+            {course_name} <span className="lsb-code">({course_code})</span>
           </h3>
 
           <div className="lsb-meta-line">
             <span>
-              <Clock size={12} /> Entry Recorded: <strong>{firstSeen}</strong>
+              <User size={12} /> {professor_name}
+            </span>
+            <span>•</span>
+            <span>
+              Entry: <strong>{firstSeen}</strong>
             </span>
             <span>•</span>
             <span>
               Continuous Dwell: <strong>{presenceState.dwellMinutes} / 50 mins ({dwellPct}%)</strong>
             </span>
+            {presenceState.immutableHash && (
+              <>
+                <span>•</span>
+                <span className="lsb-hash-tag" title="Immutable cryptographic ledger hash">
+                  🔒 {presenceState.immutableHash.slice(0, 10)}...
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -77,15 +139,24 @@ export default function LiveSessionBanner({
             />
           </div>
           <span className="lsb-meter-label">
-            {dwellPct >= 70 ? '✓ Presence Threshold Met' : 'Dwell in progress...'}
+            {isVerified ? '✓ Verified Present' : dwellPct >= 70 ? 'Presence threshold met' : 'Dwell in progress...'}
           </span>
         </div>
 
-        {onManualPing && (
-          <button className="lsb-ping-btn" onClick={onManualPing}>
-            Refresh GPS
-          </button>
-        )}
+        <div className="lsb-actions">
+          {onCheckIn && !isVerified && (
+            <button className="lsb-checkin-btn" onClick={onCheckIn} disabled={isPinging}>
+              <CheckCircle2 size={14} />
+              Mark Attendance Now
+            </button>
+          )}
+          {onManualPing && (
+            <button className="lsb-ping-btn" onClick={onManualPing} disabled={isPinging}>
+              <RefreshCw size={13} className={isPinging ? 'spin' : ''} />
+              Refresh GPS
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

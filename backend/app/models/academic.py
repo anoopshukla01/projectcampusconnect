@@ -47,6 +47,9 @@ class TimetableSlot(db.Model):
     room = db.Column(db.String(50), nullable=False)
     professor_name = db.Column(db.String(255), nullable=False)
     slot_type = db.Column(db.String(50), default="lecture")  # lecture | lab | extra | cancelled
+    latitude = db.Column(db.Float, default=28.6139, nullable=True)
+    longitude = db.Column(db.Float, default=77.2090, nullable=True)
+    radius_meters = db.Column(db.Float, default=50.0, nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -283,6 +286,10 @@ class LiveSessionPresence(db.Model):
     early_exit = db.Column(db.Boolean, default=False, nullable=False)
     accuracy_last = db.Column(db.Float, nullable=True)
     distance_last = db.Column(db.Float, nullable=True)
+    verified_coords = db.Column(db.String(100), nullable=True)
+    device_signature = db.Column(db.String(255), nullable=True)
+    immutable_hash = db.Column(db.String(64), nullable=True)
+    is_locked = db.Column(db.Boolean, default=True, nullable=False)
 
     student = db.relationship("StudentProfile", backref="session_presences")
     slot = db.relationship("TimetableSlot", foreign_keys=[slot_id])

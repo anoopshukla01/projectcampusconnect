@@ -1,14 +1,14 @@
 /**
- * StudentAttendanceDashboard Component
- * =====================================
+ * StudentAttendanceDashboard Component (Refactored & Dynamic)
+ * ============================================================
  * Master orchestrator for student-facing attendance analytics:
- * - Live Session Presence Banner
- * - Overview Statistics & 75% Eligibility Bunk Calculator
- * - Subject-Wise Progress Cards
- * - Chronological Session Audit Trail
+ * - Dynamic Live Session Presence Banner with Geofence Check-in
+ * - Overview Statistics & 75% Eligibility Bunk / Shortage Calculator
+ * - Dynamic Subject-Wise Progress Table
+ * - Chronological Immutable Session Audit Trail with Filter Tabs
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { academicsApi } from '../../../services/api';
 import { useLivePresenceTracker } from '../../../lib/attendance/useLivePresenceTracker';
 import AttendanceOverviewCards from './AttendanceOverviewCards';
@@ -21,15 +21,9 @@ export default function StudentAttendanceDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
-  // Active live GPS presence tracker hook
-  const { presenceState, sendHeartbeatNow } = useLivePresenceTracker({
-    activeSubject: { code: 'CS401', name: 'Operating Systems' },
-    activeRoom: 'Room 302',
-    enabled: true,
-  });
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       const res = await academicsApi.getStudentAttendanceAnalytics();
@@ -42,17 +36,45 @@ export default function StudentAttendanceDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAnalytics();
-  }, []);
+  }, [fetchAnalytics]);
+
+  const activeSession = data?.active_session || null;
+
+  // Active live GPS presence tracker hook linked dynamically to active session
+  const { presenceState, isPinging, sendHeartbeatNow, checkInNow } = useLivePresenceTracker({
+    activeSubject: activeSession
+      ? { code: activeSession.course_code, name: activeSession.course_name }
+      : null,
+    activeRoom: activeSession?.room || 'Room 302',
+    slotId: activeSession?.slot_id || null,
+    enabled: !!(activeSession && activeSession.is_active),
+  });
+
+  const handleCheckIn = async () => {
+    const res = await checkInNow();
+    if (res.ok) {
+      setActionFeedback({ type: 'success', message: res.data.message });
+      fetchAnalytics();
+    } else {
+      setActionFeedback({ type: 'error', message: res.error });
+    }
+    setTimeout(() => setActionFeedback(null), 5000);
+  };
 
   if (loading && !data) {
     return (
       <div className="sad-loading">
-        <div className="sad-spinner" />
-        <p>Loading attendance analytics & presence records...</p>
+        <div className="sad-skeleton-header" />
+        <div className="sad-skeleton-grid">
+          <div className="sad-skeleton-card" />
+          <div className="sad-skeleton-card" />
+          <div className="sad-skeleton-card" />
+          <div className="sad-skeleton-card" />
+        </div>
       </div>
     );
   }
@@ -61,12 +83,20 @@ export default function StudentAttendanceDashboard() {
 
   return (
     <div className="sad-container">
+      {actionFeedback && (
+        <div className={`sad-toast-banner ${actionFeedback.type === 'success' ? 'toast-success' : 'toast-error'}`}>
+          <span>{actionFeedback.message}</span>
+          <button onClick={() => setActionFeedback(null)}>✕</button>
+        </div>
+      )}
+
       {/* ── 1. Live Session Presence Banner ───────────────────────────────── */}
       <LiveSessionBanner
-        activeSubject={{ code: 'CS401', name: 'Operating Systems' }}
-        activeRoom="Room 302"
+        activeSession={activeSession}
         presenceState={presenceState}
         onManualPing={sendHeartbeatNow}
+        onCheckIn={handleCheckIn}
+        isPinging={isPinging}
       />
 
       {/* ── 2. Top Metric Cards (Overall % + 75% Bunk Calculator) ─────────── */}

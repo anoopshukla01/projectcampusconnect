@@ -395,6 +395,16 @@ export const academicsApi = {
 
   /** Professor: get roster for a branch/section */
   getRoster: (params) => apiGet('/academics/roster', params),
+
+  /** Student: Fetch comprehensive live attendance analytics, active session & 75% calculator */
+  getStudentAttendanceAnalytics: (params) => apiGet('/academics/student/attendance/analytics', params),
+  getAttendanceAnalytics: (params) => apiGet('/academics/student/attendance/analytics', params),
+
+  /** Student: Verify GPS geofence and check-in to active class */
+  checkInAttendance: (payload) => apiPost('/academics/attendance/check-in', payload),
+
+  /** Student: Fetch chronological immutable attendance audit trail */
+  getAttendanceAuditTrail: (params) => apiGet('/academics/attendance/audit-trail', params),
 };
 
 // ── 4c-2. Student Delegations & Privileges (CR / CS) ───────────────────────────
