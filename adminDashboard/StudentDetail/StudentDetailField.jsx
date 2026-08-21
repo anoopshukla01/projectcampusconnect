@@ -30,17 +30,7 @@ export default function StudentDetailField({
   const schema = getFieldSchema(field);
   const label = schema.label;
 
-  const [validationError, setValidationError] = useState(null);
-
-  // Validate on draft changes
-  useEffect(() => {
-    if (isEditing && schema.validate) {
-      const err = schema.validate(draftValue);
-      setValidationError(err);
-    } else {
-      setValidationError(null);
-    }
-  }, [isEditing, draftValue, schema]);
+  const validationError = isEditing && schema.validate ? schema.validate(draftValue) : null;
 
   const handleChange = (e) => {
     let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;

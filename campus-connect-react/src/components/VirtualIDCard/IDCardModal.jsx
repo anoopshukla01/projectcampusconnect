@@ -119,21 +119,12 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll while open
-  useEffect(() => {
-    document.body.style.overflow = isOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   const accent = ROLE_ACCENT[localUser?.role] ?? '#3b82f6';
-
   const displayName = localUser?.name || localUser?.full_name || 'Campus Member';
   const displayId = localUser?.rollNo ?? localUser?.roll_no ?? localUser?.systemId ?? localUser?.id ?? 'user';
   const photoUrl = localUser?.photo || localUser?.profile_photo_url;
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Actions (All hooks MUST be called unconditionally before any early returns) ──
 
   const handlePhotoChange = useCallback((dataURL) => {
     setLocalUser(prev => ({ ...prev, photo: dataURL, profile_photo_url: dataURL }));
@@ -178,6 +169,8 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
       });
     }
   }, [displayId]);
+
+  if (!isOpen) return null;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
