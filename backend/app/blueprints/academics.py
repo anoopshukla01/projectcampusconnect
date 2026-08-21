@@ -42,6 +42,7 @@ from app.models.academic import (
     Grade, AttendanceRecord, TimetableSlot,
     Assignment, AssignmentSubmission,
     ProfessorClassAssignment, StudentPrivilege,
+    LiveSessionPresence,
 )
 from app.models.user import UserRole
 from app.utils.errors import error_response, internal_error_response
@@ -371,6 +372,226 @@ def geofenced_checkin():
         "attended_classes": rec.attended_classes,
         "total_classes": rec.total_classes,
         "pct": pct,
+    }), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Live Session Presence Tracker & Continuous Dwell Engine
+# ─────────────────────────────────────────────────────────────────────────────
+
+@academics_bp.route("/attendance/ping", methods=["POST"])
+@require_auth
+def session_presence_ping():
+    """
+    Heartbeat GPS ping sent by students during an active scheduled lecture.
+    Validates lecture time window, updates entry & last_seen timestamps,
+    and calculates continuous dwell minutes.
+    """
+    user = get_current_user()
+    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    if not student:
+        return jsonify({"error": "Student profile not found."}), 404
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user_lat = float(data.get("latitude"))
+        user_lng = float(data.get("longitude"))
+        accuracy = float(data.get("accuracy", 15))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid or missing GPS coordinates."}), 400
+
+    room = data.get("room", "Room 302")
+    course_code = data.get("course_code", data.get("subject_code", "CS401"))
+    course_name = data.get("course_name", data.get("subject_name", "Core Subject"))
+    slot_id_str = data.get("slot_id")
+
+    slot = None
+    if slot_id_str:
+        try:
+            slot = TimetableSlot.query.filter_by(id=uuid.UUID(slot_id_str), is_deleted=False).first()
+        except ValueError:
+            pass
+
+    # Verify geofence distance
+    ROOM_COORDS = {
+        "Room 101": (28.614120, 77.209150, 35),
+        "Room 102": (28.614210, 77.209220, 35),
+        "Room 201": (28.614130, 77.209160, 35),
+        "Room 202": (28.614230, 77.209240, 35),
+        "Room 301": (28.614150, 77.209170, 35),
+        "Room 302": (28.614250, 77.209260, 35),
+        "Lab 1":    (28.614400, 77.209400, 40),
+        "Lab 2":    (28.614420, 77.209420, 40),
+        "Audi 1":   (28.613800, 77.208800, 50),
+    }
+    target = ROOM_COORDS.get(room, (28.6139, 77.2090, 60))
+    distance = _haversine_meters(user_lat, user_lng, target[0], target[1])
+    allowed_radius = target[2]
+
+    in_geofence = distance <= (allowed_radius + min(accuracy, 25))
+    if not in_geofence:
+        return jsonify({
+            "error": f"Student is {distance}m away from {room} (out of geofence perimeter).",
+            "in_geofence": False,
+            "distance": distance,
+            "status": 403,
+        }), 403
+
+    today = datetime.now(timezone.utc).date()
+    now_utc = datetime.now(timezone.utc)
+
+    # Upsert LiveSessionPresence
+    presence = LiveSessionPresence.query.filter_by(
+        student_id=student.id,
+        course_code=course_code,
+        session_date=today
+    ).first()
+
+    if not presence:
+        presence = LiveSessionPresence(
+            student_id=student.id,
+            slot_id=slot.id if slot else None,
+            course_code=course_code,
+            course_name=course_name,
+            room=room,
+            session_date=today,
+            first_seen_at=now_utc,
+            last_seen_at=now_utc,
+            dwell_minutes=1,
+            status="PRESENT",
+            early_exit=False,
+            distance_last=distance,
+            accuracy_last=accuracy,
+        )
+        db.session.add(presence)
+    else:
+        presence.last_seen_at = now_utc
+        presence.distance_last = distance
+        presence.accuracy_last = accuracy
+
+        # Calculate continuous dwell minutes
+        if presence.first_seen_at:
+            # ensure offset-aware calculation
+            first_seen = presence.first_seen_at if presence.first_seen_at.tzinfo else presence.first_seen_at.replace(tzinfo=timezone.utc)
+            dwell_sec = max(60, int((now_utc - first_seen).total_seconds()))
+            presence.dwell_minutes = max(1, round(dwell_sec / 60))
+
+        # Check status threshold
+        if presence.dwell_minutes >= 30:
+            presence.status = "PRESENT"
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "session_presence_ping")
+
+    return jsonify({
+        "success": True,
+        "in_geofence": True,
+        "distance": distance,
+        "accuracy": accuracy,
+        "dwell_minutes": presence.dwell_minutes,
+        "status": presence.status,
+        "first_seen_at": presence.first_seen_at.isoformat() if presence.first_seen_at else None,
+        "last_seen_at": presence.last_seen_at.isoformat() if presence.last_seen_at else None,
+    }), 200
+
+
+@academics_bp.route("/attendance/leave", methods=["POST"])
+@require_auth
+def session_presence_leave():
+    """Record student departure / exit from classroom session."""
+    user = get_current_user()
+    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    if not student:
+        return jsonify({"error": "Student profile not found."}), 404
+
+    data = request.get_json(silent=True) or {}
+    course_code = data.get("course_code", "CS401")
+    today = datetime.now(timezone.utc).date()
+    now_utc = datetime.now(timezone.utc)
+
+    presence = LiveSessionPresence.query.filter_by(
+        student_id=student.id,
+        course_code=course_code,
+        session_date=today
+    ).first()
+
+    if not presence:
+        return jsonify({"message": "No active presence session found."}), 200
+
+    presence.left_at = now_utc
+    if presence.dwell_minutes < 25:
+        presence.early_exit = True
+        presence.status = "PARTIAL_ATTENDANCE"
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "session_presence_leave")
+
+    return jsonify({
+        "success": True,
+        "message": "Departure timestamp recorded.",
+        "dwell_minutes": presence.dwell_minutes,
+        "early_exit": presence.early_exit,
+        "status": presence.status,
+    }), 200
+
+
+@academics_bp.route("/attendance/live-session", methods=["GET"])
+@require_auth
+def get_live_session_presence():
+    """
+    Professor / Admin: Fetch real-time student presence stream for an active lecture.
+    """
+    course_code = request.args.get("course_code")
+    today = datetime.now(timezone.utc).date()
+    now_utc = datetime.now(timezone.utc)
+
+    query = LiveSessionPresence.query.filter_by(session_date=today)
+    if course_code:
+        query = query.filter_by(course_code=course_code)
+
+    records = query.all()
+    students_list = []
+    active_count = 0
+    total_dwell = 0
+
+    for p in records:
+        student = p.student
+        last_seen = p.last_seen_at if (p.last_seen_at and p.last_seen_at.tzinfo) else (p.last_seen_at.replace(tzinfo=timezone.utc) if p.last_seen_at else now_utc)
+        is_live_now = (now_utc - last_seen).total_seconds() < 180  # pinged within last 3 mins
+        if is_live_now:
+            active_count += 1
+        total_dwell += p.dwell_minutes
+
+        students_list.append({
+            "id": str(p.id),
+            "student_id": str(p.student_id),
+            "name": student.full_name if student else "Student",
+            "roll_no": student.roll_no if student else "N/A",
+            "first_seen_at": p.first_seen_at.isoformat() if p.first_seen_at else None,
+            "last_seen_at": p.last_seen_at.isoformat() if p.last_seen_at else None,
+            "left_at": p.left_at.isoformat() if p.left_at else None,
+            "dwell_minutes": p.dwell_minutes,
+            "status": p.status,
+            "early_exit": p.early_exit,
+            "is_live_now": is_live_now,
+            "distance_last": p.distance_last,
+            "accuracy_last": p.accuracy_last,
+        })
+
+    avg_dwell = round(total_dwell / len(records), 1) if records else 0
+
+    return jsonify({
+        "session_date": today.isoformat(),
+        "total_logged": len(records),
+        "total_active_now": active_count,
+        "avg_dwell_minutes": avg_dwell,
+        "students": sorted(students_list, key=lambda s: s.get("first_seen_at") or "", reverse=True),
     }), 200
 
 

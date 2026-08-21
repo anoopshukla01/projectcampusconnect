@@ -263,3 +263,29 @@ class StudentPrivilege(db.Model):
     granted_by = db.relationship("User", foreign_keys=[granted_by_id])
 
 
+class LiveSessionPresence(db.Model):
+    __tablename__ = "live_session_presence"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("student_profiles.id"), nullable=False, index=True)
+    slot_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("timetable_slots.id"), nullable=True, index=True)
+    course_code = db.Column(db.String(50), nullable=False)
+    course_name = db.Column(db.String(255), nullable=False)
+    room = db.Column(db.String(50), nullable=False)
+    session_date = db.Column(db.Date, nullable=False, default=lambda: datetime.now(timezone.utc).date())
+
+    first_seen_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_seen_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    left_at = db.Column(db.DateTime, nullable=True)
+    dwell_minutes = db.Column(db.Integer, default=1, nullable=False)
+
+    status = db.Column(db.String(50), default="PRESENT", nullable=False)  # "PRESENT" | "LATE" | "PARTIAL_ATTENDANCE" | "ABSENT"
+    early_exit = db.Column(db.Boolean, default=False, nullable=False)
+    accuracy_last = db.Column(db.Float, nullable=True)
+    distance_last = db.Column(db.Float, nullable=True)
+
+    student = db.relationship("StudentProfile", backref="session_presences")
+    slot = db.relationship("TimetableSlot", foreign_keys=[slot_id])
+
+
+

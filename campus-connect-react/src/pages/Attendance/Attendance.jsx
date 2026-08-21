@@ -16,6 +16,7 @@ import { useApiData } from '../../hooks/useApiData';
 import { academicsApi } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
 import GeofenceRadar from '../../components/Attendance/GeofenceRadar';
+import LivePresenceStream from '../../components/Attendance/LivePresenceStream';
 import './Attendance.css';
 
 function CircleProgress({ pct }) {
@@ -246,6 +247,15 @@ export default function Attendance() {
               </button>
             </div>
           </div>
+        )}
+
+        {activeClass && (
+          <LivePresenceStream
+            activeCourse={activeClass}
+            activeRoom={activeClass.room || 'Room 302'}
+            slotId={selectedSlotId}
+            onSessionFinalized={refetchRoster}
+          />
         )}
 
         {activeClass && (

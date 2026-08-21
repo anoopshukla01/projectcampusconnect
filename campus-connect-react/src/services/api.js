@@ -409,6 +409,18 @@ export const delegationsApi = {
   getMyPrivileges: () => apiGet('/academics/delegations/me'),
 };
 
+// ── 4c-3. Live Session Presence & Dwell Tracker ───────────────────────────────
+export const presenceApi = {
+  /** Student: Send periodic GPS presence heartbeat ping */
+  sendPing: (payload) => apiPost('/academics/attendance/ping', payload),
+
+  /** Student: Record early exit or lecture departure */
+  recordLeave: (payload) => apiPost('/academics/attendance/leave', payload),
+
+  /** Professor / Admin: Fetch live session student presence stream */
+  getLiveSession: (params) => apiGet('/academics/attendance/live-session', params),
+};
+
 // ── 4d. Placement ─────────────────────────────────────────────────────────────
 export const placementApi = {
   /** PL1 — list drives (student sees active; tpo sees all) */
