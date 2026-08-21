@@ -41,7 +41,7 @@ from app.models.professor import ProfessorProfile
 from app.models.academic import (
     Grade, AttendanceRecord, TimetableSlot,
     Assignment, AssignmentSubmission,
-    ProfessorClassAssignment,
+    ProfessorClassAssignment, StudentPrivilege,
 )
 from app.models.user import UserRole
 from app.utils.errors import error_response, internal_error_response
@@ -371,6 +371,172 @@ def geofenced_checkin():
         "attended_classes": rec.attended_classes,
         "total_classes": rec.total_classes,
         "pct": pct,
+    }), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Role-Delegation & Student Privileges (CR / CS / Placement Coordinator)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@academics_bp.route("/delegations", methods=["GET"])
+@require_auth
+def get_delegations():
+    """List student delegations for a batch/section or all college delegations."""
+    batch_id = request.args.get("batch_id")
+    query = StudentPrivilege.query.filter_by(is_active=True)
+    if batch_id:
+        query = query.filter_by(batch_id=batch_id)
+
+    records = query.all()
+    res = []
+    for d in records:
+        student = d.student
+        res.append({
+            "id": str(d.id),
+            "student_id": str(d.student_id),
+            "student_name": student.full_name if student else "Student",
+            "roll_no": student.roll_no if student else "N/A",
+            "delegated_role": d.delegated_role,
+            "batch_id": d.batch_id,
+            "can_broadcast": d.can_broadcast,
+            "can_edit_schedule": d.can_edit_schedule,
+            "can_view_logs": d.can_view_logs,
+            "granted_by_id": str(d.granted_by_id),
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+    return jsonify({"delegations": res}), 200
+
+
+@academics_bp.route("/delegations", methods=["POST"])
+@require_auth
+@require_roles("professor", "admin")
+def grant_delegation():
+    """Professor / Admin: Grant or update delegated CR/CS privileges."""
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    student_id_str = data.get("student_id")
+    roll_no = data.get("roll_no")
+
+    student = None
+    if student_id_str:
+        try:
+            student = StudentProfile.query.filter_by(id=uuid.UUID(student_id_str)).first()
+        except ValueError:
+            pass
+    if not student and roll_no:
+        student = StudentProfile.query.filter_by(roll_no=roll_no).first()
+
+    if not student:
+        return jsonify({"error": "Student profile not found."}), 404
+
+    delegated_role = data.get("delegated_role", "CLASS_REPRESENTATIVE")
+    batch_id = data.get("batch_id", f"{student.branch or 'General'}-Sem {student.semester or 1}")
+
+    # Check existing privilege
+    priv = StudentPrivilege.query.filter_by(student_id=student.id, batch_id=batch_id).first()
+    if not priv:
+        priv = StudentPrivilege(
+            student_id=student.id,
+            granted_by_id=user.id,
+            batch_id=batch_id,
+        )
+        db.session.add(priv)
+
+    priv.delegated_role = delegated_role
+    priv.can_broadcast = bool(data.get("can_broadcast", False))
+    priv.can_edit_schedule = bool(data.get("can_edit_schedule", False))
+    priv.can_view_logs = bool(data.get("can_view_logs", False))
+    priv.is_active = True
+    priv.granted_by_id = user.id
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "grant_delegation")
+
+    audit_action("academics.delegation.granted", {
+        "student_id": str(student.id),
+        "roll_no": student.roll_no,
+        "delegated_role": delegated_role,
+        "batch_id": batch_id,
+        "granted_by": str(user.id),
+    })
+
+    return jsonify({
+        "success": True,
+        "message": f"Privileges successfully granted to {student.full_name} ({delegated_role}).",
+        "privilege": {
+            "id": str(priv.id),
+            "student_id": str(student.id),
+            "student_name": student.full_name,
+            "roll_no": student.roll_no,
+            "delegated_role": priv.delegated_role,
+            "batch_id": priv.batch_id,
+            "can_broadcast": priv.can_broadcast,
+            "can_edit_schedule": priv.can_edit_schedule,
+            "can_view_logs": priv.can_view_logs,
+        }
+    }), 200
+
+
+@academics_bp.route("/delegations/<uuid:delegation_id>", methods=["DELETE"])
+@require_auth
+@require_roles("professor", "admin")
+def revoke_delegation(delegation_id):
+    """Professor / Admin: Revoke a student delegation."""
+    user = get_current_user()
+    priv = StudentPrivilege.query.filter_by(id=delegation_id).first()
+    if not priv:
+        return jsonify({"error": "Delegation record not found."}), 404
+
+    priv.is_active = False
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "revoke_delegation")
+
+    audit_action("academics.delegation.revoked", {
+        "delegation_id": str(delegation_id),
+        "student_id": str(priv.student_id),
+        "revoked_by": str(user.id),
+    })
+
+    return jsonify({"success": True, "message": "Delegation privileges revoked."}), 200
+
+
+@academics_bp.route("/delegations/me", methods=["GET"])
+@require_auth
+def get_my_delegations():
+    """Student: fetch own active delegated privileges and badges."""
+    user = get_current_user()
+    student = StudentProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
+    if not student:
+        return jsonify({"delegated_role": "NONE", "privileges": []}), 200
+
+    records = StudentPrivilege.query.filter_by(student_id=student.id, is_active=True).all()
+    if not records:
+        return jsonify({"delegated_role": "NONE", "privileges": []}), 200
+
+    can_broadcast = any(r.can_broadcast for r in records)
+    can_edit_schedule = any(r.can_edit_schedule for r in records)
+    can_view_logs = any(r.can_view_logs for r in records)
+    primary_role = records[0].delegated_role
+
+    return jsonify({
+        "delegated_role": primary_role,
+        "can_broadcast": can_broadcast,
+        "can_edit_schedule": can_edit_schedule,
+        "can_view_logs": can_view_logs,
+        "privileges": [{
+            "id": str(r.id),
+            "delegated_role": r.delegated_role,
+            "batch_id": r.batch_id,
+            "can_broadcast": r.can_broadcast,
+            "can_edit_schedule": r.can_edit_schedule,
+            "can_view_logs": r.can_view_logs,
+        } for r in records]
     }), 200
 
 

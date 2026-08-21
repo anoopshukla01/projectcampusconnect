@@ -1,9 +1,10 @@
-import { Home, Clock, Unlock } from "lucide-react";
+import { Home, Clock, Unlock, Shield } from "lucide-react";
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useApiData } from '../../../hooks/useApiData';
+import DelegationManagerModal from '../../../components/Delegation/DelegationManagerModal';
 import './Roster.css';
 
 let API_BASE = import.meta.env.VITE_API_BASE_URL || '';
@@ -38,6 +39,7 @@ export default function Roster() {
   const [order, setOrder] = useState('asc');
   const [requestingFor, setRequestingFor] = useState(null); // student id being requested
   const [expandedStudent, setExpandedStudent] = useState(null);
+  const [delegationModalOpen, setDelegationModalOpen] = useState(false);
 
   // Load assigned classes
   const { data: classesData } = useApiData('/professors/me/classes', { classes: [] });
@@ -148,6 +150,15 @@ export default function Roster() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Role Delegation Trigger */}
+        <button
+          className="action-btn"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem', fontSize: '0.8rem', background: '#7c3aed', whiteSpace: 'nowrap' }}
+          onClick={() => setDelegationModalOpen(true)}
+        >
+          <Shield size={14} /> Assign CR / CS
+        </button>
       </div>
 
       <section className="panel">
@@ -184,7 +195,23 @@ export default function Roster() {
                   <>
                     <tr key={student.id} onClick={() => setExpandedStudent(p => p === student.id ? null : student.id)} style={{ cursor: 'pointer' }}>
                       <td><code>{student.roll_no}</code></td>
-                      <td className="subject-name-cell">{student.full_name}</td>
+                      <td className="subject-name-cell">
+                        {student.full_name}
+                        {student.delegated_role && student.delegated_role !== 'NONE' && (
+                          <span style={{
+                            marginLeft: '0.4rem',
+                            fontSize: '0.65rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '1rem',
+                            background: 'rgba(139, 92, 246, 0.2)',
+                            color: '#c084fc',
+                            border: '1px solid rgba(139, 92, 246, 0.4)',
+                            fontWeight: 700,
+                          }}>
+                            {student.delegated_role === 'CLASS_REPRESENTATIVE' ? '👑 CR' : '⚡ CS'}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ fontWeight: 600, color: parseFloat(student.cgpa) < 5 ? 'var(--clr-danger)' : 'var(--clr-text)' }}>
                         {student.cgpa ?? '—'}
                       </td>
@@ -279,6 +306,18 @@ export default function Roster() {
           </div>
         )}
       </section>
+
+      {/* Professor Delegation Manager Modal */}
+      <DelegationManagerModal
+        isOpen={delegationModalOpen}
+        onClose={() => setDelegationModalOpen(false)}
+        students={students}
+        batchId={activeCode || 'General'}
+        onDelegationUpdated={() => {
+          refetch();
+          showToast('Delegation privileges updated!', 'success');
+        }}
+      />
     </>
   );
 }

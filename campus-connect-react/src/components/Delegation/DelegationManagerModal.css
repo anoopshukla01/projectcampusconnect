@@ -1,0 +1,357 @@
+/**
+ * DelegationManagerModal Styles
+ * =============================
+ */
+
+.dmm-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  position: fixed;
+  inset: 0;
+}
+
+.dmm-dialog {
+  background: #0f172a;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: dmmIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dmmIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.dmm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dmm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dmm-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.15);
+  color: #a855f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dmm-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+
+.dmm-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 0.15rem 0 0 0;
+}
+
+.dmm-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.dmm-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.dmm-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dmm-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 580px) {
+  .dmm-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dmm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dmm-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dmm-select {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5rem;
+  color: #f8fafc;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.dmm-select:focus {
+  border-color: #8b5cf6;
+}
+
+.dmm-perms-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+.dmm-perms-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.dmm-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dmm-checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.15s ease;
+}
+
+.dmm-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dmm-checkbox-item input {
+  accent-color: #8b5cf6;
+  margin-top: 0.2rem;
+  cursor: pointer;
+}
+
+.dmm-perm-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.text-blue { color: #60a5fa; }
+.text-violet { color: #c084fc; }
+.text-teal { color: #2dd4bf; }
+
+.dmm-perm-name {
+  display: block;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.dmm-perm-desc {
+  display: block;
+  font-size: 0.725rem;
+  color: #94a3b8;
+}
+
+.dmm-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dmm-submit-btn:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.dmm-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dmm-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.dmm-alert-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.dmm-alert-success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+/* ── Active Delegations Table ─────────────────────────────────────────────── */
+.dmm-active-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1rem;
+}
+
+.dmm-section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0 0 0.75rem 0;
+}
+
+.dmm-empty {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.dmm-table-wrap {
+  overflow-x: auto;
+}
+
+.dmm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.dmm-table th {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dmm-table td {
+  padding: 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.dmm-role-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.badge-class_representative {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.badge-core_student {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.badge-placement_coordinator {
+  background: rgba(52, 211, 153, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+.dmm-pill-row {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.dmm-perm-pill {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  color: #cbd5e1;
+}
+
+.dmm-revoke-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dmm-revoke-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}

@@ -394,6 +394,21 @@ export const academicsApi = {
   getRoster: (params) => apiGet('/academics/roster', params),
 };
 
+// ── 4c-2. Student Delegations & Privileges (CR / CS) ───────────────────────────
+export const delegationsApi = {
+  /** List active delegations for a batch/section */
+  getDelegations: (params) => apiGet('/academics/delegations', params),
+
+  /** Professor / Admin: Grant or update delegation */
+  grantDelegation: (payload) => apiPost('/academics/delegations', payload),
+
+  /** Professor / Admin: Revoke delegation */
+  revokeDelegation: (delegationId) => apiDelete(`/academics/delegations/${delegationId}`),
+
+  /** Student: Fetch own active delegated privileges */
+  getMyPrivileges: () => apiGet('/academics/delegations/me'),
+};
+
 // ── 4d. Placement ─────────────────────────────────────────────────────────────
 export const placementApi = {
   /** PL1 — list drives (student sees active; tpo sees all) */

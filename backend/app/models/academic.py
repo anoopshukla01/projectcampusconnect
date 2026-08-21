@@ -240,3 +240,26 @@ class ProfessorCheckIn(db.Model):
     professor = db.relationship("User", foreign_keys=[professor_id])
     marker = db.relationship("User", foreign_keys=[marked_by_id])
 
+
+class StudentPrivilege(db.Model):
+    __tablename__ = "student_privileges"
+
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("student_profiles.id"), nullable=False, index=True)
+    delegated_role = db.Column(db.String(50), nullable=False, default="CLASS_REPRESENTATIVE")  # CLASS_REPRESENTATIVE | CORE_STUDENT | PLACEMENT_COORDINATOR | NONE
+    granted_by_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    batch_id = db.Column(db.String(100), nullable=False, default="General")  # e.g. "CSE-A 2026", "IT-Sem 4"
+
+    # Granular permission flags
+    can_broadcast = db.Column(db.Boolean, default=False, nullable=False)
+    can_edit_schedule = db.Column(db.Boolean, default=False, nullable=False)
+    can_view_logs = db.Column(db.Boolean, default=False, nullable=False)
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    student = db.relationship("StudentProfile", backref="privileges")
+    granted_by = db.relationship("User", foreign_keys=[granted_by_id])
+
+

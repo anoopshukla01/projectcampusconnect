@@ -178,6 +178,17 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
     user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? 'N/A';
   const photo = user?.photo || user?.profile_photo_url;
 
+  const delegatedRole =
+    user?.delegated_role ||
+    user?.delegatedRole ||
+    (user?.isCR ? 'CLASS_REPRESENTATIVE' : user?.isCS ? 'CORE_STUDENT' : user?.isPC ? 'PLACEMENT_COORDINATOR' : null);
+
+  const delegatedBadge = {
+    CLASS_REPRESENTATIVE: { label: 'Class Representative', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)', border: 'rgba(168, 85, 247, 0.45)', icon: '👑' },
+    CORE_STUDENT:         { label: 'Core Committee',       color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.18)', border: 'rgba(56, 189, 248, 0.45)', icon: '⚡' },
+    PLACEMENT_COORDINATOR:{ label: 'Placement Lead',       color: '#34d399', bg: 'rgba(52, 211, 153, 0.18)', border: 'rgba(52, 211, 153, 0.45)', icon: '💼' },
+  }[delegatedRole];
+
   return (
     <div className="vic-scene" ref={cardRef}>
       <div className={`vic-card ${flipped ? 'vic-card--flipped' : ''}`}>
@@ -229,9 +240,28 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
               <p className="vic-meta-role" style={{ color: meta.accent }}>
                 {meta.label}
               </p>
-              {user?.role === 'student' && (
+              {delegatedBadge ? (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '1rem',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    color: delegatedBadge.color,
+                    background: delegatedBadge.bg,
+                    border: `1px solid ${delegatedBadge.border}`,
+                    marginTop: '0.25rem',
+                    boxShadow: `0 0 8px ${delegatedBadge.bg}`,
+                  }}
+                >
+                  {delegatedBadge.icon} {delegatedBadge.label}
+                </span>
+              ) : user?.role === 'student' ? (
                 <StatusBadge status={user?.status || 'active'} />
-              )}
+              ) : null}
             </div>
           </div>
 
