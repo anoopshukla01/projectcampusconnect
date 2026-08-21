@@ -62,21 +62,21 @@ export default function DataManager() {
     fetchAllData();
   }
 
-  const filteredStudents = students.filter(s =>
-    !search || s.full_name?.toLowerCase().includes(search.toLowerCase()) || s.roll_no?.toLowerCase().includes(search.toLowerCase()) || s.branch?.toLowerCase().includes(search.toLowerCase())
+  const filteredStudents = (students || []).filter(s =>
+    s && (!search || s.full_name?.toLowerCase().includes(search.toLowerCase()) || s.roll_no?.toLowerCase().includes(search.toLowerCase()) || s.branch?.toLowerCase().includes(search.toLowerCase()))
   );
-  const filteredProfs = profs.filter(p =>
-    !search || p.full_name?.toLowerCase().includes(search.toLowerCase()) || p.department?.toLowerCase().includes(search.toLowerCase()) || p.employee_id?.toLowerCase().includes(search.toLowerCase())
+  const filteredProfs = (profs || []).filter(p =>
+    p && (!search || p.full_name?.toLowerCase().includes(search.toLowerCase()) || p.department?.toLowerCase().includes(search.toLowerCase()) || p.employee_id?.toLowerCase().includes(search.toLowerCase()))
   );
-  const filteredDrives = drives.filter(d =>
-    !search || d.company_name?.toLowerCase().includes(search.toLowerCase()) || d.role_title?.toLowerCase().includes(search.toLowerCase())
+  const filteredDrives = (drives || []).filter(d =>
+    d && (!search || d.company_name?.toLowerCase().includes(search.toLowerCase()) || d.role_title?.toLowerCase().includes(search.toLowerCase()))
   );
-  const filteredRequests = requests.filter(r =>
-    !search ||
-    r.professor_name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.student_name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.student_roll?.toLowerCase().includes(search.toLowerCase()) ||
-    r.reason?.toLowerCase().includes(search.toLowerCase())
+  const filteredRequests = (requests || []).filter(r =>
+    r && (!search ||
+      r.professor_name?.toLowerCase().includes(search.toLowerCase()) ||
+      r.student_name?.toLowerCase().includes(search.toLowerCase()) ||
+      r.student_roll?.toLowerCase().includes(search.toLowerCase()) ||
+      r.reason?.toLowerCase().includes(search.toLowerCase()))
   );
 
   // Access Requests Actions
