@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, GraduationCap, Check, AlertTriangle, Fingerprint } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { sendOtp, verifyOtp } from '../../lib/auth/otp';
 import { auth } from '../../config/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
@@ -199,22 +200,13 @@ export default function Login() {
       setSignupError('Please enter a valid email address (e.g. yourname@gmail.com).'); return;
     }
     setSignupError(''); setLoading(true);
-    try {
-      const res = await fetch('/api/v1/auth/otp/send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: signupEmail.trim().toLowerCase() }),
-      });
-      const data = await res.json();
-      setLoading(false);
-      if (res.ok) {
-        setSignupOtpSent(true);
-        showToast(`OTP sent to ${signupEmail}!`, 'success', 5000);
-      } else {
-        setSignupError(data.error || 'Failed to send OTP. Please try again.');
-      }
-    } catch {
-      setLoading(false);
-      setSignupError('Cannot reach server. Please check your connection.');
+    const res = await sendOtp({ identifier: signupEmail.trim().toLowerCase(), type: 'EMAIL' });
+    setLoading(false);
+    if (res.ok) {
+      setSignupOtpSent(true);
+      showToast(res.message || `OTP sent to ${signupEmail}!`, 'success', 5000);
+    } else {
+      setSignupError(res.error || 'Failed to send OTP. Please try again.');
     }
   }
 
@@ -224,23 +216,14 @@ export default function Login() {
       setSignupError('Please enter the 6-digit OTP sent to your email.'); return;
     }
     setSignupError(''); setLoading(true);
-    try {
-      const res = await fetch('/api/v1/auth/otp/verify', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: signupEmail.trim().toLowerCase(), otp: signupOtp.trim() }),
-      });
-      const data = await res.json();
-      setLoading(false);
-      if (res.ok) {
-        setSignupOtpToken(data.otp_verified_token || '');
-        setSignupVerified(true);
-        showToast('Email verified! Set your password below.', 'success', 3000);
-      } else {
-        setSignupError(data.error || 'Invalid OTP. Please try again.');
-      }
-    } catch {
-      setLoading(false);
-      setSignupError('Cannot reach server. Please check your connection.');
+    const res = await verifyOtp({ identifier: signupEmail.trim().toLowerCase(), otp: signupOtp.trim() });
+    setLoading(false);
+    if (res.ok) {
+      setSignupOtpToken(res.otpVerifiedToken || '');
+      setSignupVerified(true);
+      showToast('Email verified! Set your password below.', 'success', 3000);
+    } else {
+      setSignupError(res.error || 'Invalid OTP. Please try again.');
     }
   }
 
@@ -321,25 +304,14 @@ export default function Login() {
       showToast(`SMS OTP sent via Firebase to ${formattedPhone}!`, 'success', 5000);
       return;
     } catch (firebaseErr) {
-      console.warn('Firebase Phone Auth error:', firebaseErr);
-      try {
-        const res = await fetch('/api/v1/auth/otp/send', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: rawPhone }),
-        });
-        const data = await res.json();
-        setLoading(false);
-        if (res.ok) {
-          setOtpSent(true);
-          showToast(`OTP sent to ${rawPhone}!`, 'success', 4000);
-        } else {
-          const errMsg = firebaseErr?.message || data?.error || 'Failed to send SMS OTP.';
-          setClaimStepError(errMsg);
-        }
-      } catch {
-        setLoading(false);
-        const errMsg = firebaseErr?.message || 'Failed to send SMS OTP. Please check phone number or connection.';
-        setClaimStepError(errMsg);
+      console.warn('Firebase Phone Auth fallback to server OTP engine:', firebaseErr);
+      const res = await sendOtp({ identifier: rawPhone, type: 'SMS' });
+      setLoading(false);
+      if (res.ok) {
+        setOtpSent(true);
+        showToast(res.message || `OTP sent to ${rawPhone}!`, 'success', 4000);
+      } else {
+        setClaimStepError(res.error || 'Failed to send SMS OTP. Please check phone number.');
       }
     }
   }
@@ -365,21 +337,14 @@ export default function Login() {
       }
     }
 
-    try {
-      const res = await fetch('/api/v1/auth/otp/verify', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: claimPhone.trim(), otp: claimOtp.trim() }),
-      });
-      const data = await res.json();
-      setLoading(false);
-      if (res.ok) {
-        setOtpToken(data.otp_verified_token || 'mock-verified-token');
-        setOtpVerified(true);
-        showToast('Phone verified! Set your password.', 'success', 3000);
-      } else setClaimStepError(data.error || 'Invalid OTP.');
-    } catch {
-      setLoading(false); setOtpToken('mock-verified-token'); setOtpVerified(true);
-      showToast('Phone verified!', 'success', 3000);
+    const res = await verifyOtp({ identifier: claimPhone.trim(), otp: claimOtp.trim() });
+    setLoading(false);
+    if (res.ok) {
+      setOtpToken(res.otpVerifiedToken || 'mock-verified-token');
+      setOtpVerified(true);
+      showToast('Phone verified! Set your password.', 'success', 3000);
+    } else {
+      setClaimStepError(res.error || 'Invalid OTP.');
     }
   }
 

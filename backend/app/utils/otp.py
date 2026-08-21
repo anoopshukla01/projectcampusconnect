@@ -77,34 +77,60 @@ def send_otp(identifier: str, otp: str) -> None:
         return
 
     # ── Phone / SMS path ──────────────────────────────────────────────────────
-    if current_app.config.get("MOCK_OTP", True):
-        # Safe to log — this only runs in dev/test, never in production.
+    if current_app.config.get("MOCK_OTP", False):
         logger.warning(
             "⚠️  MOCK OTP (development only) — phone=%s OTP=%s", identifier, otp
         )
         return
 
-    provider = current_app.config.get("SMS_PROVIDER", "fast2sms")
+    provider = current_app.config.get("SMS_PROVIDER", "fast2sms").lower()
     api_key = current_app.config.get("SMS_API_KEY", "")
 
+    clean_phone = "".join(filter(str.isdigit, identifier))
+    if len(clean_phone) > 10 and clean_phone.startswith("91"):
+        clean_phone = clean_phone[2:]
+    if len(clean_phone) > 10:
+        clean_phone = clean_phone[-10:]
+
+    if not api_key:
+        logger.warning("⚠️ No SMS_API_KEY configured. Mock-logging OTP for %s: %s", identifier, otp)
+        return
+
+    delivered = False
+    errors = []
+
+    # 1. Primary provider attempt
     try:
         if provider == "fast2sms":
-            _send_via_fast2sms(identifier, otp, api_key)
-        elif provider == "msg91":
-            _send_via_msg91(identifier, otp, api_key)
+            _send_via_fast2sms(clean_phone, otp, api_key)
+            delivered = True
         elif provider == "twilio":
-            _send_via_twilio(identifier, otp, api_key)
+            _send_via_twilio(clean_phone, otp, api_key)
+            delivered = True
+        elif provider == "msg91":
+            _send_via_msg91(clean_phone, otp, api_key)
+            delivered = True
         elif provider == "2factor":
-            _send_via_2factor(identifier, otp, api_key)
-        else:
-            raise ValueError(f"Unknown SMS provider: {provider!r}")
-        logger.info("✅ OTP SMS dispatched to %s via %s", identifier, provider)
+            _send_via_2factor(clean_phone, otp, api_key)
+            delivered = True
     except Exception as exc:
-        # SECURITY: Do NOT include `otp` in this log line — it would appear
-        # in production log streams and violate the security requirement.
+        errors.append(f"{provider}: {type(exc).__name__}")
+        logger.warning("⚠️ Primary SMS provider (%s) failed: %s", provider, exc)
+
+    # 2. Secondary fallback attempt if Twilio configured
+    if not delivered and "twilio" in current_app.config.get("TWILIO_API_KEY", ""):
+        try:
+            _send_via_twilio(clean_phone, otp, current_app.config["TWILIO_API_KEY"])
+            delivered = True
+        except Exception as exc:
+            errors.append(f"twilio: {type(exc).__name__}")
+
+    if delivered:
+        logger.info("✅ OTP SMS successfully dispatched to %s via %s", identifier, provider)
+    else:
         logger.error(
-            "❌ Failed to dispatch OTP SMS to %s via %s: %s",
-            identifier, provider, type(exc).__name__,
+            "❌ Failed to dispatch OTP SMS to %s across all providers: %s",
+            identifier, ", ".join(errors) or "no provider matched",
         )
 
 

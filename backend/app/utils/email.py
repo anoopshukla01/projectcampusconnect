@@ -60,15 +60,18 @@ def send_email(to: str, subject: str, html_body: str, text_body: str) -> bool:
 
     api_key = current_app.config.get("RESEND_API_KEY", "").strip()
     if api_key:
-        return _send_via_resend(
+        success = _send_via_resend(
             to=effective_to,
             subject=subject,
             html_body=html_body,
             text_body=text_body,
             api_key=api_key,
         )
+        if success:
+            return True
+        logger.warning("⚠️ Resend delivery failed. Falling back to SMTP dispatch...")
 
-    # SMTP fallback
+    # SMTP fallback (Gmail / custom SMTP)
     return _send_via_smtp(
         to=effective_to,
         subject=subject,
