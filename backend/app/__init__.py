@@ -243,3 +243,6 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.notifications import notifications_bp
     app.register_blueprint(notifications_bp, url_prefix="/api/v1/notifications")
 
+    from .blueprints.ai import ai_bp
+    app.register_blueprint(ai_bp, url_prefix="/api/v1/ai")
+

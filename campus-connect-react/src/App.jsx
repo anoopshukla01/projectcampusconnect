@@ -60,6 +60,7 @@ import ProfStudentDetail      from './pages/professorDashboard/StudentDetail/Stu
 import StudentSelfView        from './pages/StudentDetail/StudentDetail';
 
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
+import CampusCopilot from './components/chatbot/CampusCopilot';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { Network } from '@capacitor/network';
@@ -201,6 +202,9 @@ export default function App() {
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* Floating AI Copilot Assistant */}
+      {user && <CampusCopilot />}
     </>
   );
 }

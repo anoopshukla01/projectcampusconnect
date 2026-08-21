@@ -751,6 +751,12 @@ export const notificationsApi = {
   unreadCount: () => apiGet('/notifications/unread-count'),
 };
 
+// ── 4k. AI Copilot ────────────────────────────────────────────────────────────
+export const copilotApi = {
+  /** Send message to AI Copilot assistant */
+  chat: (messages, context = {}) => apiPost('/ai/copilot/chat', { messages, context }),
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 5.  Default export — grouped namespace
 // ─────────────────────────────────────────────────────────────────────────────
@@ -767,6 +773,7 @@ const api = {
   admin:         adminApi,
   professors:    professorsApi,
   notifications: notificationsApi,
+  copilot:       copilotApi,
 
   // Re-expose low-level helpers for edge cases
   get:    apiGet,
