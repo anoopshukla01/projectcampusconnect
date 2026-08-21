@@ -2022,28 +2022,80 @@ def mark_professor_checkin():
 # ── BRANCH MANAGEMENT ──────────────────────────────────────────────────────────
 
 @admin_bp.get("/branches")
+@admin_bp.get("/colleges/<college_id>/branches")
+@admin_bp.get("/colleges/<uuid:college_id>/branches")
 @require_auth
-def list_branches():
+def list_branches(college_id=None):
     """
-    List branches for the current user's college.
+    List branches for the current user's college or specified college_id.
     Accessible by all authenticated users (students, professors, TPO, admin)
     so every role can populate branch selection dropdowns.
     Pass ?active_only=true to exclude deactivated branches.
     """
     user = get_current_user()
+    target_college_id = college_id or (getattr(user, "college_id", None) if user else None)
     active_only = request.args.get("active_only", "false").lower() == "true"
     try:
-        q = db.session.query(Branch).filter_by(college_id=user.college_id)
+        q = db.session.query(Branch)
+        if target_college_id:
+            q = q.filter_by(college_id=target_college_id)
         if active_only:
             q = q.filter_by(is_active=True)
         branches = q.order_by(Branch.name).all()
+
+        # If no branches exist in DB for this college, auto-seed standard branches
+        if not branches and target_college_id:
+            default_branches = [
+                ("Computer Science & Engineering", "CSE"),
+                ("Information Technology", "IT"),
+                ("Electronics & Communication Engineering", "ECE"),
+                ("Mechanical Engineering", "ME"),
+                ("Civil Engineering", "CE"),
+                ("Electrical Engineering", "EE"),
+                ("Artificial Intelligence & Data Science", "AIDS"),
+                ("Chemical Engineering", "CHE"),
+            ]
+            for b_name, b_code in default_branches:
+                existing = db.session.query(Branch).filter_by(college_id=target_college_id, code=b_code).first()
+                if not existing:
+                    new_b = Branch(
+                        college_id=target_college_id,
+                        name=b_name,
+                        code=b_code,
+                        is_active=True
+                    )
+                    db.session.add(new_b)
+            try:
+                db.session.commit()
+                q = db.session.query(Branch).filter_by(college_id=target_college_id)
+                if active_only:
+                    q = q.filter_by(is_active=True)
+                branches = q.order_by(Branch.name).all()
+            except Exception as e:
+                db.session.rollback()
+                logger.warning(f"Could not auto-seed default branches: {e}")
+
+        # If still empty (e.g. no college_id), return default standard branches list
+        if not branches:
+            return jsonify({
+                "branches": [
+                    {"id": "b-cse", "name": "Computer Science & Engineering", "code": "CSE", "is_active": True},
+                    {"id": "b-it", "name": "Information Technology", "code": "IT", "is_active": True},
+                    {"id": "b-ece", "name": "Electronics & Communication Engineering", "code": "ECE", "is_active": True},
+                    {"id": "b-me", "name": "Mechanical Engineering", "code": "ME", "is_active": True},
+                    {"id": "b-ce", "name": "Civil Engineering", "code": "CE", "is_active": True},
+                    {"id": "b-ee", "name": "Electrical Engineering", "code": "EE", "is_active": True},
+                    {"id": "b-aids", "name": "Artificial Intelligence & Data Science", "code": "AIDS", "is_active": True},
+                ]
+            }), 200
+
         return jsonify({
             "branches": [{
                 "id": str(b.id),
                 "name": b.name,
                 "code": b.code,
                 "is_active": b.is_active,
-                "created_at": b.created_at.isoformat() if b.created_at else ""
+                "created_at": b.created_at.isoformat() if getattr(b, "created_at", None) else ""
             } for b in branches]
         }), 200
     except Exception as exc:

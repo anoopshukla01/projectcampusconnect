@@ -19,7 +19,7 @@ const TABS = ['All Users','Students','Faculty','Placement Cell'];
 export default function UserManagement() {
   const navigate = useNavigate();
   const showToast = useToast();
-  const { branches } = useBranches();
+  const { branches, loading: branchesLoading, error: branchesError, refetch: refetchBranches } = useBranches();
   const [tab, setTab]           = useState(0);
   const [search, setSearch]     = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,12 +98,25 @@ export default function UserManagement() {
     fetchUsers();
   }
 
+  useEffect(() => {
+    if (manualModalOpen) {
+      refetchBranches();
+    }
+  }, [manualModalOpen, refetchBranches]);
+
+  useEffect(() => {
+    if (branchesError) {
+      showToast(`Branch warning: ${branchesError}. Using standard defaults.`, 'warning', 3000);
+    }
+  }, [branchesError]);
+
   async function handleAddUserManually() {
     if (!manualUser.role) return;
     
     // basic validations
     if (manualUser.role === 'student') {
       if (!manualUser.roll_no) { showToast('Roll number is required for students.', 'error', 2000); return; }
+      if (!manualUser.branch) { showToast('Please select a branch for the student.', 'error', 2000); return; }
     } else if (manualUser.role === 'professor') {
       if (!manualUser.email) { showToast('Email address is required for professors.', 'error', 2000); return; }
       if (!manualUser.employee_id) { showToast('Employee ID is required for professors.', 'error', 2000); return; }
@@ -508,14 +521,26 @@ export default function UserManagement() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.85rem' }}>
                   <div className="ad-field">
-                    <label>Branch</label>
+                    <label>
+                      Branch <span style={{ color: '#ef4444' }}>*</span>{' '}
+                      {branchesLoading && <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>(Loading branches...)</span>}
+                    </label>
                     <select
                       value={manualUser.branch}
                       onChange={e => setManualUser({ ...manualUser, branch: e.target.value })}
                       className="ad-input"
+                      disabled={branchesLoading}
                     >
                       <option value="">— select branch —</option>
-                      {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                      {branchesLoading && <option disabled>Loading branches...</option>}
+                      {!branchesLoading && branches.length === 0 && (
+                        <option disabled>No branches found for this college</option>
+                      )}
+                      {branches.map(b => (
+                        <option key={b.id || b.code} value={b.code}>
+                          {b.code} — {b.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="ad-field">
@@ -558,10 +583,10 @@ export default function UserManagement() {
             {manualUser.role === 'professor' && (
               <>
                 <div className="ad-field" style={{ marginBottom: '0.85rem' }}>
-                  <label>Employee ID (Required)</label>
+                  <label>Employee ID <span style={{ color: '#ef4444' }}>*</span></label>
                   <input
                     type="text"
-                    placeholder="e.g. EMP-101"
+                    placeholder="e.g. EMP4091"
                     value={manualUser.employee_id}
                     onChange={e => setManualUser({ ...manualUser, employee_id: e.target.value })}
                     className="ad-input"
@@ -572,7 +597,7 @@ export default function UserManagement() {
                   <label>Full Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. Dr. Ramesh Kumar"
+                    placeholder="e.g. Dr. Ramesh Sharma"
                     value={manualUser.full_name}
                     onChange={e => setManualUser({ ...manualUser, full_name: e.target.value })}
                     className="ad-input"
@@ -581,14 +606,21 @@ export default function UserManagement() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.85rem' }}>
                   <div className="ad-field">
-                    <label>Department</label>
-                    <input
-                      type="text"
+                    <label>Department / Branch</label>
+                    <select
                       value={manualUser.department}
                       onChange={e => setManualUser({ ...manualUser, department: e.target.value })}
                       className="ad-input"
-                      autoComplete="off"
-                    />
+                    >
+                      <option value="">— select department —</option>
+                      {branches.map(b => (
+                        <option key={b.id || b.code} value={b.name}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                      <option value="Basic Sciences & Humanities">Basic Sciences & Humanities</option>
+                      <option value="Management Studies">Management Studies</option>
+                    </select>
                   </div>
                   <div className="ad-field">
                     <label>Designation</label>
