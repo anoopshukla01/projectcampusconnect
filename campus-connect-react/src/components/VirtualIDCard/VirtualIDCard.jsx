@@ -56,16 +56,18 @@ const ROLE_META = {
 
 // ── Build vCard / QR payload ──────────────────────────────────────────────────
 function buildQRPayload(user) {
-  const role = ROLE_META[user.role]?.label ?? user.role;
+  const role = ROLE_META[user?.role]?.label ?? user?.role ?? 'Member';
+  const name = user?.name ?? user?.full_name ?? 'Campus Member';
+  const sysId = user?.systemId ?? user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? 'N/A';
   return [
     `BEGIN:VCARD`,
     `VERSION:3.0`,
-    `FN:${user.name}`,
+    `FN:${name}`,
     `TITLE:${role}`,
-    `EMAIL:${user.email ?? ''}`,
-    `TEL:${user.phone ?? ''}`,
+    `EMAIL:${user?.email ?? ''}`,
+    `TEL:${user?.phone ?? ''}`,
     `ORG:Campus Connect`,
-    `NOTE:ID:${user.systemId ?? user.rollNo ?? user.facultyId ?? user.officerId ?? user.adminId ?? 'N/A'}`,
+    `NOTE:ID:${sysId}`,
     `END:VCARD`,
   ].join('\n');
 }
@@ -100,12 +102,12 @@ function StatusBadge({ status }) {
 function StudentFields({ user, accent }) {
   return (
     <>
-      <Field Icon={BadgeCheck} label="Roll No"    value={user.rollNo}    accent={accent} />
-      <Field Icon={Building2}  label="Branch"     value={user.branch}    accent={accent} />
-      <Field Icon={Calendar}   label="Batch"      value={user.batch}     accent={accent} />
-      <Field Icon={GraduationCap} label="Year"   value={user.year}      accent={accent} />
-      <Field Icon={Mail}       label="Email"      value={user.email}     accent={accent} />
-      <Field Icon={Phone}      label="Phone"      value={user.phone}     accent={accent} />
+      <Field Icon={BadgeCheck} label="Roll No"    value={user?.rollNo ?? user?.roll_no ?? user?.id}    accent={accent} />
+      <Field Icon={Building2}  label="Branch"     value={user?.branch}    accent={accent} />
+      <Field Icon={Calendar}   label="Batch"      value={user?.batch ?? user?.batch_year}     accent={accent} />
+      <Field Icon={GraduationCap} label="Year"   value={user?.year ?? (user?.semester ? `Semester ${user.semester}` : null)}      accent={accent} />
+      <Field Icon={Mail}       label="Email"      value={user?.email}     accent={accent} />
+      <Field Icon={Phone}      label="Phone"      value={user?.phone}     accent={accent} />
     </>
   );
 }
@@ -113,12 +115,12 @@ function StudentFields({ user, accent }) {
 function ProfessorFields({ user, accent }) {
   return (
     <>
-      <Field Icon={BadgeCheck} label="Faculty ID"   value={user.facultyId}    accent={accent} />
-      <Field Icon={Building2}  label="Department"   value={user.department}   accent={accent} />
-      <Field Icon={Briefcase}  label="Designation"  value={user.designation}  accent={accent} />
-      <Field Icon={Mail}       label="Email"         value={user.email}        accent={accent} />
-      <Field Icon={Phone}      label="Contact"       value={user.phone}        accent={accent} />
-      <Field Icon={MapPin}     label="Office"        value={user.office}       accent={accent} />
+      <Field Icon={BadgeCheck} label="Faculty ID"   value={user?.facultyId ?? user?.employee_id ?? user?.id}    accent={accent} />
+      <Field Icon={Building2}  label="Department"   value={user?.department ?? user?.branch}   accent={accent} />
+      <Field Icon={Briefcase}  label="Designation"  value={user?.designation}  accent={accent} />
+      <Field Icon={Mail}       label="Email"         value={user?.email}        accent={accent} />
+      <Field Icon={Phone}      label="Contact"       value={user?.phone}        accent={accent} />
+      <Field Icon={MapPin}     label="Office"        value={user?.office}       accent={accent} />
     </>
   );
 }
@@ -126,11 +128,11 @@ function ProfessorFields({ user, accent }) {
 function TpoFields({ user, accent }) {
   return (
     <>
-      <Field Icon={BadgeCheck} label="Officer ID"  value={user.officerId}   accent={accent} />
-      <Field Icon={Building2}  label="Department"  value={user.department}  accent={accent} />
-      <Field Icon={Briefcase}  label="Position"    value={user.position}    accent={accent} />
-      <Field Icon={Mail}       label="Email"        value={user.email}       accent={accent} />
-      <Field Icon={Phone}      label="Direct Line"  value={user.phone}       accent={accent} />
+      <Field Icon={BadgeCheck} label="Officer ID"  value={user?.officerId ?? user?.id}   accent={accent} />
+      <Field Icon={Building2}  label="Department"  value={user?.department ?? 'Placement Cell'}  accent={accent} />
+      <Field Icon={Briefcase}  label="Position"    value={user?.position ?? 'Placement Officer'}    accent={accent} />
+      <Field Icon={Mail}       label="Email"        value={user?.email}       accent={accent} />
+      <Field Icon={Phone}      label="Direct Line"  value={user?.phone}       accent={accent} />
     </>
   );
 }
@@ -138,10 +140,10 @@ function TpoFields({ user, accent }) {
 function AdminFields({ user, accent }) {
   return (
     <>
-      <Field Icon={BadgeCheck}  label="Admin ID"    value={user.adminId}     accent={accent} />
-      <Field Icon={ShieldCheck} label="Role Level"  value={user.roleLevel}   accent={accent} />
-      <Field Icon={Mail}        label="Email"        value={user.email}       accent={accent} />
-      <Field Icon={Phone}       label="Contact"      value={user.phone}       accent={accent} />
+      <Field Icon={BadgeCheck}  label="Admin ID"    value={user?.adminId ?? user?.id ?? 'ADM-001'}     accent={accent} />
+      <Field Icon={ShieldCheck} label="Role Level"  value={user?.roleLevel ?? 'Administrator'}   accent={accent} />
+      <Field Icon={Mail}        label="Email"        value={user?.email}       accent={accent} />
+      <Field Icon={Phone}       label="Contact"      value={user?.phone}       accent={accent} />
     </>
   );
 }
@@ -163,12 +165,18 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
   const FieldSet = FIELD_SETS[role] ?? StudentFields;
   const qrPayload = buildQRPayload(user ?? {});
 
-  const initials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'CC';
+  const fullName = user?.name || user?.full_name || 'Campus Member';
+  const initials = fullName
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'CC';
 
   const systemId =
-    user?.rollNo ?? user?.facultyId ?? user?.officerId ?? user?.adminId ?? 'N/A';
+    user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? 'N/A';
+  const photo = user?.photo || user?.profile_photo_url;
 
   return (
     <div className="vic-scene" ref={cardRef}>
@@ -195,10 +203,10 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
           {/* Avatar + name block */}
           <div className="vic-identity">
             <div className="vic-avatar-wrap">
-              {user?.photo ? (
+              {photo ? (
                 <img
-                  src={user.photo}
-                  alt={user.name}
+                  src={photo}
+                  alt={fullName}
                   className="vic-avatar-img"
                 />
               ) : (
@@ -217,12 +225,12 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
             </div>
 
             <div className="vic-name-block">
-              <h2 className="vic-name">{user?.name ?? 'User Name'}</h2>
+              <h2 className="vic-name">{fullName}</h2>
               <p className="vic-meta-role" style={{ color: meta.accent }}>
                 {meta.label}
               </p>
-              {user?.role === 'student' && user?.status && (
-                <StatusBadge status={user.status} />
+              {user?.role === 'student' && (
+                <StatusBadge status={user?.status || 'active'} />
               )}
             </div>
           </div>

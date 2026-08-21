@@ -129,16 +129,20 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
 
   const accent = ROLE_ACCENT[localUser?.role] ?? '#3b82f6';
 
+  const displayName = localUser?.name || localUser?.full_name || 'Campus Member';
+  const displayId = localUser?.rollNo ?? localUser?.roll_no ?? localUser?.systemId ?? localUser?.id ?? 'user';
+  const photoUrl = localUser?.photo || localUser?.profile_photo_url;
+
   // ── Actions ───────────────────────────────────────────────────────────────
 
   const handlePhotoChange = useCallback((dataURL) => {
-    setLocalUser(prev => ({ ...prev, photo: dataURL }));
+    setLocalUser(prev => ({ ...prev, photo: dataURL, profile_photo_url: dataURL }));
   }, []);
 
   const handlePhotoSave = useCallback(() => {
-    onPhotoSave?.(localUser.photo);
+    onPhotoSave?.(localUser?.photo || localUser?.profile_photo_url);
     setActiveTab('preview');
-  }, [localUser.photo, onPhotoSave]);
+  }, [localUser, onPhotoSave]);
 
   const handleDownload = useCallback(async () => {
     if (!cardRef.current) return;
@@ -153,7 +157,8 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
         backgroundColor: '#ffffff',
       });
       const link = document.createElement('a');
-      link.download = `campus-connect-id-${localUser?.name?.replace(/\s+/g, '-').toLowerCase() ?? 'card'}.png`;
+      const cleanName = displayName.replace(/\s+/g, '-').toLowerCase();
+      link.download = `campus-connect-id-${cleanName || 'card'}.png`;
       link.href = dataURL;
       link.click();
     } catch (err) {
@@ -161,15 +166,18 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
     } finally {
       setDownloading(false);
     }
-  }, [localUser]);
+  }, [displayName]);
 
   const handleCopyLink = useCallback(() => {
-    const url = `${window.location.origin}/profile/${localUser?.rollNo ?? localUser?.systemId ?? 'user'}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    });
-  }, [localUser]);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = `${origin}/profile/${displayId}`;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      });
+    }
+  }, [displayId]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -192,7 +200,7 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
             </div>
             <div>
               <h2 className="idcm-title">Virtual ID Card</h2>
-              <p className="idcm-subtitle">{localUser?.name ?? 'Your digital campus identity'}</p>
+              <p className="idcm-subtitle">{displayName}</p>
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close modal">
@@ -272,7 +280,7 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
               {/* Role hint */}
               <p className="idcm-role-hint">
                 Showing <strong style={{ color: accent }}>
-                  {localUser?.role?.charAt(0).toUpperCase() + localUser?.role?.slice(1) ?? 'Student'}
+                  {localUser?.role ? (localUser.role.charAt(0).toUpperCase() + localUser.role.slice(1)) : 'Student'}
                 </strong> ID card. Tap the card to flip.
               </p>
             </div>
@@ -289,8 +297,8 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                     Upload a clear, front-facing photo for your ID card. Use a 1:1 square crop for best results.
                   </p>
                   <ImageDropzone
-                    currentImage={localUser?.photo}
-                    name={localUser?.name}
+                    currentImage={photoUrl}
+                    name={displayName}
                     accent={accent}
                     onImageChange={handlePhotoChange}
                   />
@@ -301,9 +309,9 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                   <h3 className="idcm-section-title">Live Preview</h3>
                   <div className="idcm-mini-preview">
                     <div className="idcm-mini-avatar-wrap">
-                      {localUser?.photo ? (
+                      {photoUrl ? (
                         <img
-                          src={localUser.photo}
+                          src={photoUrl}
                           alt="Preview"
                           className="idcm-mini-avatar-img"
                         />
@@ -314,7 +322,7 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                             background: `linear-gradient(135deg, ${accent} 0%, ${accent}aa 100%)`,
                           }}
                         >
-                          {(localUser?.name ?? 'CC').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          {(displayName || 'CC').split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                       )}
                       <span
@@ -322,9 +330,9 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                         style={{ background: accent }}
                       />
                     </div>
-                    <p className="idcm-mini-name">{localUser?.name ?? 'Your Name'}</p>
+                    <p className="idcm-mini-name">{displayName}</p>
                     <p className="idcm-mini-role" style={{ color: accent }}>
-                      {localUser?.role?.charAt(0).toUpperCase() + (localUser?.role?.slice(1) ?? '')}
+                      {localUser?.role ? (localUser.role.charAt(0).toUpperCase() + localUser.role.slice(1)) : 'Student'}
                     </p>
                   </div>
                 </div>
