@@ -52,7 +52,7 @@ export async function sendOtp({ identifier, type = 'EMAIL', collegeCode = '' }) 
 
   try {
     const res = await authApi.otpSend(payload);
-    if (res && (res.message || res.status === 200 || !res.error)) {
+    if (res && res.success !== false && (res.message || res.status === 200 || !res.error)) {
       return {
         ok: true,
         message: res.message || `OTP sent successfully via ${isEmail ? 'Email' : 'SMS'}. Valid for 5 minutes.`,
@@ -61,12 +61,13 @@ export async function sendOtp({ identifier, type = 'EMAIL', collegeCode = '' }) 
     }
     return {
       ok: false,
-      error: res?.error || res?.message || 'Failed to dispatch OTP. Please try again.',
+      error: res?.details || res?.message || res?.error || 'Failed to dispatch OTP. Please check provider configuration or contact details.',
     };
   } catch (err) {
+    const errorMsg = err.response?.data?.details || err.response?.data?.message || err.response?.data?.error || err.message || 'Delivery error occurred while sending OTP.';
     return {
       ok: false,
-      error: err.message || 'Network error occurred while sending OTP.',
+      error: errorMsg,
     };
   }
 }

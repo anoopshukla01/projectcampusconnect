@@ -174,14 +174,20 @@ def otp_send():
     try:
         db.session.add(token)
         db.session.commit()
-        send_otp(identifier, otp)  # email or SMS dispatch
+        send_otp(identifier, otp)  # synchronous email or SMS dispatch
     except Exception as exc:
         db.session.rollback()
         audit_action(
             "auth.otp.email.send.error" if is_email else "auth.otp.send.error",
-            detail={"error": type(exc).__name__},
+            detail={"error": type(exc).__name__, "message": str(exc)},
         )
-        return internal_error_response(exc, "otp_send")
+        logger.error("❌ OTP dispatch failed to %s: %s", identifier, exc)
+        return jsonify({
+            "success": False,
+            "error": "DELIVERY_FAILED",
+            "message": f"Failed to deliver verification code to {identifier}. Please check contact details or provider status.",
+            "details": str(exc),
+        }), 502
 
     audit_action(
         "auth.otp.email.send" if is_email else "auth.otp.send",
@@ -189,11 +195,12 @@ def otp_send():
     )
     expiry_minutes = current_app.config.get("OTP_EXPIRY_MINUTES", 5)
     res_data = {
+        "success": True,
         "message": (
             f"If that email is registered, an OTP has been sent. Valid for {expiry_minutes} minutes."
             if is_email
             else f"OTP sent successfully. Valid for {expiry_minutes} minutes."
-        )
+        ),
     }
     if current_app.config.get("MOCK_OTP", False):
         res_data["mock_otp"] = otp

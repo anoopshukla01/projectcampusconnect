@@ -65,15 +65,13 @@ def send_otp(identifier: str, otp: str) -> None:
     Email path  — identifier contains '@': delegates to send_otp_email().
     Phone path  — delegates to the configured SMS provider.
 
-    In MOCK_OTP mode (development/testing), email delivery is handled
-    (and logged) inside send_otp_email(). The phone path logs to console.
-
-    SECURITY: The raw OTP is NEVER logged in this function. It is only
-    logged by send_otp_email() when MOCK_OTP=True (dev only).
+    Raises RuntimeError if delivery fails on all providers so the caller can return 502.
     """
     if "@" in identifier:
         from app.utils.email import send_otp_email
-        send_otp_email(to_email=identifier, otp=otp)
+        delivered = send_otp_email(to_email=identifier, otp=otp)
+        if not delivered:
+            raise RuntimeError("Email delivery failed via all configured providers (Resend & SMTP).")
         return
 
     # ── Phone / SMS path ──────────────────────────────────────────────────────
@@ -94,6 +92,8 @@ def send_otp(identifier: str, otp: str) -> None:
 
     if not api_key:
         logger.warning("⚠️ No SMS_API_KEY configured. Mock-logging OTP for %s: %s", identifier, otp)
+        if not current_app.config.get("DEBUG", False) and not current_app.config.get("TESTING", False):
+            raise RuntimeError(f"No SMS API key configured for provider '{provider}'.")
         return
 
     delivered = False
@@ -114,7 +114,7 @@ def send_otp(identifier: str, otp: str) -> None:
             _send_via_2factor(clean_phone, otp, api_key)
             delivered = True
     except Exception as exc:
-        errors.append(f"{provider}: {type(exc).__name__}")
+        errors.append(f"{provider}: {type(exc).__name__} ({exc})")
         logger.warning("⚠️ Primary SMS provider (%s) failed: %s", provider, exc)
 
     # 2. Secondary fallback attempt if Twilio configured
@@ -123,15 +123,17 @@ def send_otp(identifier: str, otp: str) -> None:
             _send_via_twilio(clean_phone, otp, current_app.config["TWILIO_API_KEY"])
             delivered = True
         except Exception as exc:
-            errors.append(f"twilio: {type(exc).__name__}")
+            errors.append(f"twilio fallback: {type(exc).__name__} ({exc})")
 
     if delivered:
         logger.info("✅ OTP SMS successfully dispatched to %s via %s", identifier, provider)
     else:
+        err_msg = ", ".join(errors) or "no SMS provider matched"
         logger.error(
             "❌ Failed to dispatch OTP SMS to %s across all providers: %s",
-            identifier, ", ".join(errors) or "no provider matched",
+            identifier, err_msg,
         )
+        raise RuntimeError(f"SMS dispatch failed: {err_msg}")
 
 
 # ── Private SMS provider adapters ─────────────────────────────────────────────

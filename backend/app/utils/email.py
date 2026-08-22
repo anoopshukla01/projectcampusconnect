@@ -286,14 +286,13 @@ def _send_via_resend(
     Send email via Resend REST API (https://resend.com/docs/api-reference/emails/send).
     Uses `requests` which is already in requirements.txt — no new dependency.
     """
-    import requests  # already in requirements
+    import requests
 
-    from_email = current_app.config.get("RESEND_FROM_EMAIL", "").strip()
-    if not from_email:
-        logger.error(
-            "❌ RESEND_FROM_EMAIL is not configured. Cannot send email to %s.", to
-        )
-        return False
+    from_email = (
+        current_app.config.get("RESEND_FROM_EMAIL", "").strip()
+        or current_app.config.get("EMAIL_FROM", "").strip()
+        or "Campus Connect <onboarding@resend.dev>"
+    )
 
     payload = {
         "from": from_email,
@@ -313,14 +312,18 @@ def _send_via_resend(
             json=payload,
             timeout=15,
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            logger.error("❌ Resend API error (%s): %s", resp.status_code, resp.text)
+            return False
+
         res_json = resp.json()
-        logger.info("✅ Resend delivery confirmed — id=%s", res_json.get("id"))
-        return True
+        if res_json and "id" in res_json:
+            logger.info("✅ Resend delivery confirmed — id=%s to=%s", res_json.get("id"), to)
+            return True
+        logger.warning("⚠️ Resend unexpected response payload: %s", res_json)
+        return False
     except Exception as exc:
-        # Log the error type/status but NOT the payload (which contains the email address)
-        # Caller (send_otp_email) will log the masked address separately.
-        logger.error("❌ Resend API error: %s", type(exc).__name__)
+        logger.error("❌ Resend API exception: %s: %s", type(exc).__name__, exc)
         return False
 
 
@@ -329,21 +332,21 @@ def _send_via_smtp(
 ) -> bool:
     """
     Send email via SMTP (Gmail or any SMTP server).
-    Used as a fallback when RESEND_API_KEY is not set.
+    Used as a fallback when RESEND_API_KEY is not set or fails.
     """
     server_host = current_app.config.get("MAIL_SERVER", "smtp.gmail.com")
     server_port = int(current_app.config.get("MAIL_PORT", 587))
     use_tls     = current_app.config.get("MAIL_USE_TLS", True)
     username    = str(current_app.config.get("MAIL_USERNAME", "")).strip()
     password    = str(current_app.config.get("MAIL_PASSWORD", "")).strip()
-    sender      = str(current_app.config.get("MAIL_DEFAULT_SENDER", "")).strip() or username
+    sender      = str(current_app.config.get("MAIL_DEFAULT_SENDER", "")).strip() or username or "Campus Connect <noreply@campusconnect.edu>"
 
     if isinstance(use_tls, str):
         use_tls = use_tls.lower() == "true"
 
     if not username or not password:
         logger.warning(
-            "⚠️ Neither RESEND_API_KEY nor SMTP credentials (MAIL_USERNAME/MAIL_PASSWORD) "
+            "⚠️ Neither valid RESEND_API_KEY nor SMTP credentials (MAIL_USERNAME/MAIL_PASSWORD) "
             "are configured. Email to %s was NOT sent.", to
         )
         return False
@@ -368,8 +371,8 @@ def _send_via_smtp(
         server.login(username, password)
         server.send_message(msg)
         server.quit()
-        logger.info("✅ Email sent via SMTP to %s", to)
+        logger.info("✅ Email successfully sent via SMTP to %s", to)
         return True
     except Exception as exc:
-        logger.error("❌ SMTP delivery failed: %s", type(exc).__name__)
+        logger.error("❌ SMTP delivery failed to %s: %s: %s", to, type(exc).__name__, exc)
         return False
