@@ -2,20 +2,84 @@
  * QRScannerView.jsx
  * ─────────────────
  * Live Camera & Image File QR Scanner for Campus Connect ID Badges.
- * - Scans member QR codes via device camera or gallery upload.
- * - Detects member identity (Name, Role, Roll/ID, Email).
- * - Instant "Text on App" direct chat action or profile lookup.
+ *
+ * Strategy:
+ *  - On Android (Capacitor native): uses @capacitor-mlkit/barcode-scanning,
+ *    which launches the real native camera scanner overlay.
+ *    html5-qrcode can't access the camera inside Android WebView so we bypass it.
+ *  - On Web browser: falls back to html5-qrcode (getUserMedia works fine there).
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Capacitor } from '@capacitor/core';
 import {
-  Camera, Upload, MessageSquare, ExternalLink, RefreshCw,
-  CheckCircle2, AlertCircle, User, ShieldCheck, Copy, Check
+  Camera, Upload, MessageSquare, RefreshCw,
+  CheckCircle2, AlertCircle, Copy, Check
 } from 'lucide-react';
 import './QRScannerView.css';
 
+// ── Lazy-import helpers so the web bundle still treeshakes cleanly ────────────
+const isNative = Capacitor.isNativePlatform();
+
+async function scanWithNativeCamera() {
+  const { BarcodeScanner, BarcodeFormat } =
+    await import('@capacitor-mlkit/barcode-scanning');
+
+  // Request camera permission
+  const { camera } = await BarcodeScanner.requestPermissions();
+  if (camera !== 'granted' && camera !== 'limited') {
+    throw new Error('Camera permission denied');
+  }
+
+  // Open the full-screen native scanner overlay
+  const { barcodes } = await BarcodeScanner.scan({
+    formats: [BarcodeFormat.QrCode],
+  });
+
+  if (!barcodes || barcodes.length === 0) return null;
+  return barcodes[0].rawValue;
+}
+
+// ── Parse decoded QR content into a Campus Connect member info object ─────────
+function parseQRPayload(decodedText) {
+  try {
+    if (
+      decodedText.includes('/chats') ||
+      decodedText.includes('userId=') ||
+      decodedText.includes('email=')
+    ) {
+      const url = new URL(
+        decodedText.startsWith('http') ? decodedText : `https://dummy.com/${decodedText}`
+      );
+      const p = url.searchParams;
+      return {
+        userId: p.get('userId') || '',
+        name: p.get('name') || 'Campus Member',
+        email: p.get('email') || '',
+        role: p.get('role') || 'Student',
+        sysId: p.get('sysId') || p.get('rollNo') || '',
+        url: decodedText,
+      };
+    }
+    if (decodedText.trim().startsWith('{') && decodedText.trim().endsWith('}')) {
+      const obj = JSON.parse(decodedText);
+      return {
+        userId: obj.userId || obj.id || '',
+        name: obj.name || obj.fullName || 'Campus Member',
+        email: obj.email || '',
+        role: obj.role || 'Student',
+        sysId: obj.rollNo || obj.facultyId || obj.id || '',
+        url: decodedText,
+      };
+    }
+  } catch {
+    // Not a specialized payload
+  }
+  return { name: 'Decoded QR Content', url: decodedText, raw: decodedText };
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
   const navigate = useNavigate();
   const [scanResult, setScanResult] = useState(null);
@@ -24,108 +88,94 @@ export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
   const [cameraError, setCameraError] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  // Web-only refs
   const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  // Parse QR content to check if it's a Campus Connect chat / profile payload
-  const parseQRPayload = (decodedText) => {
-    try {
-      if (decodedText.includes('/chats') || decodedText.includes('userId=') || decodedText.includes('email=')) {
-        const url = new URL(decodedText.startsWith('http') ? decodedText : `https://dummy.com/${decodedText}`);
-        const params = url.searchParams;
-        return {
-          userId: params.get('userId') || '',
-          name: params.get('name') || 'Campus Member',
-          email: params.get('email') || '',
-          role: params.get('role') || 'Student',
-          sysId: params.get('sysId') || params.get('rollNo') || '',
-          url: decodedText,
-        };
-      }
-      // JSON format
-      if (decodedText.trim().startsWith('{') && decodedText.trim().endsWith('}')) {
-        const parsed = JSON.parse(decodedText);
-        return {
-          userId: parsed.userId || parsed.id || '',
-          name: parsed.name || parsed.fullName || 'Campus Member',
-          email: parsed.email || '',
-          role: parsed.role || 'Student',
-          sysId: parsed.rollNo || parsed.facultyId || parsed.id || '',
-          url: decodedText,
-        };
-      }
-    } catch {
-      // Not a specialized URL
-    }
-    return {
-      name: 'Decoded QR Content',
-      url: decodedText,
-      raw: decodedText,
-    };
-  };
 
   const handleDecoded = (decodedText) => {
     const info = parseQRPayload(decodedText);
     setScanResult(decodedText);
     setMemberInfo(info);
-    stopScanner();
+    setScannerActive(false);
     onScanSuccess?.(info);
   };
 
-  const startScanner = async () => {
+  // ── Native Android scanner ─────────────────────────────────────────────────
+  const startNativeScanner = async () => {
+    setCameraError(null);
+    setScanResult(null);
+    setMemberInfo(null);
+    setScannerActive(true);
+    try {
+      const decoded = await scanWithNativeCamera();
+      if (decoded) {
+        handleDecoded(decoded);
+      } else {
+        setCameraError('No QR code found. Try scanning again.');
+        setScannerActive(false);
+      }
+    } catch (err) {
+      console.warn('Native scanner error:', err);
+      setCameraError(err?.message || 'Scanner closed without reading a code.');
+      setScannerActive(false);
+    }
+  };
+
+  // ── Web browser scanner (html5-qrcode) ────────────────────────────────────
+  const startWebScanner = async () => {
     setCameraError(null);
     setScanResult(null);
     setMemberInfo(null);
     setScannerActive(true);
 
     try {
+      const { Html5Qrcode } = await import('html5-qrcode');
       const html5QrCode = new Html5Qrcode('cc-qr-reader');
       scannerRef.current = html5QrCode;
 
-      const config = {
-        fps: 10,
-        qrbox: { width: 220, height: 220 },
-        aspectRatio: 1.0,
-      };
-
       await html5QrCode.start(
         { facingMode: 'environment' },
-        config,
+        { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
         (decodedText) => {
+          stopWebScanner();
           handleDecoded(decodedText);
         },
-        () => {
-          // ignore scan frame errors
-        }
+        () => {} // ignore per-frame errors
       );
     } catch (err) {
-      console.warn('Camera scan initialization failed:', err);
-      setCameraError('Camera access unavailable. You can upload a QR image below.');
+      console.warn('Web camera scan failed:', err);
+      setCameraError('Camera access unavailable. Upload a QR image below.');
       setScannerActive(false);
     }
   };
 
-  const stopScanner = async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
+  const stopWebScanner = async () => {
+    if (scannerRef.current?.isScanning) {
       try {
         await scannerRef.current.stop();
         scannerRef.current.clear();
-      } catch (err) {
-        console.warn('Error stopping scanner:', err);
-      }
+      } catch { /* ignore */ }
     }
     setScannerActive(false);
+  };
+
+  const startScanner = () => {
+    if (isNative) {
+      startNativeScanner();
+    } else {
+      startWebScanner();
+    }
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
+      const { Html5Qrcode } = await import('html5-qrcode');
       const html5QrCode = new Html5Qrcode('cc-qr-reader-file-temp');
       const decodedText = await html5QrCode.scanFile(file, true);
       handleDecoded(decodedText);
-    } catch (err) {
+    } catch {
       setCameraError('No valid QR code detected in the uploaded image.');
     }
   };
@@ -140,29 +190,36 @@ export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
 
   const handleDirectChat = () => {
     if (!memberInfo) return;
-    const targetId = memberInfo.userId || '';
-    const targetName = memberInfo.name || 'Member';
-    const targetEmail = memberInfo.email || '';
-    const targetRole = memberInfo.role || 'student';
-    navigate(`/chats?userId=${encodeURIComponent(targetId)}&name=${encodeURIComponent(targetName)}&email=${encodeURIComponent(targetEmail)}&role=${encodeURIComponent(targetRole)}`);
+    navigate(
+      `/chats?userId=${encodeURIComponent(memberInfo.userId || '')}&name=${encodeURIComponent(memberInfo.name || 'Member')}&email=${encodeURIComponent(memberInfo.email || '')}&role=${encodeURIComponent(memberInfo.role || 'student')}`
+    );
   };
 
   useEffect(() => {
     startScanner();
     return () => {
-      stopScanner();
+      if (!isNative) stopWebScanner();
     };
   }, []);
 
   return (
     <div className="qrs-container">
-      {/* ── Viewfinder / Active Camera ── */}
       {!memberInfo ? (
         <div className="qrs-camera-box">
-          <div id="cc-qr-reader" className="qrs-video-stage" />
+          {/* Web-only viewfinder div — hidden on native */}
+          {!isNative && <div id="cc-qr-reader" className="qrs-video-stage" />}
           <div id="cc-qr-reader-file-temp" style={{ display: 'none' }} />
 
-          {scannerActive && (
+          {/* Native scanning in-progress state */}
+          {isNative && scannerActive && (
+            <div className="qrs-native-scanning">
+              <div className="qrs-native-spinner" />
+              <p className="qrs-instruction">Opening camera scanner…</p>
+            </div>
+          )}
+
+          {/* Web scanning overlay */}
+          {!isNative && scannerActive && (
             <div className="qrs-overlay">
               <div className="qrs-reticle">
                 <div className="qrs-laser-line" />
@@ -200,7 +257,7 @@ export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
                 style={{ background: accent }}
                 onClick={startScanner}
               >
-                <RefreshCw size={14} /> Start Camera
+                <Camera size={14} /> {isNative ? 'Open Camera Scanner' : 'Start Camera'}
               </button>
             )}
           </div>
@@ -244,7 +301,7 @@ export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
           </div>
 
           <div className="qrs-actions">
-            {memberInfo.userId || memberInfo.email ? (
+            {(memberInfo.userId || memberInfo.email) ? (
               <button
                 type="button"
                 className="qrs-btn qrs-btn-primary qrs-btn-large"
@@ -254,21 +311,11 @@ export default function QRScannerView({ onScanSuccess, accent = '#3b82f6' }) {
                 <MessageSquare size={16} /> Text {memberInfo.name.split(' ')[0]} on App
               </button>
             ) : null}
-
-            <button
-              type="button"
-              className="qrs-btn qrs-btn-outline"
-              onClick={handleCopy}
-            >
+            <button type="button" className="qrs-btn qrs-btn-outline" onClick={handleCopy}>
               {copied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
               {copied ? 'Copied' : 'Copy Link'}
             </button>
-
-            <button
-              type="button"
-              className="qrs-btn qrs-btn-outline"
-              onClick={startScanner}
-            >
+            <button type="button" className="qrs-btn qrs-btn-outline" onClick={startScanner}>
               <RefreshCw size={14} /> Scan Another
             </button>
           </div>
