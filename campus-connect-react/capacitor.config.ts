@@ -7,18 +7,16 @@ const config: CapacitorConfig = {
   server: {
     // Direct link to live production deployment for instant OTA auto-updates
     url: 'https://projectcampusconnect.vercel.app',
-    cleartext: false,
-    androidScheme: 'https',
+    cleartext: true,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2500,
+      launchShowDuration: 1500,
       launchAutoHide: true,
       backgroundColor: '#4f46e5',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
-      showSpinner: true,
-      spinnerColor: '#ffffff',
+      showSpinner: false,
     },
     StatusBar: {
       style: 'DARK',
@@ -31,7 +29,7 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
   },
 };
 
