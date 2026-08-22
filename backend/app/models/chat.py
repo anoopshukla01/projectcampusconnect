@@ -128,44 +128,58 @@ def reconcile_student_chat_memberships(session, target):
 def reconcile_professor_chat_memberships(session, target):
     """
     Auto-sync professor to subject groups they teach.
+    Wrapped in try/except so that schema-version mismatches during migrations
+    never crash the session flush.
     """
-    from app.models.chat import Conversation, GroupMembership, ConversationType, GroupRole
-    from app.models.academic import TimetableSlot
+    try:
+        from app.models.chat import Conversation, GroupMembership, ConversationType, GroupRole
+        from sqlalchemy import text
 
-    slots = session.query(TimetableSlot).filter_by(professor_name=target.full_name).all()
-    subject_codes = {s.course_code for s in slots if s.course_code}
-    
-    for code in subject_codes:
-        slot = next(s for s in slots if s.course_code == code)
-        sub_conv = session.query(Conversation).filter_by(
-            type=ConversationType.SUBJECT,
-            class_code=code
-        ).first()
-        if not sub_conv:
-            sub_conv = Conversation(
-                name=f"{slot.course_name} ({code}) Group",
+        # Use raw SQL to avoid ORM mapping failures if geofence columns don't exist yet
+        rows = session.execute(
+            text("SELECT course_code, course_name FROM timetable_slots WHERE professor_name = :name AND is_deleted = false"),
+            {"name": target.full_name}
+        ).fetchall()
+
+        subject_codes = {r.course_code for r in rows if r.course_code}
+
+        for code in subject_codes:
+            row = next((r for r in rows if r.course_code == code), None)
+            sub_conv = session.query(Conversation).filter_by(
                 type=ConversationType.SUBJECT,
                 class_code=code
-            )
-            session.add(sub_conv)
-
-        mem = None
-        if sub_conv.id:
-            mem = session.query(GroupMembership).filter_by(
-                conversation_id=sub_conv.id,
-                user_id=target.user_id
             ).first()
-
-        if not mem:
-            unsaved = [x for x in session.new if isinstance(x, GroupMembership) and x.user_id == target.user_id]
-            matching = [x for x in unsaved if x.conversation == sub_conv or x.conversation_id == sub_conv.id]
-            if not matching:
-                mem = GroupMembership(
-                    conversation=sub_conv,
-                    user_id=target.user_id,
-                    role=GroupRole.ADMIN
+            if not sub_conv:
+                course_name = row.course_name if row else code
+                sub_conv = Conversation(
+                    name=f"{course_name} ({code}) Group",
+                    type=ConversationType.SUBJECT,
+                    class_code=code
                 )
-                session.add(mem)
+                session.add(sub_conv)
+
+            mem = None
+            if sub_conv.id:
+                mem = session.query(GroupMembership).filter_by(
+                    conversation_id=sub_conv.id,
+                    user_id=target.user_id
+                ).first()
+
+            if not mem:
+                unsaved = [x for x in session.new if isinstance(x, GroupMembership) and x.user_id == target.user_id]
+                matching = [x for x in unsaved if x.conversation == sub_conv or x.conversation_id == sub_conv.id]
+                if not matching:
+                    mem = GroupMembership(
+                        conversation=sub_conv,
+                        user_id=target.user_id,
+                        role=GroupRole.ADMIN
+                    )
+                    session.add(mem)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(
+            "reconcile_professor_chat_memberships skipped (schema mismatch or error): %s", e
+        )
 
 def chat_before_flush(session, flush_context, instances):
     from app.models.student import StudentProfile
@@ -176,6 +190,7 @@ def chat_before_flush(session, flush_context, instances):
             reconcile_student_chat_memberships(session, obj)
         elif isinstance(obj, ProfessorProfile):
             reconcile_professor_chat_memberships(session, obj)
+
 
 event.listen(db.session, "before_flush", chat_before_flush)
 
