@@ -34,18 +34,20 @@
 // 0.  Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { Capacitor } from '@capacitor/core';
+import { storage } from './storage';
+
+const isNative = typeof window !== 'undefined' && (Capacitor.isNativePlatform() || window.location.protocol === 'capacitor:');
 const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isDevBrowser = typeof window !== 'undefined' && !isNative && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 let apiURL = '';
-if (isLocal || isVercel) {
-  apiURL = '';
-} else {
+if (isNative || (!isDevBrowser && !isVercel)) {
   apiURL = 'https://projectcampusconnect.onrender.com';
+} else {
+  apiURL = '';
 }
 const BASE = apiURL ? `${apiURL}/api/v1` : '/api/v1';
-
-import { storage } from './storage';
 
 /** localStorage keys (must stay in sync with AuthContext) */
 const KEYS = {
