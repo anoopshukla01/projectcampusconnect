@@ -56,6 +56,8 @@ import Settings from './pages/Settings/Settings';
 // ── Student Detail pages (4 role-specific views) ──────────────────────────────
 import AdminStudentDetail     from '@admin/StudentDetail/StudentDetail';
 import TPOStudentDetail       from '@placement/StudentDetail/StudentDetail';
+import ProfStudentDetail      from './pages/professorDashboard/StudentDetail/StudentDetail';
+import StudentSelfView        from './pages/StudentDetail/StudentDetail';
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
 import ConsentGateModal from './components/ConsentGate/ConsentGateModal';
 import CampusCopilot from './components/chatbot/CampusCopilot';
