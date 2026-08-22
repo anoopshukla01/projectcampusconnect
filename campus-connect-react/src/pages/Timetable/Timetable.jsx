@@ -16,6 +16,7 @@ import { useApiData } from '../../hooks/useApiData';
 import { useBranches } from '../../hooks/useBranches';
 import { academicsApi, apiDelete } from '../../services/api';
 import { StateContainer } from '../../components/StateContainer';
+import { cacheSchedule, getCachedSchedule } from '../../lib/offline/db';
 import './Timetable.css';
 
 const WEEK_DAYS = [
@@ -57,8 +58,34 @@ export default function Timetable() {
   const [timetableData, setTimetableData] = useState(EMPTY_TIMETABLE);
 
   useEffect(() => {
-    if (apiData?.timetable) setTimetableData(apiData.timetable);
-  }, [apiData]);
+    if (apiData?.timetable && Object.values(apiData.timetable).some(arr => arr.length > 0)) {
+      setTimetableData(apiData.timetable);
+      const allSlots = [];
+      Object.entries(apiData.timetable).forEach(([day, slots]) => {
+        slots.forEach(s => allSlots.push({ ...s, day_of_week: day }));
+      });
+      cacheSchedule(allSlots);
+    } else if (error) {
+      getCachedSchedule().then(cached => {
+        if (cached && cached.length > 0) {
+          const reconstructed = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [] };
+          cached.forEach(c => {
+            const day = c.dayOfWeek || 'Mon';
+            if (reconstructed[day]) {
+              reconstructed[day].push({
+                id: c.id,
+                name: c.subject,
+                room: c.room,
+                time: c.startTime ? `${c.startTime} - ${c.endTime}` : '09:00 - 10:00',
+                type: 'lecture'
+              });
+            }
+          });
+          setTimetableData(reconstructed);
+        }
+      }).catch(() => {});
+    }
+  }, [apiData, error]);
 
   // ── Edit / Reschedule modal (admin only in this portal) ──────────────────
   const [editModal, setEditModal]     = useState(false);

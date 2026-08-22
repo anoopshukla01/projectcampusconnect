@@ -4,6 +4,7 @@
  */
 import { useState, useCallback } from 'react';
 import { apiGet } from '../../services/api';
+import { cacheBroadcasts, getCachedBroadcasts } from '../../lib/offline/db';
 import './Announcements.css';
 
 export default function Announcements() {
@@ -22,11 +23,20 @@ export default function Announcements() {
     setError(null);
     const result = await apiGet('/community/announcements', { page: nextPage, limit: LIMIT });
     if (result?._networkError || result?.error) {
-      setError("Couldn't load announcements — check your connection and try again.");
+      const cached = await getCachedBroadcasts().catch(() => []);
+      if (cached && cached.length > 0) {
+        setItems(cached);
+        setError(null);
+      } else {
+        setError("Couldn't load announcements — check your connection and try again.");
+      }
       setLoading(false);
       return;
     }
     const incoming = result.announcements ?? [];
+    if (incoming.length > 0) {
+      cacheBroadcasts(incoming);
+    }
     setItems(prev => nextPage === 1 ? incoming : [...prev, ...incoming]);
     setPage(result.page ?? nextPage);
     setPages(result.pages ?? 1);

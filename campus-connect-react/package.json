@@ -27,6 +27,7 @@
     "@capacitor/status-bar": "^8.0.3",
     "@capgo/capacitor-native-biometric": "^8.6.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "dexie": "^4.4.5",
     "firebase": "^12.17.0",
     "html-to-image": "^1.11.13",
     "html5-qrcode": "^2.3.8",

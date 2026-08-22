@@ -18,6 +18,7 @@ import { StateContainer } from '../../components/StateContainer';
 import GeofenceRadar from '../../components/Attendance/GeofenceRadar';
 import LivePresenceStream from '../../components/Attendance/LivePresenceStream';
 import StudentAttendanceDashboard from '../../components/student/attendance/StudentAttendanceDashboard';
+import { cacheAttendance, getCachedAttendance } from '../../lib/offline/db';
 import './Attendance.css';
 
 function CircleProgress({ pct }) {
@@ -43,10 +44,37 @@ export default function Attendance() {
     '/academics/attendance',
     { subjects: [] },
   );
-  const subjects = useMemo(() => apiData?.subjects || [], [apiData]);
+  const [cachedData, setCachedData] = useState(null);
+
+  useEffect(() => {
+    if (apiData?.subjects && apiData.subjects.length > 0) {
+      const att = apiData.subjects.reduce((s, x) => s + (x.attended || 0), 0);
+      const tot = apiData.subjects.reduce((s, x) => s + (x.total || 0), 0);
+      const pct = tot > 0 ? Math.round((att / tot) * 100) : 0;
+      cacheAttendance({
+        overallPercentage: pct,
+        totalAttended: att,
+        totalConducted: tot,
+        subjects: apiData.subjects
+      });
+    } else if (error) {
+      getCachedAttendance().then(cached => {
+        if (cached?.subjectBreakdown && cached.subjectBreakdown.length > 0) {
+          setCachedData(cached);
+        }
+      }).catch(() => {});
+    }
+  }, [apiData, error]);
+
+  const subjects = useMemo(() => {
+    if (apiData?.subjects && apiData.subjects.length > 0) return apiData.subjects;
+    if (cachedData?.subjectBreakdown) return cachedData.subjectBreakdown;
+    return [];
+  }, [apiData, cachedData]);
+
   const totalAttended = subjects.reduce((s, x) => s + (x.attended || 0), 0);
   const totalClasses  = subjects.reduce((s, x) => s + (x.total   || 0), 0);
-  const overallPct    = totalClasses > 0 ? Math.round((totalAttended / totalClasses) * 100) : 0;
+  const overallPct    = totalClasses > 0 ? Math.round((totalAttended / totalClasses) * 100) : (cachedData?.overallPercentage ?? 0);
 
   const [calcSub, setCalcSub]       = useState('');
   const [calcResult, setCalcResult] = useState(null);

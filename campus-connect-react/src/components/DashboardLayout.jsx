@@ -48,6 +48,8 @@ const PATH_TO_PAGE = {
   '/admin/marketplace':          'adminmarket',      // M4: was missing
 };
 
+import OfflineBanner from './offline/OfflineBanner';
+
 export default function DashboardLayout() {
   const { user } = useAuth();
   const location = useLocation();
@@ -62,6 +64,7 @@ export default function DashboardLayout() {
       <Sidebar activePage={activePage} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="main-wrapper">
+        <OfflineBanner />
         <Topbar onMenuToggle={() => setSidebarOpen(o => !o)} />
         <main className="content" id="mainContent" role="main">
           <Outlet />

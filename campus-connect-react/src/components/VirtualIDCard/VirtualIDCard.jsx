@@ -197,11 +197,21 @@ const FIELD_SETS = {
   admin:     AdminFields,
 };
 
+import { useEffect } from 'react';
+import { cacheUserProfile } from '../../lib/offline/db';
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Main component
 // ──────────────────────────────────────────────────────────────────────────────
 export default function VirtualIDCard({ user, flipped, onFlip, onDownload, cardRef, onOpenScanner }) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      cacheUserProfile(user);
+    }
+  }, [user]);
+
   const role = user?.role ?? 'student';
   const meta = ROLE_META[role] ?? ROLE_META.student;
   const RoleIcon = meta.icon;
