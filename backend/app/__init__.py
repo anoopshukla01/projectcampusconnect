@@ -81,6 +81,13 @@ def create_app(config_name: str | None = None) -> Flask:
     # ── Global error handlers ─────────────────────────────────────────────
     register_error_handlers(app)
 
+    # ── Safe database table initialization ────────────────────────────────
+    with app.app_context():
+        try:
+            db.create_all()
+        except Exception as db_init_err:
+            logger.warning("Database create_all skipped or deferred: %s", db_init_err)
+
     # ── Health-check routes (no auth, no rate limit) ──────────────────────
     @app.get("/api/health")
     @app.get("/health")

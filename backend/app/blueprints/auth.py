@@ -547,107 +547,127 @@ def login():
     except ValidationError as e:
         return validation_error_response(e.messages)
 
-    # Find user
-    if data.get("roll_no"):
-        from app.models.student import StudentProfile
-        sp = db.session.query(StudentProfile).filter_by(roll_no=data["roll_no"]).first()
-        user = sp.user if sp else None
-    else:
-        user = db.session.query(User).filter_by(email=data["email"]).first()
-
-    max_attempts = current_app.config.get("MAX_LOGIN_ATTEMPTS", 5)
-    lockout_mins = current_app.config.get("ACCOUNT_LOCKOUT_MINUTES", 30)
-
-    # Generic failure function — same response for all failure modes
-    def _fail(reason: str):
-        if user:
-            user.failed_login_attempts += 1
-            if user.failed_login_attempts >= max_attempts:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_mins)
-            db.session.commit()
-            audit_action("auth.login.fail", target_type="user", target_id=str(user.id),
-                         detail={"reason": reason})
+    try:
+        # Find user (case-insensitive and trimmed)
+        from sqlalchemy import func
+        if data.get("roll_no"):
+            from app.models.student import StudentProfile
+            clean_roll = data["roll_no"].strip()
+            sp = db.session.query(StudentProfile).filter(func.lower(StudentProfile.roll_no) == clean_roll.lower()).first()
+            user = sp.user if sp else None
         else:
-            audit_action("auth.login.fail", detail={"reason": reason})
-        return error_response("Invalid credentials.", 401)
+            clean_email = (data.get("email") or "").strip()
+            user = db.session.query(User).filter(func.lower(User.email) == clean_email.lower()).first()
 
-    if not user or user.is_deleted:
-        return _fail("user_not_found")
+        max_attempts = current_app.config.get("MAX_LOGIN_ATTEMPTS", 5)
+        lockout_mins = current_app.config.get("ACCOUNT_LOCKOUT_MINUTES", 30)
 
-    if not user.is_active:
-        return _fail("inactive_account")
+        # Generic failure function — same response for all failure modes
+        def _fail(reason: str):
+            if user:
+                try:
+                    user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+                    if user.failed_login_attempts >= max_attempts:
+                        user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_mins)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                audit_action("auth.login.fail", target_type="user", target_id=str(user.id),
+                             detail={"reason": reason})
+            else:
+                audit_action("auth.login.fail", detail={"reason": reason})
+            return error_response("Invalid credentials.", 401)
 
-    # Check lockout BEFORE checking the password —
-    # prevents timing attack that reveals lock status
-    if user.is_locked():
-        return _fail("account_locked")
+        if not user or user.is_deleted:
+            return _fail("user_not_found")
 
-    if not user.check_password(data["password"]):
-        return _fail("wrong_password")
+        if not user.is_active:
+            return _fail("inactive_account")
 
-    # ✅ Login success — reset failure counter
-    user.failed_login_attempts = 0
-    user.locked_until = None
+        # Check lockout BEFORE checking the password —
+        # prevents timing attack that reveals lock status
+        if user.is_locked():
+            return _fail("account_locked")
 
-    # Issue tokens
-    access_token = create_access_token(
-        identity=str(user.id),
-        additional_claims={
+        if not user.check_password(data["password"]):
+            return _fail("wrong_password")
+
+        # ✅ Login success — reset failure counter
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
+        # Issue tokens
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={
+                "role": user.role.value,
+                "college_id": str(user.college_id) if user.college_id else None,
+            },
+        )
+        raw_refresh = secrets.token_urlsafe(64)
+        refresh_hash = hashlib.sha256(raw_refresh.encode()).hexdigest()
+        expiry = datetime.now(timezone.utc) + current_app.config.get(
+            "JWT_REFRESH_TOKEN_EXPIRES", timedelta(days=7)
+        )
+
+        rt = RefreshToken(user_id=user.id, token_hash=refresh_hash, expires_at=expiry)
+        db.session.add(rt)
+        db.session.commit()
+
+        audit_action("auth.login.success", target_type="user", target_id=str(user.id))
+
+        consent_needed = False
+        try:
+            consent_needed = not user.has_consented("1.0.0")
+        except Exception:
+            consent_needed = False
+
+        res_data = {
+            "access_token": access_token,
+            "refresh_token": raw_refresh,
             "role": user.role.value,
-            "college_id": str(user.college_id) if user.college_id else None,
-        },
-    )
-    raw_refresh = secrets.token_urlsafe(64)
-    refresh_hash = hashlib.sha256(raw_refresh.encode()).hexdigest()
-    expiry = datetime.now(timezone.utc) + current_app.config.get(
-        "JWT_REFRESH_TOKEN_EXPIRES", timedelta(days=7)
-    )
+            "user_id": str(user.id),
+            "email": user.email,
+            "college_name": user.college.name if user.college else "Campus Connect University",
+            "college_code": user.college.code if user.college else "CCU",
+            "consent_required": consent_needed,
+        }
 
-    rt = RefreshToken(user_id=user.id, token_hash=refresh_hash, expires_at=expiry)
-    db.session.add(rt)
-    db.session.commit()
+        try:
+            if user.role.value == "student":
+                from app.blueprints.students import _ensure_student_profile
+                sp = _ensure_student_profile(user)
+                if sp:
+                    res_data.update({
+                        "name": sp.full_name,
+                        "full_name": sp.full_name,
+                        "roll_no": sp.roll_no,
+                        "branch": sp.branch,
+                        "semester": sp.semester,
+                        "batch_year": sp.batch_year,
+                        "phone": getattr(user, 'phone', None),
+                        "profile_photo_url": getattr(sp, 'profile_photo_url', None),
+                    })
+            elif user.role.value == "professor":
+                pp = getattr(user, 'professor_profile', None)
+                if pp:
+                    res_data.update({
+                        "name": pp.full_name,
+                        "full_name": pp.full_name,
+                        "department": pp.department,
+                        "designation": pp.designation,
+                        "facultyId": getattr(pp, 'employee_id', None) or f"FAC-{str(user.id)[:8].upper()}",
+                        "phone": getattr(user, 'phone', None),
+                        "office": getattr(pp, 'office', None),
+                    })
+        except Exception as enrich_exc:
+            logger.warning("Profile enrichment non-fatal exception: %s", enrich_exc)
 
-    audit_action("auth.login.success", target_type="user", target_id=str(user.id))
+        return jsonify(res_data), 200
 
-    res_data = {
-        "access_token": access_token,
-        "refresh_token": raw_refresh,
-        "role": user.role.value,
-        "user_id": str(user.id),
-        "email": user.email,
-        "college_name": user.college.name if user.college else "Campus Connect University",
-        "college_code": user.college.code if user.college else "CCU",
-        "consent_required": not user.has_consented("1.0.0"),
-    }
-
-    if user.role.value == "student":
-        from app.blueprints.students import _ensure_student_profile
-        sp = _ensure_student_profile(user)
-        if sp:
-            res_data.update({
-                "name": sp.full_name,
-                "full_name": sp.full_name,
-                "roll_no": sp.roll_no,
-                "branch": sp.branch,
-                "semester": sp.semester,
-                "batch_year": sp.batch_year,
-                "phone": getattr(user, 'phone', None),
-                "profile_photo_url": getattr(sp, 'profile_photo_url', None),
-            })
-    elif user.role.value == "professor":
-        pp = getattr(user, 'professor_profile', None)
-        if pp:
-            res_data.update({
-                "name": pp.full_name,
-                "full_name": pp.full_name,
-                "department": pp.department,
-                "designation": pp.designation,
-                "facultyId": getattr(pp, 'employee_id', None) or f"FAC-{str(user.id)[:8].upper()}",
-                "phone": getattr(user, 'phone', None),
-                "office": getattr(pp, 'office', None),
-            })
-
-    return jsonify(res_data), 200
+    except Exception as exc:
+        db.session.rollback()
+        return internal_error_response(exc, "login")
 
 
 # ── A7: POST /auth/token/refresh ──────────────────────────────────────────────

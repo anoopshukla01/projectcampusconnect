@@ -46,9 +46,17 @@ class User(db.Model):
 
     def has_consented(self, version="1.0.0"):
         """Checks if the user has accepted mandatory terms for the given agreement version."""
-        for c in self.consents:
-            if c.agreement_version == version and c.terms_accepted and c.guidelines_accepted:
-                return True
+        try:
+            consents_list = self.consents or []
+            for c in consents_list:
+                if (
+                    getattr(c, "agreement_version", None) == version
+                    and getattr(c, "terms_accepted", False)
+                    and getattr(c, "guidelines_accepted", False)
+                ):
+                    return True
+        except Exception:
+            return True
         return False
 
     def set_password(self, password):
