@@ -68,11 +68,12 @@ export default function StudentDetailField({
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '.35rem',
+            gap: '.45rem',
+            fontWeight: 500,
           }}
         >
-          <Mail size={13} />
-          {String(value)}
+          <Mail size={14} style={{ flexShrink: 0, opacity: 0.85 }} />
+          <span>{String(value)}</span>
         </a>
       );
     }
@@ -88,23 +89,34 @@ export default function StudentDetailField({
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '.35rem',
+            gap: '.45rem',
+            fontWeight: 500,
           }}
         >
-          <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {String(value)}
           </span>
-          <ExternalLink size={12} />
+          <ExternalLink size={13} style={{ flexShrink: 0 }} />
         </a>
       );
     }
 
     if (schema.type === 'phone') {
       return (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '.35rem' }}>
-          <Phone size={13} style={{ color: 'var(--text-secondary)' }} />
-          {String(value)}
-        </span>
+        <a
+          href={`tel:${String(value).replace(/\D/g, '')}`}
+          style={{
+            color: 'var(--text-primary)',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '.45rem',
+            fontWeight: 500,
+          }}
+        >
+          <Phone size={14} style={{ color: 'var(--clr-secondary)', flexShrink: 0, opacity: 0.85 }} />
+          <span>{String(value)}</span>
+        </a>
       );
     }
 
