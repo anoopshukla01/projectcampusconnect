@@ -17,7 +17,7 @@ import {
   ShieldCheck, PhoneCall, Mail, GraduationCap, CheckCircle2,
   AlertCircle, Sparkles, FileText, ChevronRight
 } from 'lucide-react';
-import { studentsApi } from '@/services/api';
+import { studentsApi, academicsApi } from '@/services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { FIELD_SCHEMAS } from '@admin/StudentDetail/fieldSchema';
@@ -191,13 +191,34 @@ export default function StudentDetail() {
     setLoading(true);
     setError(null);
     try {
-      const res = await studentsApi.getMe();
-      if (res?.error) {
-        setError(res.error);
+      const [profileRes, attendanceRes] = await Promise.allSettled([
+        studentsApi.getMe(),
+        academicsApi.getStudentAttendanceAnalytics(),
+      ]);
+
+      let studentData = null;
+      if (profileRes.status === 'fulfilled' && !profileRes.value?.error) {
+        studentData = profileRes.value?.student || profileRes.value;
+      } else if (profileRes.status === 'fulfilled' && profileRes.value?.error) {
+        setError(profileRes.value.error);
+        setLoading(false);
+        return;
       } else {
-        const student = res?.student || res;
-        setData(student);
+        setError('Failed to load profile data.');
+        setLoading(false);
+        return;
       }
+
+      if (attendanceRes.status === 'fulfilled' && !attendanceRes.value?.error) {
+        const attData = attendanceRes.value;
+        if (attData?.aggregate_percentage != null) {
+          studentData.attendance_pct = attData.aggregate_percentage;
+        } else if (attData?.attendance_pct != null) {
+          studentData.attendance_pct = attData.attendance_pct;
+        }
+      }
+
+      setData(studentData);
     } catch (err) {
       setError('Failed to load profile data. Please try again.');
     } finally {
@@ -258,7 +279,7 @@ export default function StudentDetail() {
     }
   };
 
-  // Compute profile strength percentage
+  // Compute profile strength percentage strictly from real data
   const profileStrength = useMemo(() => {
     if (!data) return 0;
     const requiredFields = ['full_name', 'roll_no', 'email', 'phone', 'branch', 'semester', 'batch_year', 'college_name'];
@@ -295,9 +316,9 @@ export default function StudentDetail() {
   if (!data) return null;
 
   const initials = (data.full_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const cgpaNum = parseFloat(data.cgpa);
-  const cgpaClass = isNaN(cgpaNum) ? '' : cgpaNum >= 8 ? 'sd-cgpa-high' : cgpaNum >= 6 ? 'sd-cgpa-mid' : 'sd-cgpa-low';
-  const attendancePct = data.attendance_pct != null ? parseFloat(data.attendance_pct) : null;
+  const cgpaNum = data.cgpa != null && !isNaN(parseFloat(data.cgpa)) ? parseFloat(data.cgpa) : null;
+  const cgpaClass = cgpaNum == null ? '' : cgpaNum >= 8 ? 'sd-cgpa-high' : cgpaNum >= 6 ? 'sd-cgpa-mid' : 'sd-cgpa-low';
+  const attendancePct = data.attendance_pct != null && !isNaN(parseFloat(data.attendance_pct)) ? parseFloat(data.attendance_pct) : null;
 
   return (
     <div className="sd-root">
@@ -342,16 +363,16 @@ export default function StudentDetail() {
 
         <div className="sd-hero-info">
           <div className="sd-hero-title-row">
-            <h2 className="sd-hero-name">{data.full_name}</h2>
-            {data.cgpa != null && (
+            <h2 className="sd-hero-name">{data.full_name || 'Student Profile'}</h2>
+            {cgpaNum != null && cgpaNum > 0 && (
               <span className={`sd-cgpa-badge ${cgpaClass}`}>
-                CGPA {parseFloat(data.cgpa).toFixed(2)}
+                CGPA {cgpaNum.toFixed(2)}
               </span>
             )}
           </div>
 
           <p className="sd-hero-sub">
-            {data.roll_no} · {data.branch || 'Engineering'} · Semester {data.semester || 'N/A'}
+            {[data.roll_no, data.branch, data.semester ? `Semester ${data.semester}` : null].filter(Boolean).join(' · ')}
           </p>
 
           <div className="sd-hero-chips">
@@ -360,7 +381,7 @@ export default function StudentDetail() {
                 <GraduationCap size={12} /> {data.college_name}
               </span>
             )}
-            <span className="sd-hero-chip">Batch {data.batch_year || '2024'}</span>
+            {data.batch_year && <span className="sd-hero-chip">Batch {data.batch_year}</span>}
             {data.dpdp_consent_given ? (
               <span className="sd-hero-chip sd-chip-success">
                 <ShieldCheck size={12} /> DPDP Consent Verified
@@ -382,11 +403,19 @@ export default function StudentDetail() {
             <Award size={18} className="sd-kpi-icon clr-purple" />
           </div>
           <div className="sd-kpi-val">
-            {data.cgpa != null ? parseFloat(data.cgpa).toFixed(2) : '—'}
-            <span className="sd-kpi-denom">/ 10.0</span>
+            {cgpaNum != null && cgpaNum > 0 ? cgpaNum.toFixed(2) : '—'}
+            {cgpaNum != null && cgpaNum > 0 && <span className="sd-kpi-denom">/ 10.0</span>}
           </div>
           <p className="sd-kpi-meta">
-            {cgpaNum >= 8.5 ? '⭐ High Distinction' : cgpaNum >= 7.5 ? '✅ First Class' : cgpaNum >= 6.0 ? '📘 Second Class' : 'Academic Standing'}
+            {cgpaNum == null || cgpaNum === 0
+              ? 'CGPA not yet recorded'
+              : cgpaNum >= 8.5
+              ? '⭐ High Distinction'
+              : cgpaNum >= 7.5
+              ? '✅ First Class'
+              : cgpaNum >= 6.0
+              ? '📘 Second Class'
+              : 'Pass'}
           </p>
         </div>
 
@@ -396,10 +425,12 @@ export default function StudentDetail() {
             <Activity size={18} className="sd-kpi-icon clr-blue" />
           </div>
           <div className="sd-kpi-val">
-            {attendancePct != null ? `${attendancePct}%` : '88.4%'}
+            {attendancePct != null ? `${attendancePct}%` : '—'}
           </div>
-          <p className="sd-kpi-meta" style={{ color: (attendancePct ?? 88.4) >= 75 ? 'var(--clr-success)' : 'var(--clr-danger)' }}>
-            {(attendancePct ?? 88.4) >= 75 ? '✓ Meets 75% Exam Criteria' : '⚠️ Below 75% Defaulter Warning'}
+          <p className="sd-kpi-meta" style={{ color: attendancePct != null ? (attendancePct >= 75 ? 'var(--clr-success)' : 'var(--clr-danger)') : 'var(--text-secondary)' }}>
+            {attendancePct != null
+              ? (attendancePct >= 75 ? '✓ Meets 75% Exam Criteria' : '⚠️ Below 75% Defaulter Warning')
+              : 'No recorded lecture presence'}
           </p>
         </div>
 
@@ -409,10 +440,10 @@ export default function StudentDetail() {
             <BookOpen size={18} className="sd-kpi-icon clr-amber" />
           </div>
           <div className="sd-kpi-val">
-            {data.active_backlogs ? `${data.active_backlogs}` : '0'}
+            {data.active_backlogs != null ? `${data.active_backlogs}` : '0'}
           </div>
           <p className="sd-kpi-meta">
-            {(!data.active_backlogs || data.active_backlogs === 0) ? '✓ All Courses Cleared' : 'Subject re-appear required'}
+            {(!data.active_backlogs || data.active_backlogs === 0) ? '✓ All Courses Cleared' : `${data.active_backlogs} subject(s) pending`}
           </p>
         </div>
 
