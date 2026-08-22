@@ -19,7 +19,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   User, Mail, Phone, MapPin, BadgeCheck, Building2,
   GraduationCap, Briefcase, ShieldCheck, RotateCcw,
-  Download, Link2, Calendar, MessageSquare
+  Download, Link2, Calendar, MessageSquare, Scan
 } from 'lucide-react';
 import './VirtualIDCard.css';
 
@@ -162,7 +162,7 @@ const FIELD_SETS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownload }) {
+export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownload, onOpenScanner }) {
   const navigate = useNavigate();
   const role = user?.role ?? 'student';
   const meta = ROLE_META[role] ?? ROLE_META.student;
@@ -371,6 +371,17 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
               <RotateCcw size={13} />
               Front View
             </button>
+            {onOpenScanner && (
+              <button
+                className="vic-flip-btn"
+                onClick={onOpenScanner}
+                title="Scan another student or faculty ID QR"
+                style={{ '--accent': meta.accent }}
+              >
+                <Scan size={13} />
+                Scan an ID
+              </button>
+            )}
             <button
               className="vic-flip-btn"
               onClick={() => {

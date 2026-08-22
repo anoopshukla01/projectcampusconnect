@@ -29,10 +29,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import {
   X, CreditCard, Camera, Download, Link2, CheckCircle,
-  QrCode, Loader2
+  QrCode, Loader2, Scan
 } from 'lucide-react';
 import VirtualIDCard from './VirtualIDCard';
 import ImageDropzone from './ImageDropzone';
+import QRScannerView from './QRScannerView';
 import './IDCardModal.css';
 
 // ── Sample mock data for all 4 roles ─────────────────────────────────────────
@@ -91,6 +92,7 @@ const ROLE_ACCENT = {
 // ── Tab definitions ───────────────────────────────────────────────────────────
 const TABS = [
   { id: 'preview', label: 'ID Card', Icon: CreditCard },
+  { id: 'scan',    label: 'Scan QR', Icon: Scan       },
   { id: 'photo',   label: 'Edit Photo', Icon: Camera   },
 ];
 
@@ -230,6 +232,7 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                   onFlip={() => setFlipped(f => !f)}
                   cardRef={cardRef}
                   onDownload={handleDownload}
+                  onOpenScanner={() => setActiveTab('scan')}
                 />
               </div>
 
@@ -238,11 +241,21 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                 <button
                   className="idcm-action-btn"
                   style={{ '--ac': accent }}
+                  onClick={() => setActiveTab('scan')}
+                  title="Scan a Member QR Code"
+                >
+                  <Scan size={15} />
+                  Scan QR
+                </button>
+
+                <button
+                  className="idcm-action-btn"
+                  style={{ '--ac': accent }}
                   onClick={() => setFlipped(f => !f)}
                   title={flipped ? 'Show front' : 'Show QR code'}
                 >
                   <QrCode size={15} />
-                  {flipped ? 'Front View' : 'QR Code'}
+                  {flipped ? 'Front View' : 'My QR'}
                 </button>
 
                 <button
@@ -274,8 +287,15 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
               <p className="idcm-role-hint">
                 Showing <strong style={{ color: accent }}>
                   {localUser?.role ? (localUser.role.charAt(0).toUpperCase() + localUser.role.slice(1)) : 'Student'}
-                </strong> ID card. Tap the card to flip.
+                </strong> ID card. Tap the card to flip or scan a friend's card.
               </p>
+            </div>
+          )}
+
+          {/* ──────── SCAN TAB ─────────────────────────────────── */}
+          {activeTab === 'scan' && (
+            <div className="idcm-scan-tab">
+              <QRScannerView accent={accent} />
             </div>
           )}
 
