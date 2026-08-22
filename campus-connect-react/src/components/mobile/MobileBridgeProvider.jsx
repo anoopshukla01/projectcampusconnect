@@ -26,10 +26,22 @@ export function MobileBridgeProvider({ children }) {
     };
     initStatusBar();
 
-    // 2. Hardware back button handler for Android
+    // 2. Hardware back button handler for Android (Modal-aware)
     let backListenerHandle = null;
     if (Capacitor.isNativePlatform() || Capacitor.isPluginAvailable('App')) {
       CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        // Check if any modal or overlay is open in the DOM
+        const activeModal = document.querySelector(
+          '.ad-modal-overlay.open, .id-card-modal-backdrop, .modal-overlay.active, [role="dialog"].open, .modal-backdrop'
+        );
+        if (activeModal) {
+          const closeBtn = activeModal.querySelector('button[aria-label*="close" i], button.btn-close, button.ad-btn-outline, .modal-close');
+          if (closeBtn) {
+            closeBtn.click();
+            return;
+          }
+        }
+
         const path = location.pathname;
         if (path === '/dashboard' || path === '/auth/login' || path === '/' || path === '/login') {
           CapacitorApp.exitApp();
@@ -40,7 +52,7 @@ export function MobileBridgeProvider({ children }) {
         }
       }).then(handle => {
         backListenerHandle = handle;
-      });
+      }).catch(() => {});
     }
 
     // 3. Network listener for offline status

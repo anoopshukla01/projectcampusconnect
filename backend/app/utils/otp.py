@@ -47,7 +47,7 @@ def verify_otp(otp: str, otp_hash: str) -> bool:
     Returns True if valid, False otherwise.
     Constant-time comparison is handled internally by bcrypt.checkpw.
     """
-    if current_app.config.get("MOCK_OTP", False) and otp == "123456":
+    if current_app.config.get("MOCK_OTP", False) and secrets.compare_digest(str(otp).strip(), "123456"):
         return True
     try:
         return bcrypt.checkpw(otp.encode(), otp_hash.encode())
