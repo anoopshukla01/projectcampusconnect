@@ -17,7 +17,7 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { useNavigate } from 'react-router-dom';
 import { USERS } from '../data/users';
 import { storage } from '../services/storage';
-import { studentsApi, professorsApi } from '../services/api';
+import { studentsApi, professorsApi, authApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -253,6 +253,7 @@ async function clearSession() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [consentRequired, setConsentRequired] = useState(false);
 
   useEffect(() => {
     async function initAuth() {
@@ -268,11 +269,6 @@ export function AuthProvider({ children }) {
         }
 
         // ── Proactive token refresh ─────────────────────────────────────────────
-        // If the stored access token is already expired (or within 60s of
-        // expiring), silently exchange the refresh token for a new one BEFORE
-        // any page component fires its first API call. This prevents the
-        // “login → immediate 401 → logout” cycle that occurred when the
-        // access token expired while the app was closed.
         const accessToken = await storage.get(KEYS.ACCESS);
         if (accessToken && accessToken !== 'mock-token' && isTokenExpiredSoon(accessToken)) {
           const refreshToken = await storage.get(KEYS.REFRESH);
@@ -288,18 +284,15 @@ export function AuthProvider({ children }) {
                 await storage.set(KEYS.ACCESS,  data.access_token);
                 await storage.set(KEYS.TOKEN,   data.access_token); // legacy compat
                 if (data.refresh_token) await storage.set(KEYS.REFRESH, data.refresh_token);
-                // Token refreshed → continue with the stored user object
+                if (data.consent_required) setConsentRequired(true);
               } else {
-                // Refresh token is also expired/revoked → force re-login
                 await clearSession();
                 return;
               }
             } catch {
-              // Network error on boot → keep the session alive in offline mode
-              // (the api.js refresh path will retry when network is back)
+              // Network error on boot → keep session alive
             }
           } else {
-            // No refresh token → expired session, force re-login
             await clearSession();
             return;
           }
@@ -307,12 +300,23 @@ export function AuthProvider({ children }) {
 
         if (parsed) {
           // Re-fetch profile to pick up any changes since last session
-          // (e.g. branch/year updated by admin, new delegated role, etc.)
           const enriched = await fetchProfileEnrichment(parsed);
           if (enriched !== parsed) {
             await storage.set(KEYS.USER, JSON.stringify(enriched));
           }
           setUser(enriched);
+
+          // Check legal consent requirement
+          try {
+            const cRes = await authApi.getConsentStatus();
+            if (cRes && cRes.consent_required) {
+              setConsentRequired(true);
+            } else {
+              setConsentRequired(false);
+            }
+          } catch {
+            // offline fallback
+          }
         }
       } catch (err) {
         console.error('Failed to init auth', err);
@@ -325,8 +329,6 @@ export function AuthProvider({ children }) {
 
   // ── One-time boot migration: collapse legacy storage keys ─────────────────
   useEffect(() => {
-    // Old code wrote tokens under 'ss_token' or 'token' in addition to 'access_token'.
-    // Migrate whichever legacy key has a value to the canonical key, then clear it.
     const legacyKeys = ['ss_token', 'token'];
     for (const k of legacyKeys) {
       const v = localStorage.getItem(k);
@@ -334,7 +336,7 @@ export function AuthProvider({ children }) {
         localStorage.setItem(KEYS.ACCESS, v);
       }
       if (k !== KEYS.TOKEN) {
-        localStorage.removeItem(k);  // KEYS.TOKEN === 'token' is kept by persistSession for now
+        localStorage.removeItem(k);
       }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -344,6 +346,7 @@ export function AuthProvider({ children }) {
     function onSessionExpired() {
       clearSession();
       setUser(null);
+      setConsentRequired(false);
     }
     window.addEventListener('session:expired', onSessionExpired);
     return () => window.removeEventListener('session:expired', onSessionExpired);
@@ -368,27 +371,23 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         // ✅ Role resolved from backend JWT claim — never from client input
         const baseUser = buildUserFromResponse(data, idStr);
-        // Immediately persist the base object so the access token is in storage
-        // before fetchProfileEnrichment makes its authenticated request.
         await persistSession(baseUser, data.access_token, data.refresh_token);
         const userObj = await fetchProfileEnrichment(baseUser);
         await persistSession(userObj, data.access_token, data.refresh_token);
         setUser(userObj);
-        return { success: true, user: userObj };
+        setConsentRequired(Boolean(data.consent_required));
+        return { success: true, user: userObj, consentRequired: Boolean(data.consent_required) };
       }
 
       return { success: false, error: data.error ?? data.message ?? 'Invalid credentials.' };
 
     } catch {
-      // Offline fallback — ONLY available in local dev builds.
-      // In production a network failure shows a real error message; it never
-      // silently logs the user into a fake session.
       if (import.meta.env.DEV) {
         const found = findOfflineUser(identifier, password);
         if (found) {
           await persistSession(found, 'mock-token', null);
           setUser(found);
-          return { success: true, user: found };
+          return { success: true, user: found, consentRequired: false };
         }
         return { success: false, error: 'Cannot reach server. Check backend is running.' };
       }
@@ -479,6 +478,21 @@ export function AuthProvider({ children }) {
 
     await clearSession();
     setUser(null);
+    setConsentRequired(false);
+  }, []);
+
+  // ── Record Legal & Device Permissions Consent ─────────────────────────────
+  const recordConsent = useCallback(async (consentPayload) => {
+    try {
+      const res = await authApi.submitConsent(consentPayload);
+      if (res && !res.error) {
+        setConsentRequired(false);
+        return { success: true, consent: res.consent };
+      }
+      return { success: false, error: res?.error || 'Failed to record consent.' };
+    } catch (err) {
+      return { success: false, error: err.message || 'Network error recording consent.' };
+    }
   }, []);
 
   // ── Helpers consumed by route guards ─────────────────────────────────────
@@ -492,6 +506,9 @@ export function AuthProvider({ children }) {
       value={{
         user,
         authLoading,
+        consentRequired,
+        setConsentRequired,
+        recordConsent,
         login,
         register,
         updateUser,

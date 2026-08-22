@@ -42,6 +42,14 @@ class User(db.Model):
         uselist=False,
         foreign_keys="ProfessorProfile.user_id",
     )
+    consents = db.relationship("UserConsent", back_populates="user", cascade="all, delete-orphan", lazy="select")
+
+    def has_consented(self, version="1.0.0"):
+        """Checks if the user has accepted mandatory terms for the given agreement version."""
+        for c in self.consents:
+            if c.agreement_version == version and c.terms_accepted and c.guidelines_accepted:
+                return True
+        return False
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

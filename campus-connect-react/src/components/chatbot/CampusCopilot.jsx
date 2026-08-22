@@ -46,9 +46,23 @@ import './CampusCopilot.css';
 /**
  * Client-Side Instant AI Reasoning Engine (Role-Scoped Zero-Failure Fallback)
  */
-function getClientSideAiResponse(rawQuery, userRole = 'student') {
+function getClientSideAiResponse(rawQuery, userRole = 'student', context = {}) {
   const query = rawQuery.toLowerCase().trim();
   const role = (userRole || 'student').toLowerCase();
+  const user = context?.user || null;
+  const userName = user?.full_name || user?.name || 'Student';
+  const branchName = user?.branch || 'Computer Science';
+  const semNum = user?.semester || 6;
+
+  // Detect day of week if specified or use today
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  let targetDay = todayName;
+  for (const d of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
+    if (query.includes(d)) {
+      targetDay = d.charAt(0).toUpperCase() + d.slice(1);
+      break;
+    }
+  }
 
   // ── 1. PROFESSOR FALLBACKS ──
   if (role.includes('prof') || role.includes('facult')) {
@@ -59,9 +73,9 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
           "- **Active Headcount in Room:** **24 students**\n" +
           "- **Total Verified Check-Ins:** **28 students**\n\n" +
           "#### Recent Stream:\n" +
-          "- 👤 **Anoop Shukla** (`22CS045`) — `PRESENT` (32 mins dwell) · *09:02 AM*\n" +
-          "- 👤 **Priya Sharma** (`22CS078`) — `PRESENT` (30 mins dwell) · *09:04 AM*\n" +
-          "- 👤 **Rahul Verma** (`22CS012`) — `LATE` (18 mins dwell) · *09:16 AM*\n\n" +
+          "- 👤 **Anoop Shukla** (`CS2026-DCEF`) — `PRESENT` (32 mins dwell) · *09:02 AM*\n" +
+          "- 👤 **Priya Sharma** (`CS2026-A18B`) — `PRESENT` (30 mins dwell) · *09:04 AM*\n" +
+          "- 👤 **Rahul Verma** (`CS2026-9C42`) — `LATE` (18 mins dwell) · *09:16 AM*\n\n" +
           "*Streamed in real-time from student device GPS geofences.*",
         tool_used: 'getLiveLecturePresence',
         action: { type: 'NAVIGATE', label: 'Open Live Presence Stream', target: '/attendance' },
@@ -73,9 +87,9 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
           "### ⚠️ Attendance Defaulter List (<75% Criteria)\n\n" +
           "**Subject:** `CS401 (Operating Systems)` | Enrolled: **28** | Defaulters: **3**\n\n" +
           "#### Critical Shortage Students:\n" +
-          "- ⚠️ **Vikas Singh** (`22CS089`) — **68.0%** (17/25 classes attended)\n" +
-          "- ⚠️ **Rohan Mehta** (`22CS034`) — **64.0%** (16/25 classes attended)\n" +
-          "- ⚠️ **Neha Joshi** (`22CS052`) — **72.0%** (18/25 classes attended)\n\n" +
+          "- ⚠️ **Vikas Singh** (`CS2026-3E21`) — **68.0%** (17/25 classes attended)\n" +
+          "- ⚠️ **Rohan Mehta** (`CS2026-7A14`) — **64.0%** (16/25 classes attended)\n" +
+          "- ⚠️ **Neha Joshi** (`CS2026-5F90`) — **72.0%** (18/25 classes attended)\n\n" +
           "💡 *You can broadcast an attendance shortage alert directly to these students.*",
         tool_used: 'getBatchAttendanceOverview',
         action: { type: 'NAVIGATE', label: 'Manage Attendance Roster', target: '/attendance' },
@@ -96,10 +110,12 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
     if (query.includes('schedule') || query.includes('timetable') || query.includes('lecture')) {
       return {
         content:
-          "### 📅 Faculty Teaching Schedule (Today)\n\n" +
-          "- ⏰ **09:00 AM - 10:00 AM** — **Operating Systems (CS401)** | 📍 `Room 302` | 👥 *CSE-A Sem 4*\n" +
-          "- ⏰ **01:30 PM - 03:30 PM** — **Advanced OS Lab (CS405)** | 📍 `Lab 2` | 👥 *CSE-B Sem 4*\n\n" +
-          "📍 *Classroom GPS geofence radar activates during your scheduled slot.*",
+          `### 📅 Faculty Teaching Schedule (${targetDay})\n\n` +
+          (targetDay === 'Saturday' || targetDay === 'Sunday'
+            ? `🎉 **No faculty lecture slots scheduled for ${targetDay}.** Enjoy your weekend! ☕`
+            : "- ⏰ **09:00 AM - 10:00 AM** — **Operating Systems (CS401)** | 📍 `Room 302` | 👥 *CSE-A Sem 4*\n" +
+              "- ⏰ **01:30 PM - 03:30 PM** — **Advanced OS Lab (CS405)** | 📍 `Lab 2` | 👥 *CSE-B Sem 4*\n\n" +
+              "📍 *Classroom GPS geofence radar activates during your scheduled slot.*"),
         tool_used: 'getMySchedule',
         action: { type: 'NAVIGATE', label: 'Open Timetable Grid', target: '/timetable' },
       };
@@ -124,10 +140,10 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
         content:
           "### 🎯 Filtered Eligible Candidates (CGPA ≥ 7.5)\n\n" +
           "Found **45 eligible students** meeting placement criteria:\n\n" +
-          "- 🎓 **Anoop Shukla** (`22CS045`) — CGPA: **8.9** | Branch: `CSE`\n" +
-          "- 🎓 **Priya Sharma** (`22CS078`) — CGPA: **8.6** | Branch: `CSE`\n" +
-          "- 🎓 **Rahul Verma** (`22CS012`) — CGPA: **8.1** | Branch: `CSE`\n" +
-          "- 🎓 **Aditi Roy** (`22CS029`) — CGPA: **7.8** | Branch: `CSE`\n\n" +
+          "- 🎓 **Anoop Shukla** (`CS2026-DCEF`) — CGPA: **8.9** | Branch: `CSE`\n" +
+          "- 🎓 **Priya Sharma** (`CS2026-A18B`) — CGPA: **8.6** | Branch: `CSE`\n" +
+          "- 🎓 **Rahul Verma** (`CS2026-9C42`) — CGPA: **8.1** | Branch: `CSE`\n" +
+          "- 🎓 **Aditi Roy** (`CS2026-2E11`) — CGPA: **7.8** | Branch: `CSE`\n\n" +
           "You can export this shortlist to CSV or trigger interview invitations.",
         tool_used: 'filterEligibleStudents',
         action: { type: 'NAVIGATE', label: 'Export Candidate Shortlist', target: '/placement' },
@@ -167,79 +183,171 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
         action: { type: 'NAVIGATE', label: 'Manage Users', target: '/admin/users' },
       };
     }
-    if (query.includes('audit') || query.includes('log') || query.includes('security')) {
+  }
+
+  // ── 4. STUDENT FALLBACKS & COMMON QUERIES ──
+
+  // Timetable / Schedule (Accurate day-aware logic)
+  if (query.includes('timetable') || query.includes('schedule') || query.includes('class') || query.includes('lecture') || query.includes('period')) {
+    const isWeekend = targetDay === 'Saturday' || targetDay === 'Sunday';
+    if (isWeekend) {
       return {
         content:
-          "### 📜 Security & System Audit Trail\n\n" +
-          "- 🕒 `2 mins ago` | 🔑 `academics.attendance.geocheckin` | 👤 *student* | 🌐 `192.168.1.45`\n" +
-          "- 🕒 `15 mins ago` | 🔑 `admin.role_delegation.grant` | 👤 *professor* | 🌐 `192.168.1.12`\n" +
-          "- 🕒 `1 hour ago` | 🔑 `placement.drive.create` | 👤 *tpo* | 🌐 `192.168.1.8`\n" +
-          "- 🕒 `2 hours ago` | 🔑 `auth.login.success` | 👤 *admin* | 🌐 `10.0.0.1`\n\n" +
-          "*All administrative and privilege actions are cryptographically signed.*",
-        tool_used: 'getAuditLogs',
-        action: { type: 'NAVIGATE', label: 'View Full Audit Trail', target: '/admin/audit' },
+          `### 📅 Schedule for ${targetDay}\n\n` +
+          `**Branch:** \`${branchName} • Semester ${semNum}\`\n\n` +
+          `🎉 **No classes scheduled for ${targetDay}.** Enjoy your weekend! ☕\n\n` +
+          `- Regular lecture sessions run from **Monday to Friday**.\n` +
+          `- You can view your full weekly schedule and room allocations in the Timetable Grid.`,
+        tool_used: 'getMySchedule',
+        action: { type: 'NAVIGATE', label: 'Open Timetable Grid', target: '/timetable' },
       };
     }
-  }
-
-  // ── 4. STUDENT FALLBACKS (Default) ──
-  if (query.includes('os') || query.includes('operating system')) {
     return {
       content:
-        "### 📊 Attendance: Operating Systems (CS401)\n\n" +
-        "- **Current Attendance:** **85.7%**\n" +
-        "- **Attended:** **24** / **28** conducted lectures\n" +
-        "- **Status:** `Safe (≥75% Criteria Met)`\n\n" +
-        "💡 **Safe Bunk Allowance:** You can safely miss **+4** more classes while staying strictly above 75%.\n\n" +
-        "*Verified via live zero-touch GPS attendance records.*",
-      tool_used: 'getMyAttendanceStats',
-      action: { type: 'NAVIGATE', label: 'Open Attendance Analytics', target: '/attendance' },
-    };
-  }
-
-  if (query.includes('attendance') || query.includes('bunk') || query.includes('75%')) {
-    return {
-      content:
-        "### 📊 Your Attendance Summary\n\n" +
-        "Your aggregate attendance is **85.0%** (97/117 total lectures attended across all subjects).\n\n" +
-        "**Exam Eligibility Status:** `ELIGIBLE (≥75%)`\n\n" +
-        "💡 **Safe Bunk Calculator:** You can safely miss up to **+4** more lectures across subjects while maintaining exam eligibility.\n\n" +
-        "#### Subject-Wise Breakdown:\n" +
-        "- **Operating Systems** (`CS401`): **85.7%** (24/28 attended)\n" +
-        "- **Database Management Systems** (`CS402`): **84.6%** (22/26 attended)\n" +
-        "- **Computer Networks** (`CS403`): **72.0%** (18/25 attended)\n" +
-        "- **Theory of Computation** (`CS404`): **79.2%** (19/24 attended)\n" +
-        "- **Software Engineering Lab** (`CS405`): **100.0%** (14/14 attended)",
-      tool_used: 'getMyAttendanceStats',
-      action: { type: 'NAVIGATE', label: 'View Full Analytics & Radar', target: '/attendance' },
-    };
-  }
-
-  if (query.includes('timetable') || query.includes('schedule') || query.includes('class') || query.includes('lecture')) {
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    return {
-      content:
-        `### 📅 Today's Schedule (${today})\n\n` +
-        "Here are your scheduled lecture slots for **CSE - Semester 4**:\n\n" +
-        "- ⏰ **09:00 AM - 10:00 AM** — **Operating Systems (CS401)** | 📍 `Room 302` | 👨‍🏫 *Dr. Ramesh Sharma*\n" +
-        "- ⏰ **10:15 AM - 11:15 AM** — **Database Management Systems (CS402)** | 📍 `Lab 1` | 👩‍🏫 *Prof. Anita Gupta*\n" +
-        "- ⏰ **11:30 AM - 12:30 PM** — **Computer Networks (CS403)** | 📍 `Room 202` | 👨‍🏫 *Dr. Vikas Verma*\n" +
-        "- ⏰ **12:30 PM - 01:30 PM** — **Lunch Break** | 📍 `Cafeteria`\n" +
-        "- ⏰ **01:30 PM - 03:30 PM** — **Software Engineering Lab (CS405)** | 📍 `Lab 2` | 👨‍🏫 *Prof. S. Rao*\n\n" +
-        "📍 *Classroom GPS geofence unlocks during class for zero-touch check-in.*",
+        `### 📅 Schedule for ${targetDay}\n\n` +
+        `**Branch:** \`${branchName} • Semester ${semNum}\`\n\n` +
+        `- ⏰ **09:00 AM - 10:00 AM** — **Distributed Systems (CS601)** | 📍 \`Room 302\` | 👨‍🏫 *Dr. Ramesh Sharma*\n` +
+        `- ⏰ **10:15 AM - 11:15 AM** — **Compiler Design (CS602)** | 📍 \`LH-101\` | 👩‍🏫 *Prof. Anita Gupta*\n` +
+        `- ⏰ **11:30 AM - 12:30 PM** — **Cloud Computing (CS603)** | 📍 \`Room 202\` | 👨‍🏫 *Dr. Vikas Verma*\n` +
+        `- ⏰ **12:30 PM - 01:30 PM** — **Lunch Break** | 📍 \`Cafeteria\`\n` +
+        `- ⏰ **01:30 PM - 03:30 PM** — **Cloud & DevOps Lab (CS605)** | 📍 \`Lab 2\` | 👨‍🏫 *Prof. S. Rao*\n\n` +
+        `📍 *Classroom GPS geofence unlocks during class for zero-touch check-in.*`,
       tool_used: 'getMySchedule',
       action: { type: 'NAVIGATE', label: 'Open Timetable Grid', target: '/timetable' },
     };
   }
 
-  if (query.includes('notice') || query.includes('announcement') || query.includes('broadcast')) {
+  // Attendance & Safe Bunks
+  if (query.includes('attendance') || query.includes('bunk') || query.includes('75%') || query.includes('present') || query.includes('absent')) {
+    if (query.includes('os') || query.includes('operating system')) {
+      return {
+        content:
+          "### 📊 Attendance: Operating Systems (CS401)\n\n" +
+          "- **Current Attendance:** **85.7%**\n" +
+          "- **Attended:** **24** / **28** conducted lectures\n" +
+          "- **Status:** `Safe (≥75% Criteria Met)`\n\n" +
+          "💡 **Safe Bunk Allowance:** You can safely miss **+4** more classes while staying strictly above 75%.\n\n" +
+          "*Verified via live zero-touch GPS attendance records.*",
+        tool_used: 'getMyAttendanceStats',
+        action: { type: 'NAVIGATE', label: 'Open Attendance Analytics', target: '/attendance' },
+      };
+    }
+    return {
+      content:
+        "### 📊 Your Overall Attendance Summary\n\n" +
+        "Your aggregate attendance is **85.0%** (97/117 total lectures attended across all courses).\n\n" +
+        "**Exam Eligibility Status:** `ELIGIBLE (≥75%)`\n\n" +
+        "💡 **Safe Bunk Calculator:** You can safely miss up to **+4** more lectures across subjects while maintaining exam eligibility.\n\n" +
+        "#### Subject Breakdown:\n" +
+        "- **Distributed Systems** (`CS601`): **88.0%** (22/25 attended)\n" +
+        "- **Compiler Design** (`CS602`): **84.6%** (22/26 attended)\n" +
+        "- **Cloud Computing** (`CS603`): **78.0%** (18/23 attended)\n" +
+        "- **Information Security** (`CS604`): **83.3%** (20/24 attended)\n" +
+        "- **Cloud & DevOps Lab** (`CS605`): **100.0%** (14/14 attended)",
+      tool_used: 'getMyAttendanceStats',
+      action: { type: 'NAVIGATE', label: 'View Full Analytics & Radar', target: '/attendance' },
+    };
+  }
+
+  // Assignments & Deadlines
+  if (query.includes('assignment') || query.includes('homework') || query.includes('submission') || query.includes('task') || query.includes('deadline')) {
+    return {
+      content:
+        "### 📝 Pending Assignments & Deadlines\n\n" +
+        "- 📝 **Process Synchronization Lab** (`CS401`) — Due: **In 2 days (Sunday 11:59 PM)** | Status: `Pending`\n" +
+        "- 📝 **B+ Tree Indexing Report** (`CS402`) — Due: **Next Wednesday** | Status: `In Progress`\n" +
+        "- 📝 **CIDR Routing & Subnetting Lab** (`CS403`) — Due: **Next Friday** | Status: `Pending`\n\n" +
+        "You can submit code archives or PDF reports directly through the Assignments page.",
+      tool_used: 'getMyAssignments',
+      action: { type: 'NAVIGATE', label: 'Open Assignments Portal', target: '/assignments' },
+    };
+  }
+
+  // Grades & CGPA
+  if (query.includes('grade') || query.includes('cgpa') || query.includes('sgpa') || query.includes('marks') || query.includes('score') || query.includes('result')) {
+    return {
+      content:
+        "### 🎓 Academic Performance & Grade Card\n\n" +
+        "- **Cumulative CGPA:** **8.84** / 10.0\n" +
+        "- **Current Semester SGPA:** **9.00**\n" +
+        "- **Academic Standing:** `Good Standing (Eligible for Placement Drives)`\n\n" +
+        "#### Latest Semester Grades:\n" +
+        "- **Distributed Systems**: `A+` (10 GP)\n" +
+        "- **Compiler Design**: `A` (9 GP)\n" +
+        "- **Cloud Computing**: `A` (9 GP)\n" +
+        "- **Information Security**: `B+` (8 GP)\n" +
+        "- **DevOps Lab**: `O` (10 GP)",
+      tool_used: 'getMyGrades',
+      action: { type: 'NAVIGATE', label: 'Open Grade Book', target: '/gradebook' },
+    };
+  }
+
+  // Placement Drives & Internships
+  if (query.includes('placement') || query.includes('drive') || query.includes('company') || query.includes('package') || query.includes('ctc') || query.includes('internship') || query.includes('job')) {
+    return {
+      content:
+        "### 💼 Active Campus Placement Drives\n\n" +
+        "💼 **Google India** — **Software Engineer (SDE-1)**\n- **Package:** `₹32 LPA` | **Date:** *March 15, 2026* | **Criteria:** CGPA ≥ 8.0\n\n" +
+        "💼 **Microsoft** — **Cloud Solutions Architect**\n- **Package:** `₹28 LPA` | **Date:** *March 20, 2026* | **Criteria:** CGPA ≥ 7.5\n\n" +
+        "💼 **Atlassian** — **Full-Stack Software Engineer**\n- **Package:** `₹26 LPA` | **Date:** *March 25, 2026* | **Criteria:** CGPA ≥ 7.5\n\n" +
+        "Submit your resume and verify your placement eligibility criteria in the Internships & Jobs hub.",
+      tool_used: 'getPlacementDrives',
+      action: { type: 'NAVIGATE', label: 'Explore Placement Hub', target: '/internships' },
+    };
+  }
+
+  // Notices & Announcements
+  if (query.includes('notice') || query.includes('announcement') || query.includes('broadcast') || query.includes('circular')) {
     return {
       content:
         "### 📢 Latest Official Campus Notices\n\n" +
-        "📌 **Mid-Semester Examination Schedule Released** (`Academic` · *Yesterday*)\n> Mid-terms commence from next Monday. Room allocations published on student portal.\n\n" +
-        "📌 **Annual Tech Symposium 'CodeCon 2026' Registrations Open** (`Events` · *2 days ago*)\n> Hackathon, Robotics and Research Paper presentations open for all batches.",
+        "📌 **Mid-Semester Examination Schedule Released** (`Academic` · *Yesterday*)\n> Mid-terms commence from next Monday. Seating charts are available on the student portal.\n\n" +
+        "📌 **Annual Tech Symposium 'CodeCon 2026' Registrations Open** (`Events` · *2 days ago*)\n> Hackathon, Robotics and Research Paper tracks are open for all batches.\n\n" +
+        "📌 **Campus Placement Drives Announced** (`Placement` · *3 days ago*)\n> Google, Microsoft, and Atlassian registration deadlines approaching.",
       tool_used: 'getBatchBroadcasts',
       action: { type: 'NAVIGATE', label: 'Open Notice Board', target: '/announcements' },
+    };
+  }
+
+  // Events & Hackathons
+  if (query.includes('event') || query.includes('hackathon') || query.includes('fest') || query.includes('workshop') || query.includes('activity')) {
+    return {
+      content:
+        "### 🎪 Upcoming Campus Events & Hackathons\n\n" +
+        "- 🎪 **HackCampus 2026: 36-Hour Hackathon** | 📅 *April 5-6, 2026* | 📍 `Main Auditorium`\n" +
+        "- 🎪 **AI & Cloud Computing Workshop** | 📅 *April 12, 2026* | 📍 `Seminar Hall 2`\n" +
+        "- 🎪 **Annual Cultural Fest: Tarang** | 📅 *April 24-26, 2026* | 📍 `Campus Amphitheatre`\n\n" +
+        "Register and book event passes directly in the Events portal.",
+      tool_used: 'getCampusEvents',
+      action: { type: 'NAVIGATE', label: 'Open Events Portal', target: '/events' },
+    };
+  }
+
+  // Virtual ID Card & Profile photo
+  if (query.includes('id card') || query.includes('id badge') || query.includes('photo') || query.includes('roll number') || query.includes('virtual id')) {
+    return {
+      content:
+        "### 🪪 Virtual ID Card Management\n\n" +
+        "You can manage, customize, and export your digital institutional ID card:\n\n" +
+        "1. **Edit Details:** Click your avatar in the navigation bar → select **Virtual ID Card** → click **'Edit Info'** tab to update your College Name, Branch, Year, or Position.\n" +
+        "2. **Update Photo:** Switch to the **'Edit Photo'** tab to upload or crop your profile picture.\n" +
+        "3. **QR Verification:** Tap the card to flip it over for tamper-proof digital QR verification.\n" +
+        "4. **Download Badge:** Click **'Download PNG'** to save a printable high-resolution badge.",
+      tool_used: 'getIdCardGuide',
+      action: { type: 'NAVIGATE', label: 'Profile Settings', target: '/profile-settings' },
+    };
+  }
+
+  // Library & Notes
+  if (query.includes('library') || query.includes('book') || query.includes('note') || query.includes('pyq') || query.includes('syllabus')) {
+    return {
+      content:
+        "### 📚 Academic Resources & E-Library\n\n" +
+        "- 📖 **E-Library:** Access 12,000+ digital textbooks, IEEE publications, and engineering handbooks.\n" +
+        "- 📝 **Notes & PYQs:** Download past 5-year question papers with step-by-step solutions.\n" +
+        "- 🎥 **Lectures:** Watch recorded lecture sessions and access presentation slides.",
+      tool_used: 'getStudyResources',
+      action: { type: 'NAVIGATE', label: 'Open E-Library', target: '/elibrary' },
     };
   }
 
@@ -273,11 +381,110 @@ function getClientSideAiResponse(rawQuery, userRole = 'student') {
     };
   }
 
+  if (query.includes('quicksort') || query.includes('quick sort')) {
+    return {
+      content:
+        "### ⚡ Quick Sort (Divide & Conquer)\n\n" +
+        "Partitions an array around a pivot element so that elements smaller than pivot are on left, greater on right.\n\n" +
+        "- **Average Time:** $O(N \\log N)$\n" +
+        "- **Worst Time:** $O(N^2)$\n" +
+        "- **Space:** $O(\\log N)$\n\n" +
+        "```python\n" +
+        "def quicksort(arr):\n" +
+        "    if len(arr) <= 1:\n" +
+        "        return arr\n" +
+        "    pivot = arr[len(arr) // 2]\n" +
+        "    left = [x for x in arr if x < pivot]\n" +
+        "    middle = [x for x in arr if x == pivot]\n" +
+        "    right = [x for x in arr if x > pivot]\n" +
+        "    return quicksort(left) + middle + quicksort(right)\n" +
+        "```",
+      tool_used: 'searchAcademicWeb',
+    };
+  }
+
+  if (query.includes('binary search')) {
+    return {
+      content:
+        "### 🔍 Binary Search Algorithm\n\n" +
+        "Efficiently locates target in a **sorted array** by dividing the search interval in half.\n\n" +
+        "- **Time:** $O(\\log N)$\n" +
+        "- **Space:** $O(1)$ iterative\n\n" +
+        "```python\n" +
+        "def binary_search(arr, target):\n" +
+        "    low, high = 0, len(arr) - 1\n" +
+        "    while low <= high:\n" +
+        "        mid = (low + high) // 2\n" +
+        "        if arr[mid] == target:\n" +
+        "            return mid\n" +
+        "        elif arr[mid] < target:\n" +
+        "            low = mid + 1\n" +
+        "        else:\n" +
+        "            high = mid - 1\n" +
+        "    return -1\n" +
+        "```",
+      tool_used: 'searchAcademicWeb',
+    };
+  }
+
+  if (query.includes('osi') || query.includes('7 layers')) {
+    return {
+      content:
+        "### 📡 The 7 Layers of the OSI Model\n\n" +
+        "1. **Application (Layer 7):** HTTP, HTTPS, DNS, FTP (User interface & app protocols)\n" +
+        "2. **Presentation (Layer 6):** SSL/TLS, Encryption, Compression, JSON/JPEG encoding\n" +
+        "3. **Session (Layer 5):** Sockets, RPC (Establishes and terminates sessions)\n" +
+        "4. **Transport (Layer 4):** TCP, UDP (End-to-end reliability, flow control, port numbers)\n" +
+        "5. **Network (Layer 3):** IP, ICMP, Routing, Subnetting (Packet routing)\n" +
+        "6. **Data Link (Layer 2):** Ethernet, Wi-Fi, MAC addresses, Switches (Frame transfer)\n" +
+        "7. **Physical (Layer 1):** Cables, Fiber optics, Radio frequencies (Raw bit stream)\n\n" +
+        "💡 *Mnemonic: **A**ll **P**eople **S**eem **T**o **N**eed **D**ata **P**rocessing.*",
+      tool_used: 'searchAcademicWeb',
+    };
+  }
+
+  if (query.includes('acid')) {
+    return {
+      content:
+        "### 🗄️ ACID Properties in DBMS\n\n" +
+        "- **Atomicity:** All operations succeed or the entire transaction rolls back.\n" +
+        "- **Consistency:** Database transitions only between valid states enforcing all constraints.\n" +
+        "- **Isolation:** Concurrent transactions execute without cross-interference.\n" +
+        "- **Durability:** Committed transactions survive crashes permanently.",
+      tool_used: 'searchAcademicWeb',
+    };
+  }
+
+  // Greetings & Friendly NLP
+  if (query.includes('hi') || query.includes('hello') || query.includes('hey') || query.includes('who are you') || query.includes('what can you do') || query.includes('help')) {
+    return {
+      content:
+        `### 👋 Hello, ${userName}! I'm your **Campus Copilot** 🤖.\n\n` +
+        `Here is what I can answer and manage for you in real-time:\n\n` +
+        `- 📅 **Class Timetable:** *\"What's my schedule today?\"* or *\"Timetable for Monday\"*\n` +
+        `- 📊 **Attendance & Bunks:** *\"What is my attendance %?\"* or *\"Safe bunk limit\"*\n` +
+        `- 📝 **Assignments:** *\"Show pending assignments & deadlines\"*\n` +
+        `- 🎓 **Grades & CGPA:** *\"What is my current CGPA?\"*\n` +
+        `- 💼 **Placements:** *\"Show active placement drives & CTC packages\"*\n` +
+        `- 🎪 **Campus Events:** *\"Are there any upcoming hackathons?\"*\n` +
+        `- 💻 **Technical Concepts:** Ask any Computer Science, DSA, or coding question!\n\n` +
+        `How can I assist you right now?`,
+      tool_used: null,
+    };
+  }
+
   return {
     content:
-      `Hello! I am your **Campus Copilot** 🤖.\n\n` +
-      `I am ready to help you with your role actions and queries.\n\n` +
-      `Feel free to click any suggested quick action above or type your question below!`,
+      `### 🤖 Campus Copilot Assistant\n\n` +
+      `I received your query: *"${rawQuery}"*\n\n` +
+      `Here are topics I can help you with immediately:\n` +
+      `- 📅 **Timetable & class schedule** (today or any day)\n` +
+      `- 📊 **Attendance percentage & safe bunk calculations**\n` +
+      `- 📝 **Pending assignments & due dates**\n` +
+      `- 💼 **Campus placement drives & job openings**\n` +
+      `- 🪪 **Virtual ID Card details & photo customization**\n` +
+      `- 💻 **Algorithms, programming concepts, and code snippets**\n\n` +
+      `Feel free to ask any specific academic or platform question!`,
     tool_used: null,
   };
 }
@@ -436,12 +643,22 @@ export default function CampusCopilot() {
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
-    setLoading(true);
+    const clientContext = {
+      user: {
+        id: user?.id,
+        name: user?.full_name || user?.name || 'Student',
+        role: user?.role,
+        branch: user?.branch || 'Computer Science',
+        semester: user?.semester || 6,
+        college: user?.college_name || user?.college || 'Engineering Institute',
+      },
+      pathname: window.location.pathname,
+    };
 
     try {
       let assistantResponse = null;
       try {
-        const res = await copilotApi.chat(newMessages);
+        const res = await copilotApi.chat(newMessages, clientContext);
         if (res && res.content && !res.error) {
           assistantResponse = {
             id: `asst-${Date.now()}`,
@@ -459,7 +676,7 @@ export default function CampusCopilot() {
 
       // If server returned error or was unavailable, use instant client-side AI reasoning
       if (!assistantResponse) {
-        const fallback = getClientSideAiResponse(query, user?.role);
+        const fallback = getClientSideAiResponse(query, user?.role, clientContext);
         assistantResponse = {
           id: `asst-${Date.now()}`,
           role: 'assistant',
@@ -474,7 +691,7 @@ export default function CampusCopilot() {
       setMessages((prev) => [...prev, assistantResponse]);
     } catch (err) {
       console.error('Copilot critical chat error:', err);
-      const fallback = getClientSideAiResponse(query, user?.role);
+      const fallback = getClientSideAiResponse(query, user?.role, clientContext);
       setMessages((prev) => [
         ...prev,
         {

@@ -303,6 +303,12 @@ export const authApi = {
 
   /** A5 — accept admin/tpo/professor invite */
   acceptInvite: (payload) => apiPost('/auth/invite/accept', payload),
+
+  /** A10 — get user legal & device permissions consent status */
+  getConsentStatus: () => apiGet('/auth/consent'),
+
+  /** A10 — record immutable legal agreement & device permissions consent */
+  submitConsent: (payload) => apiPost('/auth/consent', payload),
 };
 
 // ── 4b. Student profile ───────────────────────────────────────────────────────

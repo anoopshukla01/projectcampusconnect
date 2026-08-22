@@ -23,6 +23,8 @@
     "@capacitor/network": "^8.0.1",
     "@capacitor/privacy-screen": "^2.0.1",
     "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@capgo/capacitor-native-biometric": "^8.6.3",
     "@vitejs/plugin-react": "^4.7.0",
     "firebase": "^12.17.0",

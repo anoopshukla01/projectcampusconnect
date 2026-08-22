@@ -40,6 +40,7 @@ from app.models.content import (
 )
 from app.models.notification import Notification
 from app.models.rule import SystemRule
+from app.models.consent import UserConsent
 
 __all__ = [
     "Branch",
@@ -66,4 +67,5 @@ __all__ = [
     "MockInterviewSession", "MockInterviewBooking",
     "LectureRecording", "SyllabusProgress",
     "Notification", "SystemRule",
+    "UserConsent",
 ]

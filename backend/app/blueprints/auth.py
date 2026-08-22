@@ -56,6 +56,7 @@ from app.models.token import Invite, OTPPurpose, OTPToken, RefreshToken
 from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile, ApprovalStatus
+from app.models.consent import UserConsent
 from app.schemas.auth import (
     FacultyRegisterSchema,
     InviteAcceptSchema,
@@ -616,6 +617,7 @@ def login():
         "email": user.email,
         "college_name": user.college.name if user.college else "Campus Connect University",
         "college_code": user.college.code if user.college else "CCU",
+        "consent_required": not user.has_consented("1.0.0"),
     }
 
     if user.role.value == "student":
@@ -783,6 +785,107 @@ def password_change():
 
     audit_action("auth.password.change.success", target_type="user", target_id=str(user.id))
     return jsonify({"message": "Password changed. Please log in again on all devices."}), 200
+
+
+# ── A10: GET /auth/consent & POST /auth/consent ───────────────────────────────
+
+@auth_bp.get("/consent")
+@require_auth
+def get_consent_status():
+    """
+    Returns legal & device permissions consent status for the authenticated user.
+    """
+    from app.auth.permissions import get_current_user
+    user = get_current_user()
+    active_version = current_app.config.get("LEGAL_AGREEMENT_VERSION", "1.0.0")
+
+    consent = (
+        db.session.query(UserConsent)
+        .filter_by(user_id=user.id, agreement_version=active_version)
+        .first()
+    )
+
+    return jsonify({
+        "consent_required": not bool(consent and consent.terms_accepted and consent.guidelines_accepted),
+        "active_agreement_version": active_version,
+        "consent": consent.to_dict() if consent else None,
+    }), 200
+
+
+@auth_bp.post("/consent")
+@require_auth
+@limiter.limit("20 per hour")
+def record_consent():
+    """
+    Records immutable legal agreement & device permissions consent.
+    """
+    from app.auth.permissions import get_current_user
+    user = get_current_user()
+    payload = request.get_json(force=True) or {}
+
+    terms_accepted = bool(payload.get("terms_accepted") or payload.get("termsAccepted"))
+    guidelines_accepted = bool(payload.get("guidelines_accepted") or payload.get("guidelinesAccepted"))
+
+    if not terms_accepted or not guidelines_accepted:
+        return error_response("Terms of Service and User Guidelines must both be accepted.", 400)
+
+    version = payload.get("agreement_version") or payload.get("agreementVersion") or "1.0.0"
+    location_consent = bool(payload.get("location_consent") or payload.get("locationConsent"))
+    storage_consent = bool(payload.get("storage_consent") or payload.get("storageConsent"))
+    notif_consent = bool(payload.get("notif_consent") or payload.get("notifConsent"))
+
+    ip_addr = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if ip_addr and "," in ip_addr:
+        ip_addr = ip_addr.split(",")[0].strip()
+    user_agent = request.headers.get("User-Agent", "")[:500]
+
+    consent = (
+        db.session.query(UserConsent)
+        .filter_by(user_id=user.id, agreement_version=version)
+        .first()
+    )
+
+    if not consent:
+        consent = UserConsent(
+            user_id=user.id,
+            college_id=user.college_id,
+            agreement_version=version,
+        )
+        db.session.add(consent)
+
+    consent.terms_accepted = terms_accepted
+    consent.guidelines_accepted = guidelines_accepted
+    consent.location_consent = location_consent
+    consent.storage_consent = storage_consent
+    consent.notif_consent = notif_consent
+    consent.accepted_at = datetime.now(timezone.utc)
+    consent.ip_address = ip_addr
+    consent.user_agent = user_agent
+
+    # Also update dpdp_consent_given on StudentProfile if student
+    if user.role == UserRole.STUDENT and user.student_profile:
+        user.student_profile.dpdp_consent_given = True
+        user.student_profile.dpdp_consent_at = datetime.now(timezone.utc)
+
+    db.session.commit()
+
+    audit_action(
+        "auth.consent.accepted",
+        target_type="user",
+        target_id=str(user.id),
+        detail={
+            "agreement_version": version,
+            "location_consent": location_consent,
+            "storage_consent": storage_consent,
+            "notif_consent": notif_consent,
+            "ip_address": ip_addr,
+        }
+    )
+
+    return jsonify({
+        "message": "Consent recorded successfully.",
+        "consent": consent.to_dict(),
+    }), 200
 
 
 

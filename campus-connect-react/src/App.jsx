@@ -56,11 +56,10 @@ import Settings from './pages/Settings/Settings';
 // ── Student Detail pages (4 role-specific views) ──────────────────────────────
 import AdminStudentDetail     from '@admin/StudentDetail/StudentDetail';
 import TPOStudentDetail       from '@placement/StudentDetail/StudentDetail';
-import ProfStudentDetail      from './pages/professorDashboard/StudentDetail/StudentDetail';
-import StudentSelfView        from './pages/StudentDetail/StudentDetail';
-
 import { PermissionModal } from './components/PermissionModal/PermissionModal';
+import ConsentGateModal from './components/ConsentGate/ConsentGateModal';
 import CampusCopilot from './components/chatbot/CampusCopilot';
+import { MobileBridgeProvider } from './components/mobile/MobileBridgeProvider';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { Network } from '@capacitor/network';
@@ -125,7 +124,7 @@ export default function App() {
   const onlyAdmin   = (el) => isAdmin   ? el : <Navigate to="/" replace />;
 
   return (
-    <>
+    <MobileBridgeProvider>
       <PermissionModal />
       <Routes>
         {/* Public */}
@@ -203,8 +202,11 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
+      {/* Mandatory Permissions, User Guide & Legal Consent Gate */}
+      <ConsentGateModal />
+
       {/* Floating AI Copilot Assistant */}
       {user && <CampusCopilot />}
-    </>
+    </MobileBridgeProvider>
   );
 }

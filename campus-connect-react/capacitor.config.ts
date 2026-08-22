@@ -4,14 +4,34 @@ const config: CapacitorConfig = {
   appId: 'com.college.campusconnect',
   appName: 'Campus Connect',
   webDir: 'dist',
-  // No `server.url` here — Capacitor serves the bundled dist/ folder.
-  // For local dev/testing only, you can temporarily restore:
-  //   server: { url: 'http://YOUR_LOCAL_IP:5173', cleartext: true }
-  // Remove it before building a release APK.
+  server: {
+    // Direct link to live production deployment for instant OTA auto-updates
+    url: 'https://projectcampusconnect.vercel.app',
+    cleartext: false,
+    androidScheme: 'https',
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 2500,
+      launchAutoHide: true,
+      backgroundColor: '#4f46e5',
+      androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: true,
+      spinnerColor: '#ffffff',
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#4338ca',
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
   android: {
-    allowMixedContent: false,
+    allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: false,   // set true only for debug builds
+    webContentsDebuggingEnabled: false,
   },
 };
 

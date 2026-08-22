@@ -36,6 +36,8 @@ export default function UserManagement() {
   const [newTagInput, setNewTagInput] = useState('');
   const [newUser, setNewUser]   = useState({ email:'', role:'professor' });
   const [inviteTokenResult, setInviteTokenResult] = useState('');
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [manualUser, setManualUser] = useState({
     role: 'student',
     email: '',
@@ -82,6 +84,21 @@ export default function UserManagement() {
     if (res?.error) { showToast(res.error, 'error', 3000); return; }
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: !user.is_active } : u));
     showToast(`User account ${!user.is_active ? 'activated' : 'deactivated'}.`, 'success', 2000);
+  }
+
+  async function handleDeleteUser() {
+    if (!userToDelete) return;
+    setDeleteLoading(true);
+    showToast('Deleting user...', 'info', 2000);
+    const res = await adminApi.deleteUser(userToDelete.id);
+    setDeleteLoading(false);
+    if (res?.error) {
+      showToast(res.error, 'error', 3000);
+      return;
+    }
+    showToast('User account successfully deleted.', 'success', 2500);
+    setUserToDelete(null);
+    fetchUsers();
   }
 
   async function generateInvite() {
@@ -310,6 +327,20 @@ export default function UserManagement() {
                           onClick={() => navigate(`/admin/audit?actor=${encodeURIComponent(u.email || u.id)}`)}
                         >
                           Logs
+                        </button>
+                        <button
+                          className="ad-btn ad-btn-danger"
+                          style={{
+                            padding: '0.3rem 0.6rem',
+                            fontSize: '0.78rem',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                          }}
+                          title="Delete user account"
+                          onClick={() => setUserToDelete(u)}
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -728,6 +759,76 @@ export default function UserManagement() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
               <button className="ad-btn ad-btn-outline" onClick={() => setShowRestrictionsModal(false)}>Cancel</button>
               <button className="ad-btn ad-btn-primary" onClick={handleSaveRestrictions}>Save Restrictions</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div className="ad-modal-overlay open" onClick={() => !deleteLoading && setUserToDelete(null)}>
+          <div className="ad-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem',
+                flexShrink: 0
+              }}>
+                ⚠️
+              </div>
+              <div>
+                <h2 className="ad-modal-title" style={{ margin: 0, fontSize: '1.15rem' }}>Delete User Account</h2>
+                <p className="ad-modal-sub" style={{ margin: 0 }}>This action removes the user and terminates their access.</p>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'var(--bg-subtle, rgba(0,0,0,0.03))',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '0.85rem 1rem',
+              marginBottom: '1rem'
+            }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {userToDelete.full_name || userToDelete.email || userToDelete.roll_no || userToDelete.employee_id || userToDelete.id}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Role: <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{userToDelete.role}</span>
+                {userToDelete.email && ` • ${userToDelete.email}`}
+                {userToDelete.roll_no && ` • Roll: ${userToDelete.roll_no}`}
+                {userToDelete.employee_id && ` • Emp ID: ${userToDelete.employee_id}`}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: '#ef4444', marginBottom: '1.25rem', lineHeight: 1.4 }}>
+              Are you sure you want to delete this user? Their active sessions will be terminated and their account will be soft-deleted in compliance with the audit logs.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="ad-btn ad-btn-outline"
+                onClick={() => setUserToDelete(null)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ad-btn ad-btn-danger"
+                style={{ background: '#ef4444', color: '#fff' }}
+                onClick={handleDeleteUser}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
+              </button>
             </div>
           </div>
         </div>

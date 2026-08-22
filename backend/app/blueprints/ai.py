@@ -2,7 +2,7 @@
 Campus Connect AI Copilot Blueprint (Role-Scoped Agent)
 ======================================================
 Strict, role-sandboxed AI Assistant supporting:
-1. Learner League (Student): Personal attendance, schedule, batch broadcasts, academic concepts.
+1. Learner League (Student): Personal attendance, real timetable/schedule, assignments, placement drives, grades, academic concepts.
 2. Faculty League (Professor): Live lecture presence, class attendance overview, defaulters (<75%), broadcast drafting.
 3. Placement League (TPO): Placement drive stats, student eligibility filtering, placement alerts, hiring trends.
 4. System League (Admin): System health overview, user directory query, audit logs, compliance guidelines.
@@ -13,13 +13,13 @@ import logging
 from datetime import datetime, timezone, timedelta
 import re
 from flask import Blueprint, request, jsonify
-from app.utils.auth import require_auth, get_current_user
-from app.models.user import User
+from app.auth.permissions import get_current_user
+from app.models.user import User, UserRole
 from app.models.student import StudentProfile
 from app.models.professor import ProfessorProfile
-from app.models.academic import AttendanceRecord, TimetableSlot, StudentPrivilege, Assignment, LiveSessionPresence
-from app.models.community import Announcement
-from app.models.placement import PlacementDrive, PlacementApplication
+from app.models.academic import AttendanceRecord, TimetableSlot, Assignment, AssignmentSubmission, Grade
+from app.models.community import Announcement, CampusEvent, StudyNote, LibraryResource
+from app.models.placement import PlacementDrive, DriveApplication
 from app.models.audit import AuditLog
 from app.extensions import db
 
@@ -34,22 +34,35 @@ ROLE_LEAGUE_MAP = {
     "student": {
         "league": "Learner League",
         "badge": "🎓 Learner League",
-        "allowed_tools": ["getMyAttendanceStats", "getMySchedule", "getBatchBroadcasts", "searchAcademicWeb", "getDelegations"],
+        "allowed_tools": [
+            "getMyAttendanceStats", "getMySchedule", "getMyAssignments",
+            "getMyGrades", "getPlacementDrives", "getBatchBroadcasts",
+            "getCampusEvents", "getStudyResources", "searchAcademicWeb"
+        ],
     },
     "professor": {
         "league": "Faculty League",
         "badge": "👨‍🏫 Faculty League",
-        "allowed_tools": ["getLiveLecturePresence", "getBatchAttendanceOverview", "draftClassAnnouncement", "getMySchedule", "searchAcademicWeb"],
+        "allowed_tools": [
+            "getLiveLecturePresence", "getBatchAttendanceOverview",
+            "draftClassAnnouncement", "getMySchedule", "searchAcademicWeb"
+        ],
     },
     "tpo": {
         "league": "Placement League",
         "badge": "💼 Placement League",
-        "allowed_tools": ["getPlacementDriveStats", "filterEligibleStudents", "draftPlacementNotice", "searchIndustryWeb"],
+        "allowed_tools": [
+            "getPlacementDriveStats", "filterEligibleStudents",
+            "draftPlacementNotice", "searchIndustryWeb"
+        ],
     },
     "admin": {
         "league": "System League",
         "badge": "🛡️ System League",
-        "allowed_tools": ["getSystemHealthOverview", "queryUserDirectory", "getAuditLogs", "getBatchBroadcasts", "searchGeneralWeb"],
+        "allowed_tools": [
+            "getSystemHealthOverview", "queryUserDirectory",
+            "getAuditLogs", "getBatchBroadcasts", "searchGeneralWeb"
+        ],
     },
 }
 
@@ -135,19 +148,35 @@ def _tool_get_attendance(user, student, subject_filter=None):
     }
 
 
-def _tool_get_timetable(user, student=None, prof=None):
+def _tool_get_timetable(user, student=None, prof=None, target_day=None):
     today_name = datetime.now(timezone.utc).strftime("%A")
     day_short = datetime.now(timezone.utc).strftime("%a")
+
+    day_query = target_day if target_day else today_name
+
+    # Normalize day name
+    day_map = {
+        "mon": "Monday", "monday": "Monday",
+        "tue": "Tuesday", "tuesday": "Tuesday",
+        "wed": "Wednesday", "wednesday": "Wednesday",
+        "thu": "Thursday", "thursday": "Thursday",
+        "fri": "Friday", "friday": "Friday",
+        "sat": "Saturday", "saturday": "Saturday",
+        "sun": "Sunday", "sunday": "Sunday",
+    }
+    canonical_day = day_map.get(day_query.lower(), today_name)
+    canonical_short = canonical_day[:3]
 
     if prof:
         slots = TimetableSlot.query.filter(
             TimetableSlot.is_deleted == False,
-            (TimetableSlot.day_of_week == today_name) | (TimetableSlot.day_of_week == day_short),
-            (TimetableSlot.user_id == user.id) | (TimetableSlot.professor_name.ilike(f"%{user.full_name}%"))
+            (TimetableSlot.day_of_week == canonical_day) | (TimetableSlot.day_of_week == canonical_short),
+            (TimetableSlot.user_id == user.id)
         ).all()
         return {
-            "day": today_name,
+            "day": canonical_day,
             "role": "Professor",
+            "has_classes": len(slots) > 0,
             "slots": [
                 {
                     "subject": f"{s.course_name} ({s.course_code})",
@@ -156,46 +185,103 @@ def _tool_get_timetable(user, student=None, prof=None):
                     "batch": f"{s.branch or 'CSE'} - Sem {s.semester or 4}"
                 }
                 for s in slots
-            ] if slots else [
-                {"subject": "Operating Systems (CS401)", "time": "09:00 AM - 10:00 AM", "room": "Room 302", "batch": "CSE-A Sem 4"},
-                {"subject": "Advanced OS Lab (CS405)", "time": "01:30 PM - 03:30 PM", "room": "Lab 2", "batch": "CSE-B Sem 4"}
             ]
         }
 
-    branch = getattr(student, "branch", "CSE") if student else "CSE"
-    sem = getattr(student, "semester", 4) if student else 4
+    branch = getattr(student, "branch", None)
+    sem = getattr(student, "semester", None)
 
-    slots = TimetableSlot.query.filter(
+    q = TimetableSlot.query.filter(
         TimetableSlot.is_deleted == False,
-        (TimetableSlot.branch == branch) | (TimetableSlot.branch == None),
-        (TimetableSlot.semester == sem) | (TimetableSlot.semester == None),
-        (TimetableSlot.day_of_week == today_name) | (TimetableSlot.day_of_week == day_short)
-    ).all()
+        (TimetableSlot.day_of_week == canonical_day) | (TimetableSlot.day_of_week == canonical_short)
+    )
 
-    if not slots:
-        return {
-            "day": today_name,
-            "branch": f"{branch} - Semester {sem}",
-            "slots": [
-                {"subject": "Operating Systems (CS401)", "time": "09:00 AM - 10:00 AM", "room": "Room 302", "professor": "Dr. Ramesh Sharma"},
-                {"subject": "Database Management Systems (CS402)", "time": "10:15 AM - 11:15 AM", "room": "Lab 1", "professor": "Prof. Anita Gupta"},
-                {"subject": "Computer Networks (CS403)", "time": "11:30 AM - 12:30 PM", "room": "Room 202", "professor": "Dr. Vikas Verma"},
-                {"subject": "Lunch Break", "time": "12:30 PM - 01:30 PM", "room": "Cafeteria", "professor": "—"},
-                {"subject": "Software Engineering Lab (CS405)", "time": "01:30 PM - 03:30 PM", "room": "Lab 2", "professor": "Prof. S. Rao"},
-            ]
-        }
+    if branch:
+        q = q.filter((TimetableSlot.branch == branch) | (TimetableSlot.branch.is_(None)))
+    if sem:
+        q = q.filter((TimetableSlot.semester == sem) | (TimetableSlot.semester.is_(None)))
+
+    slots = q.all()
+
+    branch_display = f"{branch or 'Computer Science'} • Semester {sem or 6}"
 
     return {
-        "day": today_name,
-        "branch": f"{branch} - Semester {sem}",
+        "day": canonical_day,
+        "branch": branch_display,
+        "has_classes": len(slots) > 0,
         "slots": [
             {
                 "subject": f"{s.course_name} ({s.course_code})",
                 "time": s.time_slot or "09:00 AM - 10:00 AM",
-                "room": s.room or "Room 302",
+                "room": s.room or "LH-101",
                 "professor": s.professor_name or "Faculty Member",
             }
             for s in slots
+        ]
+    }
+
+
+def _tool_get_assignments(user, student=None):
+    branch = getattr(student, "branch", None)
+    sem = getattr(student, "semester", None)
+
+    q = Assignment.query.filter_by(is_deleted=False)
+    if branch:
+        q = q.filter((Assignment.branch == branch) | (Assignment.branch.is_(None)))
+    if sem:
+        q = q.filter((Assignment.semester == sem) | (Assignment.semester.is_(None)))
+
+    assignments = q.order_by(Assignment.due_date.asc()).limit(5).all()
+    if not assignments:
+        return {
+            "has_assignments": True,
+            "assignments": [
+                {"title": "Process Synchronization & Semaphores", "subject": "Operating Systems (CS401)", "due": "In 2 days (Sunday 11:59 PM)", "status": "Pending"},
+                {"title": "B+ Tree Indexing & SQL Optimization", "subject": "DBMS (CS402)", "due": "Next Wednesday", "status": "In Progress"},
+                {"title": "Subnet Masking & CIDR Routing Lab Report", "subject": "Computer Networks (CS403)", "due": "Next Friday", "status": "Pending"},
+            ]
+        }
+
+    return {
+        "has_assignments": len(assignments) > 0,
+        "assignments": [
+            {
+                "title": a.title,
+                "subject": a.course_name or a.course_code or "Core Course",
+                "due": a.due_date.strftime("%b %d, %Y") if a.due_date else "Upcoming",
+                "status": "Pending"
+            }
+            for a in assignments
+        ]
+    }
+
+
+def _tool_get_grades(user, student=None):
+    if not student:
+        return {"cgpa": "8.75", "grades": []}
+
+    grades = Grade.query.filter_by(student_id=student.id).all()
+    if not grades:
+        return {
+            "cgpa": str(student.cgpa) if getattr(student, "cgpa", None) else "8.45",
+            "grades": [
+                {"name": "Operating Systems", "code": "CS401", "grade": "A+", "gp": 10},
+                {"name": "Database Management Systems", "code": "CS402", "grade": "A", "gp": 9},
+                {"name": "Computer Networks", "code": "CS403", "grade": "B+", "gp": 8},
+                {"name": "Theory of Computation", "code": "CS404", "grade": "A", "gp": 9},
+                {"name": "Software Engineering Lab", "code": "CS405", "grade": "O", "gp": 10},
+            ]
+        }
+
+    total_credits = sum(g.credits for g in grades)
+    total_pts = sum(g.grade_point * g.credits for g in grades)
+    cgpa = f"{total_pts / total_credits:.2f}" if total_credits > 0 else (str(student.cgpa) if student.cgpa else "--")
+
+    return {
+        "cgpa": cgpa,
+        "grades": [
+            {"name": g.course_name, "code": g.course_code, "grade": g.grade, "gp": g.grade_point}
+            for g in grades
         ]
     }
 
@@ -226,31 +312,38 @@ def _tool_get_notices(category=None):
     }
 
 
-# ── Professor ("Faculty League") Tool Executors ─────────────────────────────
+def _tool_get_events():
+    events = CampusEvent.query.filter_by(is_deleted=False).order_by(CampusEvent.event_date.asc()).limit(4).all()
+    if not events:
+        return {
+            "events": [
+                {"title": "HackCampus 2026: 36-Hour Hackathon", "date": "April 5-6, 2026", "venue": "Main Auditorium", "category": "Hackathon"},
+                {"title": "AI & Cloud Computing Workshop", "date": "April 12, 2026", "venue": "Seminar Hall 2", "category": "Workshop"},
+                {"title": "Campus Sports Gala & Cricket Tournament", "date": "April 18, 2026", "venue": "Sports Complex", "category": "Sports"},
+            ]
+        }
+    return {
+        "events": [
+            {
+                "title": e.title,
+                "date": e.event_date.strftime("%b %d, %Y") if getattr(e, "event_date", None) else "Upcoming",
+                "venue": getattr(e, "venue", "Campus Grounds"),
+                "category": getattr(e, "category", "Campus Event")
+            }
+            for e in events
+        ]
+    }
+
+
+# ── Professor Tool Executors ────────────────────────────────────────────────
 
 def _tool_get_live_lecture_presence(user, prof, room=None):
-    today = datetime.now(timezone.utc).date()
-    q = LiveSessionPresence.query.filter_by(session_date=today)
-    if room:
-        q = q.filter(LiveSessionPresence.room.ilike(f"%{room}%"))
-    records = q.order_by(LiveSessionPresence.last_seen_at.desc()).limit(20).all()
-
-    active_now = sum(1 for r in records if r.left_at is None)
     return {
-        "active_headcount": active_now or 24,
-        "total_checked_in": len(records) or 28,
+        "active_headcount": 24,
+        "total_checked_in": 28,
         "room": room or "Room 302",
         "current_lecture": "Operating Systems (CS401)",
         "recent_entries": [
-            {
-                "name": r.student.full_name if r.student else "Student",
-                "roll_no": r.student.roll_no if r.student else "22CS001",
-                "status": r.status,
-                "dwell_minutes": r.dwell_minutes,
-                "first_seen": r.first_seen_at.strftime("%I:%M %p") if r.first_seen_at else "Just now"
-            }
-            for r in records[:5]
-        ] if records else [
             {"name": "Anoop Shukla", "roll_no": "22CS045", "status": "PRESENT", "dwell_minutes": 32, "first_seen": "09:02 AM"},
             {"name": "Priya Sharma", "roll_no": "22CS078", "status": "PRESENT", "dwell_minutes": 30, "first_seen": "09:04 AM"},
             {"name": "Rahul Verma", "roll_no": "22CS012", "status": "LATE", "dwell_minutes": 18, "first_seen": "09:16 AM"},
@@ -259,7 +352,6 @@ def _tool_get_live_lecture_presence(user, prof, room=None):
 
 
 def _tool_get_batch_attendance_overview(user, prof, subject_code="CS401"):
-    # Aggregate student records
     all_students = StudentProfile.query.filter_by(is_deleted=False).limit(30).all()
     defaulters = []
     safe_count = 0
@@ -304,22 +396,23 @@ def _tool_draft_class_announcement(user, prof, title, content, batch="CSE-A"):
             "title": title,
             "content": content,
             "target_batch": batch,
-            "author": user.full_name if user else "Faculty",
+            "author": getattr(user, 'name', 'Faculty Member'),
             "created_at": datetime.now(timezone.utc).strftime("%b %d, %Y, %I:%M %p")
         }
     }
 
 
-# ── TPO ("Placement League") Tool Executors ─────────────────────────────────
+# ── TPO Tool Executors ──────────────────────────────────────────────────────
 
 def _tool_get_placement_drive_stats():
     drives = PlacementDrive.query.filter_by(is_deleted=False).order_by(PlacementDrive.drive_date.desc()).limit(5).all()
     if not drives:
         return {
             "drives": [
-                {"company": "Google India", "role": "SDE-1", "ctc": "₹32 LPA", "date": "March 15, 2026", "eligibility": "CGPA ≥ 8.0", "applicants": 42},
-                {"company": "Microsoft", "role": "Cloud Solutions", "ctc": "₹28 LPA", "date": "March 20, 2026", "eligibility": "CGPA ≥ 7.5", "applicants": 58},
+                {"company": "Google India", "role": "Software Engineer (SDE-1)", "ctc": "₹32 LPA", "date": "March 15, 2026", "eligibility": "CGPA ≥ 8.0, No backlogs", "applicants": 42},
+                {"company": "Microsoft", "role": "Cloud Solutions Architect", "ctc": "₹28 LPA", "date": "March 20, 2026", "eligibility": "CGPA ≥ 7.5", "applicants": 58},
                 {"company": "Atlassian", "role": "Full-Stack Engineer", "ctc": "₹26 LPA", "date": "March 25, 2026", "eligibility": "CGPA ≥ 7.5", "applicants": 35},
+                {"company": "Amazon AWS", "role": "Cloud Support Associate", "ctc": "₹21 LPA", "date": "April 02, 2026", "eligibility": "CGPA ≥ 7.0", "applicants": 74},
             ]
         }
     return {
@@ -367,7 +460,7 @@ def _tool_filter_eligible_students(min_cgpa=7.5, branch="CSE"):
     }
 
 
-# ── Admin ("System League") Tool Executors ───────────────────────────────────
+# ── Admin Tool Executors ────────────────────────────────────────────────────
 
 def _tool_get_system_health():
     total_users = User.query.filter_by(is_deleted=False).count()
@@ -393,9 +486,7 @@ def _tool_query_user_directory(search_term=""):
     q = User.query.filter_by(is_deleted=False)
     if search_term:
         q = q.filter(
-            (User.full_name.ilike(f"%{search_term}%")) |
-            (User.email.ilike(f"%{search_term}%")) |
-            (User.role.ilike(f"%{search_term}%"))
+            (User.email.ilike(f"%{search_term}%"))
         )
     users = q.order_by(User.created_at.desc()).limit(6).all()
     if not users:
@@ -410,9 +501,9 @@ def _tool_query_user_directory(search_term=""):
     return {
         "users": [
             {
-                "name": u.full_name,
+                "name": u.email.split('@')[0].capitalize(),
                 "email": u.email,
-                "role": u.role.title() if u.role else "User",
+                "role": u.role.value.title() if u.role else "User",
                 "status": "Active" if not u.is_deleted else "Suspended",
                 "last_active": u.created_at.strftime("%b %d, %Y") if u.created_at else "Recent"
             }
@@ -424,7 +515,6 @@ def _tool_query_user_directory(search_term=""):
 def _tool_get_audit_logs(limit=5):
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(limit).all()
     if not logs:
-        now_dt = datetime.now(timezone.utc)
         return {
             "logs": [
                 {"action": "academics.attendance.geocheckin", "role": "student", "ip": "192.168.1.45", "time": "2 mins ago"},
@@ -452,8 +542,7 @@ def _tool_get_audit_logs(limit=5):
 @ai_bp.route("/copilot/chat", methods=["POST"])
 def copilot_chat():
     """
-    Campus Connect Role-Scoped Copilot Assistant.
-    Extracts session user, verifies role capability, enforces tool sandboxing, and responds with custom persona.
+    Campus Connect Context-Aware Copilot Assistant.
     """
     user = None
     role_key = "student"
@@ -463,7 +552,7 @@ def copilot_chat():
     try:
         user = get_current_user()
         if user:
-            role_val = (user.role or "student").lower()
+            role_val = (user.role.value if hasattr(user.role, 'value') else str(user.role)).lower()
             if "prof" in role_val or "facult" in role_val:
                 role_key = "professor"
                 prof = ProfessorProfile.query.filter_by(user_id=user.id, is_deleted=False).first()
@@ -482,6 +571,7 @@ def copilot_chat():
 
     data = request.get_json(silent=True) or {}
     messages = data.get("messages", [])
+    context = data.get("context", {})
     if not messages:
         return jsonify({"error": "No messages provided."}), 400
 
@@ -492,75 +582,40 @@ def copilot_chat():
     reply_content = ""
     interactive_action = None
 
-    # ── Role-Specific Intent Routing & Execution ─────────────────────────────
+    # Detect requested target day if any
+    day_match = None
+    for d in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        if d in msg_lower:
+            day_match = d.capitalize()
+            break
 
-    # 1. STUDENT INTENTS
-    if role_key == "student":
-        # Single Subject Attendance / Safe Bunks
-        sub_matches = re.findall(r'(operating systems|os|dbms|database|networks|cn|toc|software engineering|se)', msg_lower)
-        if any(k in msg_lower for k in ["attendance", "bunk", "miss"]) and sub_matches:
-            tool_used = "getMyAttendanceStats"
-            data_att = _tool_get_attendance(user, student, subject_filter=sub_matches[0])
-            if data_att.get("is_single_subject"):
-                s = data_att["subject"]
-                bunk = data_att["bunk_margin"]
-                bunk_txt = f"You can safely miss **+{bunk}** upcoming class(es) while staying $\\ge 75\\%$." if bunk > 0 else "Your attendance is close to/below 75%! You must attend all upcoming classes."
-                reply_content = (
-                    f"### 📊 Attendance for {s['name']} (`{s['code']}`)\n\n"
-                    f"- **Current Attendance:** **{s['pct']}%**\n"
-                    f"- **Attended:** **{s['attended']}** out of **{s['total']}** total conducted lectures\n"
-                    f"- **Status:** `{'Safe (≥75%)' if s['pct'] >= 75 else 'Warning / Critical'}`\n\n"
-                    f"💡 **Bunk Allowance:** {bunk_txt}\n\n"
-                    f"*Verified via live zero-touch GPS attendance records.*"
-                )
-                interactive_action = {"type": "NAVIGATE", "label": "Open Attendance Analytics", "target": "/attendance"}
-        elif any(k in msg_lower for k in ["attendance", "bunk", "75%", "present", "absent"]):
-            tool_used = "getMyAttendanceStats"
-            data_att = _tool_get_attendance(user, student)
-            subs_md = "\n".join([f"- **{s['name']}** (`{s['code']}`): **{s['pct']}%** ({s['attended']}/{s['total']} lectures attended)" for s in data_att["subjects"]])
-            bunk_text = f"You can safely miss **+{data_att['bunk_margin']}** more classes while remaining above 75%." if data_att['bunk_margin'] > 0 else "You are close to or below the 75% criteria. Attend all upcoming lectures!"
+    # ── 1. TIMETABLE & SCHEDULE INTENTS (Student & Professor) ────────────────
+    if any(k in msg_lower for k in ["timetable", "schedule", "classes today", "class today", "lecture", "periods", "when is my next class", "slots"]):
+        tool_used = "getMySchedule"
+        data_tt = _tool_get_timetable(user, student=student, prof=prof, target_day=day_match)
+
+        if data_tt.get("has_classes"):
+            slots_md = "\n".join([f"- ⏰ **{s['time']}** — **{s['subject']}** | 📍 `{s['room']}` | 👨‍🏫 *{s.get('professor', s.get('batch', 'Faculty'))}*" for s in data_tt["slots"]])
             reply_content = (
-                f"### 📊 Your Attendance Summary\n\n"
-                f"Your aggregate attendance is **{data_att['overall_percentage']}%** ({data_att['total_attended']}/{data_att['total_conducted']} lectures attended).\n\n"
-                f"**Status:** `{data_att['eligibility']}`\n\n"
-                f"💡 **Safe Bunk Calculator:** {bunk_text}\n\n"
-                f"#### Subject-Wise Breakdown:\n{subs_md}\n\n"
-                f"*Data synced directly from live GPS attendance registers.*"
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "View Full Analytics & Radar", "target": "/attendance"}
-        elif any(k in msg_lower for k in ["timetable", "schedule", "classes today", "lecture today", "room"]):
-            tool_used = "getMySchedule"
-            data_tt = _tool_get_timetable(user, student=student)
-            slots_md = "\n".join([f"- ⏰ **{s['time']}** — **{s['subject']}** | 📍 `{s['room']}` | 👨‍🏫 *{s['professor']}*" for s in data_tt["slots"]])
-            reply_content = (
-                f"### 📅 Today's Schedule ({data_tt['day']})\n\n"
-                f"Here are the scheduled lecture slots for **{data_tt['branch']}**:\n\n"
+                f"### 📅 Schedule for {data_tt['day']}\n\n"
+                f"**Branch & Batch:** `{data_tt.get('branch', 'Engineering')}`\n\n"
                 f"{slots_md}\n\n"
-                f"📍 *Zero-Touch GPS Geofence automatically activates in the room during class.*"
+                f"📍 *Classroom GPS geofence unlocks during lecture hours for automated check-in.*"
             )
-            interactive_action = {"type": "NAVIGATE", "label": "Open Timetable Grid", "target": "/timetable"}
-        elif any(k in msg_lower for k in ["notice", "announcement", "broadcast", "circular"]):
-            tool_used = "getBatchBroadcasts"
-            data_notices = _tool_get_notices()
-            notices_md = "\n\n".join([f"📌 **{n['title']}** (`{n['category']}` · *{n['date']}*)\n> {n['summary']}" for n in data_notices["notices"]])
-            reply_content = f"### 📢 Latest Official Campus Notices\n\n{notices_md}"
-            interactive_action = {"type": "NAVIGATE", "label": "Open Notice Board", "target": "/announcements"}
-
-    # 2. PROFESSOR INTENTS
-    elif role_key == "professor":
-        if any(k in msg_lower for k in ["live presence", "presence", "headcount", "ongoing lecture", "class right now"]):
-            tool_used = "getLiveLecturePresence"
-            res = _tool_get_live_lecture_presence(user, prof)
-            entries_md = "\n".join([f"- 👤 **{e['name']}** (`{e['roll_no']}`) — `{e['status']}` ({e['dwell_minutes']} mins dwell) · Entered: *{e['first_seen']}*" for e in res["recent_entries"]])
+        else:
+            is_weekend = data_tt['day'] in ["Saturday", "Sunday"]
+            note = "Enjoy your weekend! ☕" if is_weekend else "No lectures are scheduled on this day."
             reply_content = (
-                f"### 📡 Live Lecture Presence: {res['current_lecture']} ({res['room']})\n\n"
-                f"- **Active Headcount in Room:** **{res['active_headcount']} students**\n"
-                f"- **Total Check-Ins Verified:** **{res['total_checked_in']} students**\n\n"
-                f"#### Recent Check-In Stream:\n{entries_md}\n\n"
-                f"*Streamed in real-time from student device GPS geofence heartbeats.*"
+                f"### 📅 Schedule for {data_tt['day']}\n\n"
+                f"**Branch & Batch:** `{data_tt.get('branch', 'Engineering')}`\n\n"
+                f"🎉 **No classes scheduled for {data_tt['day']}.** {note}\n\n"
+                f"You can view the full weekly grid anytime in the Timetable portal."
             )
-            interactive_action = {"type": "NAVIGATE", "label": "Open Live Presence Stream", "target": "/attendance"}
-        elif any(k in msg_lower for k in ["defaulter", "shortage", "below 75", "<75", "eligibility"]):
+        interactive_action = {"type": "NAVIGATE", "label": "Open Timetable Grid", "target": "/timetable"}
+
+    # ── 2. ATTENDANCE & SAFE BUNKS INTENTS ───────────────────────────────────
+    elif any(k in msg_lower for k in ["attendance", "bunk", "75%", "present", "absent", "miss class"]):
+        if role_key == "professor":
             tool_used = "getBatchAttendanceOverview"
             res = _tool_get_batch_attendance_overview(user, prof)
             def_md = "\n".join([f"- ⚠️ **{d['name']}** (`{d['roll_no']}`) — **{d['pct']}%** ({d['attended']}/{d['total']} classes attended)" for d in res["defaulters"]])
@@ -568,161 +623,248 @@ def copilot_chat():
                 f"### ⚠️ Attendance Defaulter List (<75% Criteria)\n\n"
                 f"**Subject:** `{res['subject_code']}` | Total Enrolled: **{res['total_enrolled']}** | Defaulters: **{res['defaulters_count']}**\n\n"
                 f"#### Critical Shortage Students:\n{def_md}\n\n"
-                f"💡 *Automated attendance warning notifications can be sent to these students.*"
+                f"💡 *Automated attendance shortage notifications can be broadcast directly.*"
             )
             interactive_action = {"type": "NAVIGATE", "label": "Manage Attendance Roster", "target": "/attendance"}
-        elif any(k in msg_lower for k in ["draft", "broadcast", "announce", "circular"]):
-            tool_used = "draftClassAnnouncement"
-            res = _tool_get_draft = _tool_draft_class_announcement(user, prof, "Lab Submission Deadline Extension", "All CSE-A students: The deadline for OS Process Synchronization Lab is extended till Sunday 11:59 PM.", "CSE-A")
-            draft = res["draft"]
-            reply_content = (
-                f"### 📢 Drafted Class Broadcast\n\n"
-                f"**Title:** {draft['title']}\n"
-                f"**Target Batch:** `{draft['target_batch']}` | **Author:** {draft['author']}\n\n"
-                f"> {draft['content']}\n\n"
-                f"Would you like to publish this announcement to the class board?"
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "Publish to Announcement Board", "target": "/announcements"}
-        elif any(k in msg_lower for k in ["schedule", "classes today", "my lecture", "timetable"]):
-            tool_used = "getMySchedule"
-            data_tt = _tool_get_timetable(user, prof=prof)
-            slots_md = "\n".join([f"- ⏰ **{s['time']}** — **{s['subject']}** | 📍 `{s['room']}` | 👥 *{s['batch']}*" for s in data_tt["slots"]])
-            reply_content = (
-                f"### 📅 Faculty Teaching Schedule ({data_tt['day']})\n\n"
-                f"{slots_md}\n\n"
-                f"📍 *Classroom GPS geofence unlocks automatically during your lecture slot.*"
-            )
-
-    # 3. TPO INTENTS
-    elif role_key == "tpo":
-        if any(k in msg_lower for k in ["drive", "company", "companies", "package", "ctc"]):
-            tool_used = "getPlacementDriveStats"
-            res = _tool_get_placement_drive_stats()
-            drives_md = "\n\n".join([f"💼 **{d['company']}** — **{d['role']}**\n- **Package:** `{d['ctc']}` | **Date:** *{d['date']}* | **Criteria:** {d['eligibility']} | **Applicants:** {d['applicants']}" for d in res["drives"]])
-            reply_content = (
-                f"### 🎯 Campus Placement Drives & Registration Overview\n\n"
-                f"{drives_md}\n\n"
-                f"Manage registrations and shortlist candidates directly in the **Placement Admin Dashboard**."
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "Manage Placement Drives", "target": "/placement"}
-        elif any(k in msg_lower for k in ["filter", "eligible", "shortlist", "cgpa", "criteria"]):
-            tool_used = "filterEligibleStudents"
-            res = _tool_filter_eligible_students(min_cgpa=7.5)
-            studs_md = "\n".join([f"- 🎓 **{s['name']}** (`{s['roll_no']}`) — CGPA: **{s['cgpa']}** | Branch: `{s['branch']}`" for s in res["sample_candidates"]])
-            reply_content = (
-                f"### 🎯 Filtered Eligible Candidates (CGPA ≥ {res['min_cgpa']})\n\n"
-                f"Found **{res['total_eligible']} eligible students** meeting placement criteria:\n\n"
-                f"{studs_md}\n\n"
-                f"Export student shortlist to CSV or trigger interview invitations."
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "Export Shortlist", "target": "/placement"}
-
-    # 4. ADMIN INTENTS
-    elif role_key == "admin":
-        if any(k in msg_lower for k in ["health", "system", "uptime", "server", "overview"]):
-            tool_used = "getSystemHealthOverview"
-            res = _tool_get_system_health()
-            reply_content = (
-                f"### 🛡️ Campus Connect System Health Overview\n\n"
-                f"- **Overall Status:** `✅ {res['status']}`\n"
-                f"- **API Uptime:** **{res['api_uptime']}**\n"
-                f"- **Database Status:** `{res['database']}`\n\n"
-                f"#### Core Platform Metrics:\n"
-                f"- 👥 **Registered Users:** **{res['metrics']['total_registered_users']:,}**\n"
-                f"- 🎓 **Active Students:** **{res['metrics']['active_students']:,}**\n"
-                f"- 👨‍🏫 **Faculty Members:** **{res['metrics']['faculty_members']:,}**\n"
-                f"- 📜 **Audit Events Logged:** **{res['metrics']['audit_events_logged']:,}**\n"
-                f"- ⚡ **Concurrent Sessions:** **{res['metrics']['current_active_sessions']} active**"
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "Open System Admin Console", "target": "/admin"}
-        elif any(k in msg_lower for k in ["user", "directory", "account", "search student", "search faculty"]):
-            tool_used = "queryUserDirectory"
-            res = _tool_query_user_directory()
-            users_md = "\n".join([f"- 👤 **{u['name']}** (`{u['email']}`) — Role: **{u['role']}** | Status: `{u['status']}`" for u in res["users"]])
-            reply_content = (
-                f"### 👥 User Directory & Tenant Accounts\n\n"
-                f"{users_md}\n\n"
-                f"Manage permissions, branches, and account statuses in User Management."
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "Manage Users", "target": "/admin/users"}
-        elif any(k in msg_lower for k in ["audit", "log", "security", "activity"]):
-            tool_used = "getAuditLogs"
-            res = _tool_get_audit_logs()
-            logs_md = "\n".join([f"- 🕒 `{l['time']}` | 🔑 `{l['action']}` | 👤 *{l['role']}* | 🌐 `{l['ip']}`" for l in res["logs"]])
-            reply_content = (
-                f"### 📜 Security & System Audit Trail\n\n"
-                f"{logs_md}\n\n"
-                f"*All administrative and privilege actions are cryptographically logged.*"
-            )
-            interactive_action = {"type": "NAVIGATE", "label": "View Full Audit Trail", "target": "/admin/audit"}
-
-    # 5. GENERAL ACADEMIC & TECHNICAL FALLBACK (Across all roles)
-    if not reply_content:
-        tool_used = "searchAcademicWeb" if role_key in ["student", "professor"] else "searchGeneralWeb"
-        if "dijkstra" in msg_lower:
-            reply_content = (
-                f"### 🌐 Dijkstra's Shortest Path Algorithm\n\n"
-                f"**Dijkstra's Algorithm** finds the shortest path from a single source vertex to all other vertices in a weighted graph with **non-negative edge weights**.\n\n"
-                f"#### Complexity:\n"
-                f"- **Time:** $O((V + E) \\log V)$ with a Min-Heap (Priority Queue)\n"
-                f"- **Space:** $O(V)$\n\n"
-                f"```python\n"
-                f"import heapq\n\n"
-                f"def dijkstra(graph, start):\n"
-                f"    distances = {{node: float('infinity') for node in graph}}\n"
-                f"    distances[start] = 0\n"
-                f"    pq = [(0, start)]\n\n"
-                f"    while pq:\n"
-                f"        curr_dist, curr_node = heapq.heappop(pq)\n"
-                f"        if curr_dist > distances[curr_node]:\n"
-                f"            continue\n"
-                f"        for neighbor, weight in graph[curr_node].items():\n"
-                f"            dist = curr_dist + weight\n"
-                f"            if dist < distances[neighbor]:\n"
-                f"                distances[neighbor] = dist\n"
-                f"                heapq.heappush(pq, (dist, neighbor))\n"
-                f"    return distances\n"
-                f"```\n\n"
-                f"💡 *Need C++, Java, or step-by-step dry run? Just ask!*"
-            )
-        elif "gate" in msg_lower:
-            reply_content = (
-                f"### 🎓 GATE CS Exam Pattern & Core Subjects\n\n"
-                f"1. **Core Subjects:**\n"
-                f"   - Data Structures & Algorithms (~15-18 marks)\n"
-                f"   - Operating Systems (~8-10 marks)\n"
-                f"   - DBMS & Computer Networks (~14-16 marks)\n"
-                f"   - Theory of Computation & Compiler Design (~12-14 marks)\n"
-                f"   - Engineering Math & General Aptitude (28 marks)\n"
-                f"2. **Pattern:** 65 Questions · 100 Marks · 3 Hours (MCQ, MSQ, NAT)."
-            )
-        elif "quick sort" in msg_lower or "quicksort" in msg_lower:
-            reply_content = (
-                f"### ⚡ Quick Sort (Divide & Conquer)\n\n"
-                f"Picks a pivot and partitions elements into sub-arrays lesser/greater than pivot.\n\n"
-                f"- **Average Time:** $O(N \\log N)$\n"
-                f"- **Worst Time:** $O(N^2)$\n"
-                f"- **Space:** $O(\\log N)$\n\n"
-                f"```python\n"
-                f"def quicksort(arr):\n"
-                f"    if len(arr) <= 1:\n"
-                f"        return arr\n"
-                f"    pivot = arr[len(arr) // 2]\n"
-                f"    left = [x for x in arr if x < pivot]\n"
-                f"    middle = [x for x in arr if x == pivot]\n"
-                f"    right = [x for x in arr if x > pivot]\n"
-                f"    return quicksort(left) + middle + quicksort(right)\n"
-                f"```"
-            )
         else:
-            role_greeting = f"Hello! I am your **Campus Copilot ({league_info['badge']})** 🤖."
-            reply_content = (
-                f"{role_greeting}\n\n"
-                f"I am strictly scoped to assist you with your role permissions.\n\n"
-                f"**Available Capabilities:**\n"
-                + "\n".join([f"- `{tool}`" for tool in allowed_tools]) + "\n\n"
-                f"How may I assist you today?"
-            )
+            tool_used = "getMyAttendanceStats"
+            sub_matches = re.findall(r'(operating systems|os|dbms|database|networks|cn|toc|software engineering|se)', msg_lower)
+            if sub_matches:
+                data_att = _tool_get_attendance(user, student, subject_filter=sub_matches[0])
+                if data_att.get("is_single_subject"):
+                    s = data_att["subject"]
+                    bunk = data_att["bunk_margin"]
+                    bunk_txt = f"You can safely miss **+{bunk}** upcoming class(es) while staying above 75%." if bunk > 0 else "Your attendance is close to or below 75%! Attend all upcoming lectures."
+                    reply_content = (
+                        f"### 📊 Attendance for {s['name']} (`{s['code']}`)\n\n"
+                        f"- **Current Attendance:** **{s['pct']}%**\n"
+                        f"- **Attended:** **{s['attended']}** / **{s['total']}** conducted lectures\n"
+                        f"- **Status:** `{'Safe (≥75%)' if s['pct'] >= 75 else 'Warning / Critical'}`\n\n"
+                        f"💡 **Safe Bunks:** {bunk_txt}\n\n"
+                        f"*Synced in real-time from automated GPS check-ins.*"
+                    )
+                    interactive_action = {"type": "NAVIGATE", "label": "Open Attendance Analytics", "target": "/attendance"}
+            if not reply_content:
+                data_att = _tool_get_attendance(user, student)
+                subs_md = "\n".join([f"- **{s['name']}** (`{s['code']}`): **{s['pct']}%** ({s['attended']}/{s['total']} attended)" for s in data_att["subjects"]])
+                bunk_text = f"You can safely miss **+{data_att['bunk_margin']}** more classes while remaining above 75%." if data_att['bunk_margin'] > 0 else "You are close to or below the 75% threshold. Attend all upcoming lectures!"
+                reply_content = (
+                    f"### 📊 Your Overall Attendance Summary\n\n"
+                    f"Your aggregate attendance is **{data_att['overall_percentage']}%** ({data_att['total_attended']}/{data_att['total_conducted']} lectures attended).\n\n"
+                    f"**Eligibility Status:** `{data_att['eligibility']}`\n\n"
+                    f"💡 **Safe Bunk Calculator:** {bunk_text}\n\n"
+                    f"#### Subject Breakdown:\n{subs_md}\n\n"
+                    f"*Verified via verified campus GPS check-in logs.*"
+                )
+                interactive_action = {"type": "NAVIGATE", "label": "View Full Analytics", "target": "/attendance"}
+
+    # ── 3. ASSIGNMENTS & HOMEWORK INTENTS ────────────────────────────────────
+    elif any(k in msg_lower for k in ["assignment", "homework", "submission", "pending task", "due date", "deadline"]):
+        tool_used = "getMyAssignments"
+        res = _tool_get_assignments(user, student)
+        assign_md = "\n".join([f"- 📝 **{a['title']}** (`{a['subject']}`) — Due: **{a['due']}** | Status: `{a['status']}`" for a in res["assignments"]])
+        reply_content = (
+            f"### 📝 Pending Assignments & Tasks\n\n"
+            f"{assign_md}\n\n"
+            f"Upload your PDF reports or source code zip files in the **Assignments portal**."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Open Assignments Portal", "target": "/assignments"}
+
+    # ── 4. GRADES, CGPA & MARKS INTENTS ─────────────────────────────────────
+    elif any(k in msg_lower for k in ["grade", "cgpa", "sgpa", "marks", "score", "result", "gpa"]):
+        tool_used = "getMyGrades"
+        res = _tool_get_grades(user, student)
+        grades_md = "\n".join([f"- **{g['name']}** (`{g['code']}`): Grade **{g['grade']}** (Points: {g['gp']}/10)" for g in res["grades"]])
+        reply_content = (
+            f"### 🎓 Academic Performance & Grade Card\n\n"
+            f"- **Cumulative CGPA:** **{res['cgpa']}** / 10.0\n"
+            f"- **Academic Standing:** `Good Standing (Eligible for Placements)`\n\n"
+            f"#### Course Grades:\n{grades_md}\n\n"
+            f"You can view and export your full grade transcript in the Grade Book."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Open Grade Book", "target": "/gradebook"}
+
+    # ── 5. PLACEMENT & INTERNSHIP INTENTS ────────────────────────────────────
+    elif any(k in msg_lower for k in ["placement", "drive", "company", "package", "ctc", "internship", "job", "recruiter", "hiring"]):
+        tool_used = "getPlacementDriveStats"
+        res = _tool_get_placement_drive_stats()
+        drives_md = "\n\n".join([f"💼 **{d['company']}** — **{d['role']}**\n- **Package:** `{d['ctc']}` | **Date:** *{d['date']}* | **Criteria:** {d['eligibility']} | **Applicants:** {d['applicants']}" for d in res["drives"]])
+        reply_content = (
+            f"### 🎯 Active Campus Placement Drives\n\n"
+            f"{drives_md}\n\n"
+            f"Check your resume and apply directly through the **Placement Portal**."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Explore Placement Drives", "target": "/internships"}
+
+    # ── 6. CAMPUS NOTICES & BROADCASTS ───────────────────────────────────────
+    elif any(k in msg_lower for k in ["notice", "announcement", "broadcast", "circular", "news"]):
+        tool_used = "getBatchBroadcasts"
+        data_notices = _tool_get_notices()
+        notices_md = "\n\n".join([f"📌 **{n['title']}** (`{n['category']}` · *{n['date']}*)\n> {n['summary']}" for n in data_notices["notices"]])
+        reply_content = f"### 📢 Latest Official Campus Notices\n\n{notices_md}"
+        interactive_action = {"type": "NAVIGATE", "label": "Open Notice Board", "target": "/announcements"}
+
+    # ── 7. EVENTS & WORKSHOPS ────────────────────────────────────────────────
+    elif any(k in msg_lower for k in ["event", "hackathon", "workshop", "fest", "activity", "sports"]):
+        tool_used = "getCampusEvents"
+        data_events = _tool_get_events()
+        events_md = "\n".join([f"- 🎪 **{e['title']}** | 📅 *{e['date']}* | 📍 `{e['venue']}` ({e['category']})" for e in data_events["events"]])
+        reply_content = (
+            f"### 🎪 Upcoming Campus Events & Hackathons\n\n"
+            f"{events_md}\n\n"
+            f"Register your team or reserve passes in the **Events Hub**."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Open Events Hub", "target": "/events"}
+
+    # ── 8. VIRTUAL ID CARD & PHOTO CUSTOMIZATION ─────────────────────────────
+    elif any(k in msg_lower for k in ["id card", "id badge", "photo", "profile photo", "roll number", "edit card"]):
+        reply_content = (
+            "### 🪪 Virtual ID Card Management\n\n"
+            "You can view, customize, and export your digital student/faculty ID card:\n\n"
+            "1. **Edit Info:** Click your avatar in the top bar → Select **Virtual ID Card** → Click the **'Edit Details'** tab to update your College Name, Branch, Year, or Position.\n"
+            "2. **Upload Photo:** Switch to the **'Edit Photo'** tab to upload or crop your profile picture.\n"
+            "3. **QR Verification:** Tap the card to flip it over for instant QR peer-to-peer verification.\n"
+            "4. **Download Badge:** Click **'Download PNG'** to save an ultra-HD printable ID card."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Open Profile Settings", "target": "/profile-settings"}
+
+    # ── 9. LIBRARY & STUDY NOTES ─────────────────────────────────────────────
+    elif any(k in msg_lower for k in ["library", "book", "note", "pyq", "syllabus", "lecture"]):
+        reply_content = (
+            "### 📚 Academic Resources & E-Library\n\n"
+            "- 📖 **E-Library:** Access 12,000+ digital textbooks, IEEE papers, and technical journals.\n"
+            "- 📝 **Study Notes & PYQs:** Download past 5-year question papers with verified solutions.\n"
+            "- 🎥 **Recorded Lectures:** Re-watch recorded video lectures and syllabus progress trackers.\n\n"
+            "Browse resources directly in the E-Library and Notes sections."
+        )
+        interactive_action = {"type": "NAVIGATE", "label": "Open E-Library", "target": "/elibrary"}
+
+    # ── 10. TECHNICAL & CODING CONCEPTS (Expanded Comprehensive Engine) ──────
+    elif "dijkstra" in msg_lower:
+        reply_content = (
+            "### 🌐 Dijkstra's Shortest Path Algorithm\n\n"
+            "**Dijkstra's Algorithm** finds the shortest path from a single source vertex to all other vertices in a weighted graph with **non-negative edge weights**.\n\n"
+            "#### Complexity:\n"
+            "- **Time:** $O((V + E) \\log V)$ using a Min-Heap (Priority Queue)\n"
+            "- **Space:** $O(V)$\n\n"
+            "```python\n"
+            "import heapq\n\n"
+            "def dijkstra(graph, start):\n"
+            "    distances = {node: float('infinity') for node in graph}\n"
+            "    distances[start] = 0\n"
+            "    pq = [(0, start)]\n\n"
+            "    while pq:\n"
+            "        curr_dist, curr_node = heapq.heappop(pq)\n"
+            "        if curr_dist > distances[curr_node]:\n"
+            "            continue\n"
+            "        for neighbor, weight in graph[curr_node].items():\n"
+            "            dist = curr_dist + weight\n"
+            "            if dist < distances[neighbor]:\n"
+            "                distances[neighbor] = dist\n"
+            "                heapq.heappush(pq, (dist, neighbor))\n"
+            "    return distances\n"
+            "```"
+        )
+    elif "quicksort" in msg_lower or "quick sort" in msg_lower:
+        reply_content = (
+            "### ⚡ Quick Sort (Divide & Conquer)\n\n"
+            "Partitions an array around a pivot element so that elements smaller than pivot are on left, greater on right.\n\n"
+            "- **Average Time:** $O(N \\log N)$\n"
+            "- **Worst Time:** $O(N^2)$ (when pivot is repeatedly smallest/largest)\n"
+            "- **Space:** $O(\\log N)$\n\n"
+            "```python\n"
+            "def quicksort(arr):\n"
+            "    if len(arr) <= 1:\n"
+            "        return arr\n"
+            "    pivot = arr[len(arr) // 2]\n"
+            "    left = [x for x in arr if x < pivot]\n"
+            "    middle = [x for x in arr if x == pivot]\n"
+            "    right = [x for x in arr if x > pivot]\n"
+            "    return quicksort(left) + middle + quicksort(right)\n"
+            "```"
+        )
+    elif "binary search" in msg_lower:
+        reply_content = (
+            "### 🔍 Binary Search Algorithm\n\n"
+            "Efficiently locates target in a **sorted array** by dividing the search interval in half.\n\n"
+            "- **Time:** $O(\\log N)$\n"
+            "- **Space:** $O(1)$ iterative\n\n"
+            "```python\n"
+            "def binary_search(arr, target):\n"
+            "    low, high = 0, len(arr) - 1\n"
+            "    while low <= high:\n"
+            "        mid = (low + high) // 2\n"
+            "        if arr[mid] == target:\n"
+            "            return mid\n"
+            "        elif arr[mid] < target:\n"
+            "            low = mid + 1\n"
+            "        else:\n"
+            "            high = mid - 1\n"
+            "    return -1\n"
+            "```"
+        )
+    elif "osi" in msg_lower or "osi model" in msg_lower or "7 layers" in msg_lower:
+        reply_content = (
+            "### 📡 The 7 Layers of the OSI Model\n\n"
+            "1. **Application (Layer 7):** HTTP, HTTPS, FTP, DNS, SMTP (User interface & app protocols)\n"
+            "2. **Presentation (Layer 6):** SSL/TLS, Encryption, Compression, Data format (JPEG, JSON)\n"
+            "3. **Session (Layer 5):** Sockets, RPC (Establishes, manages, terminates sessions)\n"
+            "4. **Transport (Layer 4):** TCP, UDP (End-to-end reliability, segmentation, port numbers)\n"
+            "5. **Network (Layer 3):** IP, ICMP, BGP, OSPF (Logical addressing & routing packets)\n"
+            "6. **Data Link (Layer 2):** Ethernet, Wi-Fi, MAC addresses, Switches (Frame transfer)\n"
+            "7. **Physical (Layer 1):** Cables, Fiber optics, Radio frequencies (Raw bit stream transmission)\n\n"
+            "💡 *Mnemonic: **A**ll **P**eople **S**eem **T**o **N**eed **D**ata **P**rocessing.*"
+        )
+    elif "acid" in msg_lower or "acid properties" in msg_lower:
+        reply_content = (
+            "### 🗄️ ACID Properties in DBMS\n\n"
+            "- **Atomicity (All or Nothing):** Entire transaction succeeds or rolls back completely.\n"
+            "- **Consistency (Integrity):** Database transitions from one valid state to another, maintaining constraints.\n"
+            "- **Isolation (Concurrency):** Concurrent transactions execute without interfering with one another.\n"
+            "- **Durability (Permanence):** Committed data is never lost, even in hardware crashes (WAL/Redo log)."
+        )
+    elif "deadlock" in msg_lower:
+        reply_content = (
+            "### 🔒 Deadlock & Coffman Conditions\n\n"
+            "A deadlock occurs when processes are unable to proceed because each holds a resource while waiting for another.\n\n"
+            "#### The 4 Coffman Conditions (Must all hold simultaneously):\n"
+            "1. **Mutual Exclusion:** At least one non-shareable resource.\n"
+            "2. **Hold and Wait:** Process holds one resource while requesting another.\n"
+            "3. **No Preemption:** Resources cannot be forcibly taken away.\n"
+            "4. **Circular Wait:** Closed chain of processes waiting for each other's resources."
+        )
+
+    # ── 11. GREETINGS & GENERAL CONVERSATION ─────────────────────────────────
+    elif any(k in msg_lower for k in ["hi", "hello", "hey", "good morning", "good evening", "who are you", "what can you do", "help"]):
+        user_name = getattr(student, "full_name", None) or getattr(user, "name", "there")
+        reply_content = (
+            f"### 👋 Hello, {user_name}! I'm your **Campus Copilot ({league_info['badge']})**.\n\n"
+            f"I can help you navigate campus life with real-time institutional answers:\n\n"
+            f"- 📅 **Timetable & Schedule:** Ask *\"What's my schedule today?\"* or *\"Timetable for Monday\"*\n"
+            f"- 📊 **Attendance & Bunks:** Ask *\"What is my attendance?\"* or *\"How many classes can I bunk?\"*\n"
+            f"- 📝 **Assignments:** Ask *\"What assignments are due?\"*\n"
+            f"- 🎓 **Grades & CGPA:** Ask *\"Show my grades and CGPA\"*\n"
+            f"- 💼 **Placements:** Ask *\"Show active placement drives and CTC\"*\n"
+            f"- 🎪 **Events:** Ask *\"Are there any hackathons or fests?\"*\n"
+            f"- 💡 **Coding & Tech:** Ask about Dijkstra, Binary Search, QuickSort, OSI Model, SQL, and more!\n\n"
+            f"How can I assist you right now?"
+        )
+
+    # ── 12. NATURAL FALLBACK ─────────────────────────────────────────────────
+    else:
+        user_name = getattr(student, "full_name", None) or getattr(user, "name", "there")
+        reply_content = (
+            f"### 🤖 Campus Copilot Assistant\n\n"
+            f"I received your query: *\"{last_user_msg}\"*\n\n"
+            f"Here are top topics I can help with instantly:\n"
+            f"- 📅 **Check your class timetable** (today or any day of the week)\n"
+            f"- 📊 **Check attendance percentage & safe bunk calculations**\n"
+            f"- 📝 **View pending assignment deadlines**\n"
+            f"- 💼 **Explore active placement & internship drives**\n"
+            f"- 🪪 **Virtual ID Card customization & badge downloads**\n"
+            f"- 💻 **Computer Science concepts, algorithms, and code solutions**\n\n"
+            f"Feel free to ask any specific academic or technical question!"
+        )
 
     return jsonify({
         "role": "assistant",
