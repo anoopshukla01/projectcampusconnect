@@ -4,11 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.college.campusconnect',
   appName: 'Campus Connect',
   webDir: 'dist',
-  server: {
-    // Direct link to live production deployment for instant OTA auto-updates
-    url: 'https://projectcampusconnect.vercel.app',
-    cleartext: true,
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1500,

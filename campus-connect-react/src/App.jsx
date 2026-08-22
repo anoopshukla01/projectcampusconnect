@@ -79,33 +79,11 @@ export default function App() {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      // Enable Privacy Screen
-      PrivacyScreen.enable();
-
-      // Handle Android hardware back button & gestures
-      const backListener = CapApp.addListener('backButton', ({ canGoBack }) => {
-        if (canGoBack) {
-          window.history.back();
-        } else {
-          CapApp.exitApp();
-        }
-      });
-
-      // Listen for network changes
-      const netListener = Network.addListener('networkStatusChange', status => {
-        if (!status.connected) {
-          showToast('No Internet Connection', 'error', 10000);
-        } else {
-          showToast('Connection Restored', 'success', 3000);
-        }
-      });
-
-      return () => {
-        backListener.then(h => h.remove());
-        netListener.then(h => h.remove());
-      };
+      try {
+        PrivacyScreen.enable().catch(() => {});
+      } catch (e) {}
     }
-  }, [showToast]);
+  }, []);
 
   if (authLoading) {
     return (
