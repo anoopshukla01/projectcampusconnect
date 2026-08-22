@@ -7,47 +7,54 @@ export const usePushNotifications = () => {
   const showToast = useToast();
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('PushNotifications')) return;
 
-    const registerPush = async () => {
-      let permStatus = await PushNotifications.checkPermissions();
+    let isSubscribed = true;
 
-      if (permStatus.receive === 'prompt') {
-        permStatus = await PushNotifications.requestPermissions();
+    const setupPush = async () => {
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+
+        if (permStatus?.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+
+        if (permStatus?.receive !== 'granted') {
+          console.warn('Push notification permission denied or not granted');
+          return;
+        }
+
+        await PushNotifications.register().catch(err => {
+          console.warn('Push registration skipped:', err);
+        });
+
+        if (isSubscribed) {
+          await PushNotifications.addListener('registration', token => {
+            console.info('Push registration token:', token?.value);
+          }).catch(() => {});
+
+          await PushNotifications.addListener('registrationError', err => {
+            console.warn('Push registration error:', err);
+          }).catch(() => {});
+
+          await PushNotifications.addListener('pushNotificationReceived', notification => {
+            if (notification?.title) {
+              showToast(`${notification.title}: ${notification.body || ''}`, 'info', 5000);
+            }
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Push notification setup skipped:', err);
       }
-
-      if (permStatus.receive !== 'granted') {
-        console.warn('Push notification permission denied');
-        return;
-      }
-
-      await PushNotifications.register();
     };
 
-    const addListeners = async () => {
-      await PushNotifications.addListener('registration', token => {
-        console.info('Push registration success, token: ' + token.value);
-        // In a real app, send this token to your backend
-      });
-
-      await PushNotifications.addListener('registrationError', err => {
-        console.error('Push registration error: ', err.error);
-      });
-
-      await PushNotifications.addListener('pushNotificationReceived', notification => {
-        showToast(notification.title + ': ' + notification.body, 'info', 5000);
-      });
-
-      await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
-        console.log('Push notification action performed', notification.actionId, notification.notification);
-      });
-    };
-
-    registerPush();
-    addListeners();
+    setupPush();
 
     return () => {
-      PushNotifications.removeAllListeners();
+      isSubscribed = false;
+      try {
+        PushNotifications.removeAllListeners().catch(() => {});
+      } catch (e) {}
     };
-  }, []);
+  }, [showToast]);
 };
