@@ -17,6 +17,7 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { useNavigate } from 'react-router-dom';
 import { USERS } from '../data/users';
 import { storage } from '../services/storage';
+import { studentsApi, professorsApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -113,15 +114,121 @@ function buildUserFromResponse(data, identifierHint = '') {
   const displayName =
     rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
+  const sem = data.semester;
+  const semToYear = {
+    1: '1st Year', 2: '1st Year',
+    3: '2nd Year', 4: '2nd Year',
+    5: '3rd Year', 6: '3rd Year',
+    7: '4th Year', 8: '4th Year',
+  };
+  const yearText = data.year || semToYear[sem] || (sem ? `Semester ${sem}` : null);
+
   return {
     id:          data.user_id,
     email:       data.email ?? (identifierHint.includes('@') ? identifierHint : null),
     roll_no:     data.roll_no ?? null,
+    rollNo:      data.roll_no ?? null,
+    branch:      data.branch ?? data.department ?? null,
+    department:  data.department ?? data.branch ?? null,
+    college_name: data.college_name ?? 'Campus Connect University',
+    college:     data.college_name ?? 'Campus Connect University',
+    semester:    sem ?? null,
+    year:        yearText,
+    batch_year:  data.batch_year ?? null,
+    position:    data.position ?? data.delegated_role ?? null,
     role:        roleVal,          // UI role string (student / professor / tpo / admin)
     backendRole: data.role,        // raw backend value — keep for API calls that need it
     name:        displayName,
+    full_name:   displayName,
+    phone:       data.phone ?? null,
+    profile_photo_url: data.profile_photo_url ?? null,
     initials:    displayName.slice(0, 2).toUpperCase(),
   };
+}
+
+/**
+ * After login/session-restore, fetch the role-appropriate profile endpoint
+ * and merge academic/contact fields (branch, college, year, position, etc.)
+ * into the user object so the Virtual ID Card can display them.
+ * Uses the project's api.js helpers so the correct base URL, auth headers,
+ * and 401 silent-refresh are all handled automatically.
+ * Returns an enriched copy of the user object (never mutates in place).
+ */
+async function fetchProfileEnrichment(userObj) {
+  try {
+    const role = userObj.role; // UI role: student | professor | tpo | admin
+
+    // Skip mock / offline sessions
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    if (!token || token === 'mock-token') return userObj;
+
+    let profile = null;
+
+    if (role === 'student') {
+      // studentsApi.getMe() returns the parsed JSON directly (not wrapped)
+      profile = await studentsApi.getMe();
+    } else if (role === 'professor') {
+      profile = await professorsApi.getMe();
+    } else {
+      // tpo / admin — no academic profile endpoint needed
+      return userObj;
+    }
+
+    // api.js returns { error: '...' } on failure — bail out silently
+    if (!profile || profile.error) return userObj;
+
+    if (role === 'student') {
+      const sem = profile.semester;
+      const semToYear = {
+        1: '1st Year', 2: '1st Year',
+        3: '2nd Year', 4: '2nd Year',
+        5: '3rd Year', 6: '3rd Year',
+        7: '4th Year', 8: '4th Year',
+      };
+      const yearText = semToYear[sem] ?? (sem ? `Sem ${sem}` : null);
+
+      return {
+        ...userObj,
+        name:              profile.full_name          || userObj.name,
+        roll_no:           profile.roll_no            || userObj.roll_no,
+        branch:            profile.branch             || null,
+        college_name:      profile.college_name       || null,
+        college_code:      profile.college_code       || null,
+        semester:          sem                        ?? null,
+        year:              yearText,
+        batch_year:        profile.batch_year         || null,
+        delegated_role:    profile.delegated_role     || null,
+        isCR: profile.delegated_role === 'CLASS_REPRESENTATIVE',
+        isCS: profile.delegated_role === 'CORE_STUDENT',
+        isPC: profile.delegated_role === 'PLACEMENT_COORDINATOR',
+        phone:             profile.phone              || userObj.phone || null,
+        profile_photo_url: profile.profile_photo_url || null,
+        email:             profile.email              || userObj.email,
+        initials: (profile.full_name || userObj.name || '').slice(0, 2).toUpperCase(),
+      };
+    }
+
+    if (role === 'professor') {
+      return {
+        ...userObj,
+        name:              profile.full_name    || userObj.name,
+        department:        profile.department   || null,
+        designation:       profile.designation  || null,
+        college_name:      profile.college_name || null,
+        phone:             profile.phone        || userObj.phone || null,
+        office:            profile.office       || null,
+        profile_photo_url: profile.profile_photo_url || null,
+        email:             profile.email        || userObj.email,
+        initials: (profile.full_name || userObj.name || '').slice(0, 2).toUpperCase(),
+      };
+    }
+
+    return userObj;
+  } catch (err) {
+    // Network error — return unmodified so login still works
+    console.warn('[AuthContext] fetchProfileEnrichment failed:', err);
+    return userObj;
+  }
 }
 
 async function persistSession(userObj, accessToken, refreshToken) {
@@ -198,7 +305,15 @@ export function AuthProvider({ children }) {
           }
         }
 
-        if (parsed) setUser(parsed);
+        if (parsed) {
+          // Re-fetch profile to pick up any changes since last session
+          // (e.g. branch/year updated by admin, new delegated role, etc.)
+          const enriched = await fetchProfileEnrichment(parsed);
+          if (enriched !== parsed) {
+            await storage.set(KEYS.USER, JSON.stringify(enriched));
+          }
+          setUser(enriched);
+        }
       } catch (err) {
         console.error('Failed to init auth', err);
       } finally {
@@ -252,7 +367,11 @@ export function AuthProvider({ children }) {
 
       if (res.ok) {
         // ✅ Role resolved from backend JWT claim — never from client input
-        const userObj = buildUserFromResponse(data, idStr);
+        const baseUser = buildUserFromResponse(data, idStr);
+        // Immediately persist the base object so the access token is in storage
+        // before fetchProfileEnrichment makes its authenticated request.
+        await persistSession(baseUser, data.access_token, data.refresh_token);
+        const userObj = await fetchProfileEnrichment(baseUser);
         await persistSession(userObj, data.access_token, data.refresh_token);
         setUser(userObj);
         return { success: true, user: userObj };

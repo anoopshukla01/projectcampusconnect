@@ -270,6 +270,61 @@
   border-top: 1px solid var(--clr-border, #e5e7eb);
 }
 
+/* ── Edit Info Tab ──────────────────────────────────────────────── */
+.idcm-edit-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.idcm-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.idcm-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.idcm-form-group--full {
+  grid-column: 1 / -1;
+}
+
+.idcm-form-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--clr-text, #111827);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.idcm-form-input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--clr-border, #e5e7eb);
+  background: var(--clr-bg, #ffffff);
+  color: var(--clr-text, #111827);
+  font-family: var(--font, inherit);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.idcm-form-input:focus {
+  border-color: var(--clr-primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.idcm-form-hint {
+  font-size: 0.72rem;
+  color: var(--clr-muted, #6b7280);
+}
+
 /* ── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .idcm-photo-layout {

@@ -607,12 +607,45 @@ def login():
     db.session.commit()
 
     audit_action("auth.login.success", target_type="user", target_id=str(user.id))
-    return jsonify({
+
+    res_data = {
         "access_token": access_token,
         "refresh_token": raw_refresh,
         "role": user.role.value,
         "user_id": str(user.id),
-    }), 200
+        "email": user.email,
+        "college_name": user.college.name if user.college else "Campus Connect University",
+        "college_code": user.college.code if user.college else "CCU",
+    }
+
+    if user.role.value == "student":
+        from app.blueprints.students import _ensure_student_profile
+        sp = _ensure_student_profile(user)
+        if sp:
+            res_data.update({
+                "name": sp.full_name,
+                "full_name": sp.full_name,
+                "roll_no": sp.roll_no,
+                "branch": sp.branch,
+                "semester": sp.semester,
+                "batch_year": sp.batch_year,
+                "phone": getattr(user, 'phone', None),
+                "profile_photo_url": getattr(sp, 'profile_photo_url', None),
+            })
+    elif user.role.value == "professor":
+        pp = getattr(user, 'professor_profile', None)
+        if pp:
+            res_data.update({
+                "name": pp.full_name,
+                "full_name": pp.full_name,
+                "department": pp.department,
+                "designation": pp.designation,
+                "facultyId": getattr(pp, 'employee_id', None) or f"FAC-{str(user.id)[:8].upper()}",
+                "phone": getattr(user, 'phone', None),
+                "office": getattr(pp, 'office', None),
+            })
+
+    return jsonify(res_data), 200
 
 
 # ── A7: POST /auth/token/refresh ──────────────────────────────────────────────

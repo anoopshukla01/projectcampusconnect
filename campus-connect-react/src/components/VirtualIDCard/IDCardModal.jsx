@@ -2,38 +2,26 @@
  * IDCardModal.jsx
  * ───────────────
  * Full-featured dialog that:
- *   • Shows a tabbed layout: [ID Preview] ↔ [Edit Photo]
- *   • Live-previews the ID card with any uploaded photo
+ *   • Shows a tabbed layout: [ID Card] ↔ [Edit Info] ↔ [Edit Photo] ↔ [Scan QR]
+ *   • Live-previews the ID card with branch, college, year, and position
+ *   • Allows users to customize and save their own card details directly
  *   • Flip card between front (info) and back (QR code)
  *   • Downloads the front face as PNG using html-to-image
  *   • Copies a shareable profile link to clipboard
- *
- * Props
- * ─────
- *   isOpen         {boolean}  – controls visibility
- *   onClose        {fn}       – called when modal is dismissed
- *   user           {object}   – user data object (see MOCK_USERS below)
- *   onPhotoSave    {fn(url)}  – called after photo upload; parent persists
- *
- * Usage
- * ─────
- *   <IDCardModal
- *     isOpen={showCard}
- *     onClose={() => setShowCard(false)}
- *     user={currentUser}
- *     onPhotoSave={(url) => updateUserPhoto(url)}
- *   />
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng } from 'html-to-image';
 import {
   X, CreditCard, Camera, Download, Link2, CheckCircle,
-  QrCode, Loader2, Scan
+  QrCode, Loader2, Scan, Edit3, Save, Building2,
+  GraduationCap, Briefcase, ShieldCheck, Check
 } from 'lucide-react';
 import VirtualIDCard from './VirtualIDCard';
 import ImageDropzone from './ImageDropzone';
 import QRScannerView from './QRScannerView';
+import { useAuth } from '../../context/AuthContext';
+import { studentsApi, professorsApi } from '../../services/api';
 import './IDCardModal.css';
 
 // ── Sample mock data for all 4 roles ─────────────────────────────────────────
@@ -42,9 +30,11 @@ export const MOCK_USERS = {
     role: 'student',
     name: 'Aarav Sharma',
     rollNo: 'CS2022047',
+    college: 'Campus Connect University',
     branch: 'Computer Science & Engineering',
     batch: '2022–2026',
     year: '3rd Year',
+    position: 'Class Representative',
     email: 'aarav.sharma@campusconnect.edu',
     phone: '+91 98765 43210',
     status: 'active',
@@ -54,8 +44,10 @@ export const MOCK_USERS = {
     role: 'professor',
     name: 'Dr. Meera Iyer',
     facultyId: 'FAC-2018-112',
+    college: 'Campus Connect University',
     department: 'Department of Computer Science',
     designation: 'Associate Professor',
+    position: 'Head of Department',
     email: 'meera.iyer@campusconnect.edu',
     phone: '+91 91234 56789',
     office: 'Block B, Room 204',
@@ -65,6 +57,7 @@ export const MOCK_USERS = {
     role: 'tpo',
     name: 'Rajat Verma',
     officerId: 'TPO-2020-008',
+    college: 'Campus Connect University',
     department: 'Training & Placement Cell',
     position: 'Placement Officer',
     email: 'rajat.verma@campusconnect.edu',
@@ -75,7 +68,9 @@ export const MOCK_USERS = {
     role: 'admin',
     name: 'Sunita Nair',
     adminId: 'ADM-ROOT-001',
+    college: 'Campus Connect University',
     roleLevel: 'Super Admin',
+    position: 'Chief Administrator',
     email: 'sunita.nair@campusconnect.edu',
     phone: '+91 99887 76655',
     photo: null,
@@ -92,26 +87,113 @@ const ROLE_ACCENT = {
 // ── Tab definitions ───────────────────────────────────────────────────────────
 const TABS = [
   { id: 'preview', label: 'ID Card', Icon: CreditCard },
-  { id: 'scan',    label: 'Scan QR', Icon: Scan       },
+  { id: 'edit',    label: 'Edit Info', Icon: Edit3    },
   { id: 'photo',   label: 'Edit Photo', Icon: Camera   },
+  { id: 'scan',    label: 'Scan QR', Icon: Scan       },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal
 // ─────────────────────────────────────────────────────────────────────────────
 export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSave }) {
+  const { updateUser } = useAuth?.() || {};
   const [activeTab,  setActiveTab]  = useState('preview');
   const [flipped,    setFlipped]    = useState(false);
   const [localUser,  setLocalUser]  = useState(userProp ?? MOCK_USERS.student);
   const [copied,     setCopied]     = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Edit form state
+  const [formData, setFormData] = useState({
+    name: '',
+    rollNo: '',
+    college: '',
+    branch: '',
+    year: '',
+    position: '',
+    phone: '',
+    email: '',
+  });
 
   const cardRef = useRef(null);
 
-  // Keep local user in sync if parent updates
+  // Helper to build normalized form state from any user object
+  const initFormData = useCallback((u) => {
+    if (!u) return;
+    const isProf = u.role === 'professor';
+    setFormData({
+      name: u.name || u.full_name || '',
+      rollNo: u.rollNo || u.roll_no || u.facultyId || u.employee_id || (u.id ? `STU-${String(u.id).slice(0, 8).toUpperCase()}` : ''),
+      college: u.college_name || u.college || 'Campus Connect University',
+      branch: u.branch || u.department || (isProf ? 'Department of Computer Science' : 'Computer Science & Engineering'),
+      year: u.year || (u.semester ? `Semester ${u.semester}` : '3rd Year'),
+      position: u.position || u.delegated_role || (u.isCR ? 'Class Representative' : u.isCS ? 'Core Committee' : u.isPC ? 'Placement Lead' : ''),
+      phone: u.phone || '',
+      email: u.email || '',
+    });
+  }, []);
+
+  // Sync when userProp changes
   useEffect(() => {
-    if (userProp) setLocalUser(userProp);
-  }, [userProp]);
+    if (userProp) {
+      setLocalUser(userProp);
+      initFormData(userProp);
+    }
+  }, [userProp, initFormData]);
+
+  // Fetch live fresh profile data from backend whenever modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    async function loadFreshProfile() {
+      try {
+        const role = userProp?.role || localUser?.role || 'student';
+        let res = null;
+        if (role === 'student') {
+          res = await studentsApi.getMe();
+        } else if (role === 'professor') {
+          res = await professorsApi.getMe();
+        }
+
+        if (res && !res.error) {
+          const sem = res.semester;
+          const semToYear = {
+            1: '1st Year', 2: '1st Year',
+            3: '2nd Year', 4: '2nd Year',
+            5: '3rd Year', 6: '3rd Year',
+            7: '4th Year', 8: '4th Year',
+          };
+          const yearText = semToYear[sem] ?? (sem ? `Semester ${sem}` : null);
+          const enriched = {
+            ...(userProp || {}),
+            name: res.full_name || userProp?.name || localUser?.name,
+            rollNo: res.roll_no || userProp?.rollNo || userProp?.roll_no || localUser?.rollNo,
+            roll_no: res.roll_no || userProp?.roll_no || localUser?.roll_no,
+            college_name: res.college_name || userProp?.college_name || userProp?.college || 'Campus Connect University',
+            college: res.college_name || userProp?.college || 'Campus Connect University',
+            branch: res.branch || userProp?.branch || 'Computer Science & Engineering',
+            department: res.department || res.branch || userProp?.department || userProp?.branch,
+            year: yearText || userProp?.year || '3rd Year',
+            semester: sem ?? userProp?.semester,
+            batch_year: res.batch_year ?? userProp?.batch_year,
+            position: userProp?.position || (res.delegated_role === 'CLASS_REPRESENTATIVE' ? 'Class Representative' : res.delegated_role === 'CORE_STUDENT' ? 'Core Committee' : res.delegated_role === 'PLACEMENT_COORDINATOR' ? 'Placement Lead' : null),
+            delegated_role: res.delegated_role || userProp?.delegated_role,
+            phone: res.phone || userProp?.phone || localUser?.phone,
+            email: res.email || userProp?.email || localUser?.email,
+            photo: res.profile_photo_url || userProp?.photo || userProp?.profile_photo_url || localUser?.photo,
+          };
+          setLocalUser(enriched);
+          initFormData(enriched);
+        }
+      } catch (err) {
+        console.warn('Live profile fetch skipped:', err);
+      }
+    }
+
+    loadFreshProfile();
+  }, [isOpen, userProp, initFormData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close on Escape
   useEffect(() => {
@@ -123,10 +205,9 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
 
   const accent = ROLE_ACCENT[localUser?.role] ?? '#3b82f6';
   const displayName = localUser?.name || localUser?.full_name || 'Campus Member';
-  const displayId = localUser?.rollNo ?? localUser?.roll_no ?? localUser?.systemId ?? localUser?.id ?? 'user';
   const photoUrl = localUser?.photo || localUser?.profile_photo_url;
 
-  // ── Actions (All hooks MUST be called unconditionally before any early returns) ──
+  // ── Actions ─────────────────────────────────────────────────────────────────
 
   const handlePhotoChange = useCallback((dataURL) => {
     setLocalUser(prev => ({ ...prev, photo: dataURL, profile_photo_url: dataURL }));
@@ -141,7 +222,6 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      // Target only the front face for download
       const frontFace = cardRef.current.querySelector('.vic-front');
       const target = frontFace ?? cardRef.current;
       const dataURL = await toPng(target, {
@@ -162,21 +242,66 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
   }, [displayName]);
 
   const handleCopyLink = useCallback(() => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${origin}/profile/${displayId}`;
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      });
+    const origin = typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://campusconnect.edu';
+    const id = localUser?.rollNo ?? localUser?.roll_no ?? localUser?.systemId ?? localUser?.id ?? '';
+    const shareUrl = `${origin}/profile/${encodeURIComponent(id)}`;
+    navigator.clipboard?.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    });
+  }, [localUser]);
+
+  // Save customized details
+  const handleSaveDetails = async (e) => {
+    if (e) e.preventDefault();
+    setSavingDetails(true);
+    try {
+      const updated = {
+        ...localUser,
+        name: formData.name,
+        full_name: formData.name,
+        rollNo: formData.rollNo,
+        roll_no: formData.rollNo,
+        college_name: formData.college,
+        college: formData.college,
+        branch: formData.branch,
+        department: formData.branch,
+        year: formData.year,
+        position: formData.position || null,
+        phone: formData.phone,
+        email: formData.email || localUser?.email,
+      };
+
+      setLocalUser(updated);
+      if (updateUser) {
+        await updateUser(updated);
+      }
+
+      // Try persisting to backend if student profile endpoint is available
+      if (localUser?.role === 'student' || !localUser?.role) {
+        await studentsApi.updateSelf({
+          full_name: formData.name,
+          branch: formData.branch,
+          phone: formData.phone,
+        }).catch(() => {});
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setActiveTab('preview');
+      }, 500);
+    } catch (err) {
+      console.error('Failed to save ID card details:', err);
+    } finally {
+      setSavingDetails(false);
     }
-  }, [displayId]);
+  };
 
   if (!isOpen) return null;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
       className="modal-overlay idcm-overlay"
@@ -241,6 +366,16 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
                 <button
                   className="idcm-action-btn"
                   style={{ '--ac': accent }}
+                  onClick={() => setActiveTab('edit')}
+                  title="Customize ID Card Details"
+                >
+                  <Edit3 size={15} />
+                  Edit Details
+                </button>
+
+                <button
+                  className="idcm-action-btn"
+                  style={{ '--ac': accent }}
                   onClick={() => setActiveTab('scan')}
                   title="Scan a Member QR Code"
                 >
@@ -287,8 +422,159 @@ export default function IDCardModal({ isOpen, onClose, user: userProp, onPhotoSa
               <p className="idcm-role-hint">
                 Showing <strong style={{ color: accent }}>
                   {localUser?.role ? (localUser.role.charAt(0).toUpperCase() + localUser.role.slice(1)) : 'Student'}
-                </strong> ID card. Tap the card to flip or scan a friend's card.
+                </strong> ID card. Tap "Edit Details" to customize branch, college, year, and position.
               </p>
+            </div>
+          )}
+
+          {/* ──────── EDIT INFO TAB ────────────────────────────── */}
+          {activeTab === 'edit' && (
+            <div className="idcm-edit-tab">
+              <h3 className="idcm-section-title">Edit Card Information</h3>
+              <p className="idcm-section-desc">
+                Customize your own College, Branch, Year, and Position to be printed on your digital ID card.
+              </p>
+
+              <form onSubmit={handleSaveDetails} className="idcm-edit-grid">
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.name}
+                    onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. Anoop Shukla"
+                    required
+                  />
+                </div>
+
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    Roll No / Member ID
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.rollNo}
+                    onChange={(e) => setFormData(p => ({ ...p, rollNo: e.target.value }))}
+                    placeholder="e.g. CS2022047 or STU-1024"
+                    required
+                  />
+                </div>
+
+                <div className="idcm-form-group idcm-form-group--full">
+                  <label className="idcm-form-label">
+                    <Building2 size={14} style={{ color: accent }} />
+                    College / Institute
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.college}
+                    onChange={(e) => setFormData(p => ({ ...p, college: e.target.value }))}
+                    placeholder="e.g. Campus Connect Institute of Technology"
+                    required
+                  />
+                </div>
+
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    <GraduationCap size={14} style={{ color: accent }} />
+                    Branch / Department
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.branch}
+                    onChange={(e) => setFormData(p => ({ ...p, branch: e.target.value }))}
+                    placeholder="e.g. Computer Science & Engineering"
+                    required
+                  />
+                </div>
+
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    Year / Academic Level
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.year}
+                    onChange={(e) => setFormData(p => ({ ...p, year: e.target.value }))}
+                    placeholder="e.g. 3rd Year / Semester 5"
+                    required
+                  />
+                </div>
+
+                <div className="idcm-form-group idcm-form-group--full">
+                  <label className="idcm-form-label">
+                    <ShieldCheck size={14} style={{ color: accent }} />
+                    Position / Delegated Role (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="idcm-form-input"
+                    value={formData.position}
+                    onChange={(e) => setFormData(p => ({ ...p, position: e.target.value }))}
+                    placeholder="e.g. Class Representative, Placement Lead, Tech Club Head"
+                  />
+                  <span className="idcm-form-hint">Any honorary or delegated position you hold on campus</span>
+                </div>
+
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    Phone Number (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    className="idcm-form-input"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+
+                <div className="idcm-form-group">
+                  <label className="idcm-form-label">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    className="idcm-form-input"
+                    value={formData.email}
+                    onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
+                    placeholder="student@campusconnect.edu"
+                    disabled
+                  />
+                </div>
+
+                <div className="idcm-photo-footer idcm-form-group--full" style={{ marginTop: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setActiveTab('preview')}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={savingDetails}
+                    style={{ background: `linear-gradient(135deg, ${accent} 0%, ${accent}cc 100%)` }}
+                  >
+                    {savingDetails ? (
+                      <Loader2 size={15} className="idcm-spin" />
+                    ) : saveSuccess ? (
+                      <Check size={15} />
+                    ) : (
+                      <Save size={15} />
+                    )}
+                    {savingDetails ? 'Saving…' : saveSuccess ? 'Saved!' : 'Save & Update Card'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

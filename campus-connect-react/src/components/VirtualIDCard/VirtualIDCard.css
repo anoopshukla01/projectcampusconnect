@@ -5,7 +5,7 @@
 /* ── Scene (3-D perspective wrapper) ───────────────────────────── */
 .vic-scene {
   width: 320px;
-  height: 520px;
+  height: 580px;
   perspective: 1000px;
   flex-shrink: 0;
 }
@@ -363,6 +363,6 @@
 @media (max-width: 480px) {
   .vic-scene {
     width: 290px;
-    height: 500px;
+    height: 540px;
   }
 }

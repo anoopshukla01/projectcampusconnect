@@ -55,6 +55,19 @@ const ROLE_META = {
   },
 };
 
+// ── System ID / Roll No Formatter ─────────────────────────────────────────────
+function formatSystemId(id, role = 'student') {
+  if (!id) return role === 'professor' ? 'FAC-2026-001' : 'CS2026-001';
+  const str = String(id).trim();
+  // If it is a raw UUID, transform it into a collegiate roll number format
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(str) || str.length > 25) {
+    const cleanHash = str.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const prefix = role === 'professor' ? 'FAC-2026' : role === 'admin' ? 'ADM-2026' : role === 'tpo' ? 'TPO-2026' : 'CS2026';
+    return `${prefix}-${cleanHash.slice(0, 4)}`;
+  }
+  return str;
+}
+
 // ── Build Chat QR payload ──────────────────────────────────────────────────
 function buildQRPayload(user) {
   const origin = typeof window !== 'undefined' && window.location?.origin
@@ -64,7 +77,8 @@ function buildQRPayload(user) {
   const email = user?.email ?? '';
   const name = user?.name ?? user?.full_name ?? 'Campus Member';
   const role = user?.role ?? 'student';
-  const sysId = user?.systemId ?? user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? '';
+  const rawSysId = user?.systemId ?? user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? '';
+  const sysId = formatSystemId(rawSysId, role);
 
   const params = new URLSearchParams();
   if (userId) params.set('userId', String(userId));
@@ -76,7 +90,6 @@ function buildQRPayload(user) {
   return `${origin}/chats?${params.toString()}`;
 }
 
-// ── Field row helper ──────────────────────────────────────────────────────────
 function Field({ Icon, label, value, accent }) {
   if (!value) return null;
   return (
@@ -102,52 +115,77 @@ function StatusBadge({ status }) {
   return <span className={`vic-status vic-status-${s.cls}`}>{s.label}</span>;
 }
 
-// ── Role-specific field sets ──────────────────────────────────────────────────
 function StudentFields({ user, accent }) {
+  const rawRoll = user?.rollNo ?? user?.roll_no ?? user?.id ?? '';
+  const roll = formatSystemId(rawRoll, 'student');
+  const college = user?.college_name || user?.college || 'Campus Connect University';
+  const branch = user?.branch || user?.department || 'Computer Science & Engineering';
+  const yearText = user?.year || (user?.semester ? `Semester ${user.semester}` : null) || (user?.batch_year ? `Batch ${user.batch_year}` : '3rd Year');
+  const position = user?.position || user?.delegated_role || user?.delegatedRole || (user?.isCR ? 'Class Representative' : user?.isCS ? 'Core Committee' : user?.isPC ? 'Placement Lead' : null);
+
   return (
     <>
-      <Field Icon={BadgeCheck} label="Roll No"    value={user?.rollNo ?? user?.roll_no ?? user?.id}    accent={accent} />
-      <Field Icon={Building2}  label="Branch"     value={user?.branch}    accent={accent} />
-      <Field Icon={Calendar}   label="Batch"      value={user?.batch ?? user?.batch_year}     accent={accent} />
-      <Field Icon={GraduationCap} label="Year"   value={user?.year ?? (user?.semester ? `Semester ${user.semester}` : null)}      accent={accent} />
-      <Field Icon={Mail}       label="Email"      value={user?.email}     accent={accent} />
-      <Field Icon={Phone}      label="Phone"      value={user?.phone}     accent={accent} />
+      <Field Icon={BadgeCheck}    label="Roll No"   value={roll} accent={accent} />
+      <Field Icon={Building2}     label="College"   value={college} accent={accent} />
+      <Field Icon={Building2}     label="Branch"    value={branch} accent={accent} />
+      <Field Icon={GraduationCap} label="Year"      value={yearText} accent={accent} />
+      {position && <Field Icon={ShieldCheck} label="Position"  value={position} accent={accent} />}
+      <Field Icon={Mail}          label="Email"     value={user?.email} accent={accent} />
+      <Field Icon={Phone}         label="Phone"     value={user?.phone} accent={accent} />
     </>
   );
 }
 
 function ProfessorFields({ user, accent }) {
+  const rawFac = user?.facultyId ?? user?.employee_id ?? user?.id ?? '';
+  const facId = formatSystemId(rawFac, 'professor');
+  const college = user?.college_name || user?.college || 'Campus Connect University';
+  const dept = user?.department || user?.branch || 'Department of Computer Science';
+  const desig = user?.designation || user?.position || 'Assistant Professor';
+
   return (
     <>
-      <Field Icon={BadgeCheck} label="Faculty ID"   value={user?.facultyId ?? user?.employee_id ?? user?.id}    accent={accent} />
-      <Field Icon={Building2}  label="Department"   value={user?.department ?? user?.branch}   accent={accent} />
-      <Field Icon={Briefcase}  label="Designation"  value={user?.designation}  accent={accent} />
-      <Field Icon={Mail}       label="Email"         value={user?.email}        accent={accent} />
-      <Field Icon={Phone}      label="Contact"       value={user?.phone}        accent={accent} />
-      <Field Icon={MapPin}     label="Office"        value={user?.office}       accent={accent} />
+      <Field Icon={BadgeCheck} label="Faculty ID"   value={facId} accent={accent} />
+      <Field Icon={Building2}  label="College"      value={college} accent={accent} />
+      <Field Icon={Building2}  label="Department"   value={dept} accent={accent} />
+      <Field Icon={Briefcase}  label="Designation"  value={desig} accent={accent} />
+      <Field Icon={Mail}       label="Email"        value={user?.email} accent={accent} />
+      <Field Icon={Phone}      label="Contact"      value={user?.phone} accent={accent} />
+      <Field Icon={MapPin}     label="Office"       value={user?.office} accent={accent} />
     </>
   );
 }
 
 function TpoFields({ user, accent }) {
+  const officerId = user?.officerId ?? user?.employee_id ?? (user?.id ? `TPO-${String(user.id).slice(0, 8).toUpperCase()}` : null);
+  const college = user?.college_name || user?.college || 'Campus Connect College';
+  const dept = user?.department || 'Training & Placement Cell';
+  const pos = user?.position || user?.designation || 'Placement Officer';
+
   return (
     <>
-      <Field Icon={BadgeCheck} label="Officer ID"  value={user?.officerId ?? user?.id}   accent={accent} />
-      <Field Icon={Building2}  label="Department"  value={user?.department ?? 'Placement Cell'}  accent={accent} />
-      <Field Icon={Briefcase}  label="Position"    value={user?.position ?? 'Placement Officer'}    accent={accent} />
-      <Field Icon={Mail}       label="Email"        value={user?.email}       accent={accent} />
-      <Field Icon={Phone}      label="Direct Line"  value={user?.phone}       accent={accent} />
+      <Field Icon={BadgeCheck} label="Officer ID"  value={officerId} accent={accent} />
+      <Field Icon={Building2}  label="College"     value={college} accent={accent} />
+      <Field Icon={Building2}  label="Department"  value={dept} accent={accent} />
+      <Field Icon={Briefcase}  label="Position"    value={pos} accent={accent} />
+      <Field Icon={Mail}       label="Email"       value={user?.email} accent={accent} />
+      <Field Icon={Phone}      label="Direct Line" value={user?.phone} accent={accent} />
     </>
   );
 }
 
 function AdminFields({ user, accent }) {
+  const adminId = user?.adminId ?? (user?.id ? `ADM-${String(user.id).slice(0, 8).toUpperCase()}` : 'ADM-ROOT-001');
+  const college = user?.college_name || user?.college || 'Campus Connect System';
+  const roleLvl = user?.roleLevel || user?.position || 'Super Administrator';
+
   return (
     <>
-      <Field Icon={BadgeCheck}  label="Admin ID"    value={user?.adminId ?? user?.id ?? 'ADM-001'}     accent={accent} />
-      <Field Icon={ShieldCheck} label="Role Level"  value={user?.roleLevel ?? 'Administrator'}   accent={accent} />
-      <Field Icon={Mail}        label="Email"        value={user?.email}       accent={accent} />
-      <Field Icon={Phone}       label="Contact"      value={user?.phone}       accent={accent} />
+      <Field Icon={BadgeCheck}  label="Admin ID"    value={adminId} accent={accent} />
+      <Field Icon={Building2}   label="Institution" value={college} accent={accent} />
+      <Field Icon={ShieldCheck} label="Role Level"  value={roleLvl} accent={accent} />
+      <Field Icon={Mail}        label="Email"       value={user?.email} accent={accent} />
+      <Field Icon={Phone}       label="Contact"     value={user?.phone} accent={accent} />
     </>
   );
 }
@@ -159,29 +197,25 @@ const FIELD_SETS = {
   admin:     AdminFields,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
 // Main component
-// ─────────────────────────────────────────────────────────────────────────────
-export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownload, onOpenScanner }) {
+// ──────────────────────────────────────────────────────────────────────────────
+export default function VirtualIDCard({ user, flipped, onFlip, onDownload, cardRef, onOpenScanner }) {
   const navigate = useNavigate();
   const role = user?.role ?? 'student';
   const meta = ROLE_META[role] ?? ROLE_META.student;
   const RoleIcon = meta.icon;
   const FieldSet = FIELD_SETS[role] ?? StudentFields;
+  const fullName = user?.name ?? user?.full_name ?? 'Campus Member';
+  const initials = fullName.slice(0, 2).toUpperCase();
   const qrPayload = buildQRPayload(user ?? {});
-
-  const fullName = user?.name || user?.full_name || 'Campus Member';
-  const initials = fullName
-    .split(' ')
-    .filter(Boolean)
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'CC';
-
-  const systemId =
-    user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id ?? 'N/A';
+  const rawId =
+    user?.rollNo ?? user?.roll_no ?? user?.facultyId ?? user?.employee_id ?? user?.officerId ?? user?.adminId ?? user?.id;
+  const systemId = formatSystemId(rawId, role);
   const photo = user?.photo || user?.profile_photo_url;
+  const collegeName = user?.college_name || user?.college || 'Campus Connect University';
+  const branchName = user?.branch || user?.department || (role === 'student' ? 'Computer Science & Engineering' : '');
+  const positionTitle = user?.position || user?.delegated_role || user?.delegatedRole || (user?.isCR ? 'Class Representative' : user?.isCS ? 'Core Committee' : user?.isPC ? 'Placement Lead' : user?.designation || user?.roleLevel || null);
 
   const delegatedRole =
     user?.delegated_role ||
@@ -207,8 +241,8 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
                 <RoleIcon size={16} color="#fff" />
               </div>
               <div>
-                <div className="vic-brand-name">Campus Connect</div>
-                <div className="vic-brand-sub">{meta.label} ID</div>
+                <div className="vic-brand-name">{collegeName}</div>
+                <div className="vic-brand-sub">{meta.label} ID {branchName ? `• ${branchName}` : ''}</div>
               </div>
             </div>
             {/* decorative circles */}
@@ -243,7 +277,7 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
             <div className="vic-name-block">
               <h2 className="vic-name">{fullName}</h2>
               <p className="vic-meta-role" style={{ color: meta.accent }}>
-                {meta.label}
+                {positionTitle ? `${positionTitle} (${meta.label})` : meta.label}
               </p>
               {delegatedBadge ? (
                 <span
@@ -310,7 +344,7 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
                 <ShieldCheck size={16} color="#fff" />
               </div>
               <div>
-                <div className="vic-brand-name">Campus Connect</div>
+                <div className="vic-brand-name">{collegeName}</div>
                 <div className="vic-brand-sub">Verification Card</div>
               </div>
             </div>
@@ -337,15 +371,25 @@ export default function VirtualIDCard({ user, flipped, onFlip, cardRef, onDownlo
           <div className="vic-verify-meta">
             <div className="vic-verify-row">
               <span className="vic-verify-label">Full Name</span>
-              <span className="vic-verify-val">{user?.name ?? '—'}</span>
+              <span className="vic-verify-val">{fullName}</span>
             </div>
             <div className="vic-verify-row">
-              <span className="vic-verify-label">ID</span>
+              <span className="vic-verify-label">ID / Roll</span>
               <span className="vic-verify-val">{systemId}</span>
             </div>
             <div className="vic-verify-row">
-              <span className="vic-verify-label">Role</span>
-              <span className="vic-verify-val">{meta.label}</span>
+              <span className="vic-verify-label">College</span>
+              <span className="vic-verify-val">{collegeName}</span>
+            </div>
+            {branchName && (
+              <div className="vic-verify-row">
+                <span className="vic-verify-label">Branch</span>
+                <span className="vic-verify-val">{branchName}</span>
+              </div>
+            )}
+            <div className="vic-verify-row">
+              <span className="vic-verify-label">Role / Position</span>
+              <span className="vic-verify-val">{positionTitle ? `${positionTitle} (${meta.label})` : meta.label}</span>
             </div>
             <div className="vic-verify-row">
               <span className="vic-verify-label">Issued</span>

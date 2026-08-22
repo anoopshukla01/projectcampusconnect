@@ -49,15 +49,27 @@ class StudentResponseSchema(Schema):
     skills = fields.List(fields.Nested(SkillSchema), allow_none=True, load_default=list)
     created_at = fields.DateTime()
 
-    # User fields
+    # User & College fields
     email = fields.Method("get_email")
     phone = fields.Method("get_phone")
+    college_name = fields.Method("get_college_name")
+    college_code = fields.Method("get_college_code")
 
     def get_email(self, obj):
         return obj.user.email if obj.user else None
 
     def get_phone(self, obj):
         return obj.user.phone if obj.user else None
+
+    def get_college_name(self, obj):
+        if obj.user and obj.user.college:
+            return obj.user.college.name
+        return None
+
+    def get_college_code(self, obj):
+        if obj.user and obj.user.college:
+            return obj.user.college.code
+        return None
 
     @post_dump
     def filter_sensitive_fields(self, data: dict, **kwargs) -> dict:
